@@ -21,6 +21,7 @@ import {
   personalCalWebhookUrl,
 } from "@/lib/cal/personal";
 import {
+  CalApiError,
   getCalProfile,
   listPersonalCalEvents,
   createPersonalCalEvent,
@@ -116,8 +117,10 @@ export async function connectMyCalAccount(input: {
       ok: false,
       error: "Enter a Cal.com API key. Server encryption must be configured.",
     };
+  let stage: "profile" | "storage" = "profile";
   try {
     const profile = await getCalProfile(parsed.data.apiKey);
+    stage = "storage";
     const encrypted = encryptSecret(parsed.data.apiKey);
     const credentials = {
       apiKeyCiphertext: encrypted.ciphertext,
@@ -152,11 +155,23 @@ export async function connectMyCalAccount(input: {
           "Use an API key from the Cal.com account already linked to this profile.",
       };
     return { ok: true };
-  } catch {
+  } catch (error) {
+    if (stage === "storage") {
+      return { ok: false, error: "Cal.com accepted your key, but Harly could not save the connection. Check the database migrations and server encryption configuration." };
+    }
+    if (error instanceof CalApiError) {
+      if (error.status === 401 || error.status === 403) {
+        return { ok: false, error: "Cal.com rejected this API key or its permissions. Check that the key is active and belongs to your personal account." };
+      }
+      if (error.status === 429) {
+        return { ok: false, error: "Cal.com is rate-limiting requests. Wait a moment and try again." };
+      }
+      return { ok: false, error: `Cal.com could not return your account details (HTTP ${error.status}). Please try again later.` };
+    }
     return {
       ok: false,
       error:
-        "Could not connect Cal.com. Check that your personal API key is valid.",
+        "Harly could not reach Cal.com or read your account details. Check the server's outbound connection and try again.",
     };
   }
 }

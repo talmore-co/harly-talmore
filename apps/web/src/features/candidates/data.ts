@@ -84,7 +84,7 @@ import { archiveSubmissionIdempotent } from "@/lib/esign/client";
 import { storage } from "@/lib/storage";
 import { isWorkspaceStorageKey } from "@/lib/storage-validation";
 import { resumeKeyFromUrl } from "@/lib/resume/storage-key";
-import { isMailUnificationEnabled } from "@/lib/mail/feature-flag";
+import { listCandidateCommunication } from "./communication-data";
 
 export type CandidateApplicationStatus =
   | "active"
@@ -997,93 +997,7 @@ export async function getCandidateProfile(candidateId: string) {
     )
     .orderBy(candidateTags.label);
 
-  const mailUnificationEnabled = await isMailUnificationEnabled(workspace.id);
-  const canonicalMessageRows = await db
-    .select({
-      id: mailMessages.id,
-      direction: mailMessages.direction,
-      subject: mailMessages.subject,
-      body: mailMessages.textBody,
-      toEmails: mailMessages.toEmails,
-      fromEmail: mailMessages.fromEmail,
-      source: mailThreads.source,
-      createdAt: mailMessages.receivedAt,
-      threadId: mailMessages.threadId,
-      applicationId: mailMessages.applicationId,
-      readAt: mailMessages.readAt,
-    })
-    .from(mailMessages)
-    .innerJoin(
-      mailThreads,
-      and(
-        eq(mailThreads.id, mailMessages.threadId),
-        eq(mailThreads.workspaceId, workspace.id),
-      ),
-    )
-    .where(
-      and(
-        eq(mailMessages.workspaceId, workspace.id),
-        eq(mailMessages.candidateId, candidate.id),
-      ),
-    )
-    .orderBy(desc(mailMessages.receivedAt));
-
-  const messageAttachments = canonicalMessageRows.length
-    ? await db
-        .select({
-          messageId: mailAttachments.messageId,
-          filename: mailAttachments.filename,
-          contentType: mailAttachments.contentType,
-          size: mailAttachments.size,
-          storageKey: mailAttachments.storageKey,
-        })
-        .from(mailAttachments)
-        .where(
-          and(
-            eq(mailAttachments.workspaceId, workspace.id),
-            inArray(
-              mailAttachments.messageId,
-              canonicalMessageRows.map((message) => message.id),
-            ),
-          ),
-        )
-    : [];
-  const attachmentsByMessage = new Map<string, typeof messageAttachments>();
-  for (const attachment of messageAttachments) {
-    const list = attachmentsByMessage.get(attachment.messageId) ?? [];
-    list.push(attachment);
-    attachmentsByMessage.set(attachment.messageId, list);
-  }
-  const legacyMessageRows = !mailUnificationEnabled
-    ? await db
-        .select()
-        .from(candidateMessages)
-        .where(
-          and(
-            eq(candidateMessages.workspaceId, workspace.id),
-            eq(candidateMessages.candidateId, candidate.id),
-          ),
-        )
-        .orderBy(desc(candidateMessages.createdAt))
-    : [];
-  const messageRows = mailUnificationEnabled
-    ? canonicalMessageRows
-    : legacyMessageRows.map((message) => ({
-        id: message.id,
-        direction: message.direction,
-        subject: message.subject,
-        body: message.body,
-        toEmails: [message.toEmail],
-        fromEmail: message.fromEmail,
-        source: "provider" as const,
-        createdAt: message.createdAt,
-        threadId: null,
-        applicationId: message.applicationId,
-        readAt: message.readAt,
-        legacyAttachments: Array.isArray(message.attachments)
-          ? message.attachments
-          : [],
-      }));
+  const messages = await listCandidateCommunication(workspace.id, candidate.id);
 
   const applicationIds = candidateApplications.map(
     (application) => application.id,
@@ -1528,29 +1442,7 @@ export async function getCandidateProfile(candidateId: string) {
     })),
     tags: tagRows,
     privacyRequests,
-    messages: messageRows.map((row) => ({
-      id: row.id,
-      threadId: row.threadId,
-      applicationId: row.applicationId,
-      direction: row.direction,
-      transport: row.source,
-      subject: row.subject,
-      body: row.body,
-      toEmail: Array.isArray(row.toEmails) ? String(row.toEmails[0] ?? "") : "",
-      fromEmail: row.fromEmail,
-      status: "sent" as const,
-      read: row.readAt !== null,
-      authorName: null,
-      attachments: ("legacyAttachments" in row
-        ? row.legacyAttachments
-        : (attachmentsByMessage.get(row.id) ?? [])) as Array<{
-        filename: string;
-        contentType: string;
-        size: number;
-        storageKey: string;
-      }>,
-      createdAt: row.createdAt.toISOString(),
-    })),
+    messages,
   };
 }
 

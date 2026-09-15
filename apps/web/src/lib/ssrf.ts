@@ -160,7 +160,12 @@ async function fetchPinned(
       method: init.method ?? "GET",
       headers,
       signal: init.signal ?? undefined,
-      lookup: (_hostname, _options, callback) => callback(null, resolved.address, resolved.family),
+      lookup: (_hostname, options, callback) => {
+        // Node's family auto-selection requests all addresses. Preserve the
+        // expected callback shape while returning only our validated address.
+        if (options.all) callback(null, [resolved]);
+        else callback(null, resolved.address, resolved.family);
+      },
     }, (incoming) => {
       resolve(new Response(Readable.toWeb(incoming) as ReadableStream, {
         status: incoming.statusCode ?? 502,

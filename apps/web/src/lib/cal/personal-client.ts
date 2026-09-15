@@ -4,6 +4,13 @@ import { z } from "zod";
 import { safeFetchHttp } from "@/lib/ssrf";
 import { CAL_WEBHOOK_TRIGGERS } from "./client";
 
+export class CalApiError extends Error {
+  constructor(readonly status: number) {
+    super(`Cal.com request failed (${status}). Check your API key and permissions.`);
+    this.name = "CalApiError";
+  }
+}
+
 export async function personalCalFetch(
   apiKey: string,
   path: string,
@@ -26,9 +33,7 @@ export async function personalCalFetch(
     data?: unknown;
   } | null;
   if (!response.ok || json?.status === "error" || !json || !("data" in json)) {
-    throw new Error(
-      `Cal.com request failed (${response.status}). Check your API key and permissions.`,
-    );
+    throw new CalApiError(response.status);
   }
   return json.data;
 }

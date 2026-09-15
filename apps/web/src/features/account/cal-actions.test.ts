@@ -37,7 +37,11 @@ vi.mock("@/lib/cal/personal", () => ({
   personalCalApiKey: () => "fictional-key",
   personalCalWebhookUrl: () => "https://ats.example.test/hook",
 }));
-vi.mock("@/lib/cal/personal-client", () => ({ getCalProfile: mocks.profile }));
+vi.mock("@/lib/cal/personal-client", async (original) => ({
+  ...await original<typeof import("@/lib/cal/personal-client")>(),
+  getCalProfile: mocks.profile,
+}));
+import { CalApiError } from "@/lib/cal/personal-client";
 vi.mock("@/lib/cal/personal-bookings", () => ({
   syncPersonalCalBooking: mocks.sync,
 }));
@@ -64,6 +68,21 @@ beforeEach(() => {
   mocks.connection.mockResolvedValue(null);
 });
 describe("personal Cal.com action authorization", () => {
+  it("distinguishes a rejected key from an outbound network failure", async () => {
+    mocks.profile.mockRejectedValueOnce(new CalApiError(401));
+    expect(await connectMyCalAccount({ apiKey: "fictional-key" })).toMatchObject({ ok: false, error: expect.stringContaining("rejected this API key") });
+    mocks.profile.mockRejectedValueOnce(new TypeError("Invalid IP address: undefined"));
+    const result = await connectMyCalAccount({ apiKey: "fictional-key" });
+    expect(result).toMatchObject({ ok: false, error: expect.stringContaining("outbound connection") });
+    expect(JSON.stringify(result)).not.toContain("fictional-key");
+  });
+  it("reports a storage failure after successful authentication without exposing database details", async () => {
+    mocks.profile.mockResolvedValue({ id: 77, username: "fictional", email: "fictional@example.test" });
+    mocks.conflict.mockReturnValue({ returning: async () => { throw new Error("private SQL details"); } });
+    const result = await connectMyCalAccount({ apiKey: "fictional-key" });
+    expect(result).toMatchObject({ ok: false, error: expect.stringContaining("accepted your key") });
+    expect(JSON.stringify(result)).not.toContain("private SQL details");
+  });
   it("uses the current member for account settings without admin permissions", async () => {
     await getMyCalConnection();
     expect(mocks.connection).toHaveBeenCalledWith("workspace-a", "recruiter-a");

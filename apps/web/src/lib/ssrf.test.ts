@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createServer } from "node:http";
+import { getDefaultAutoSelectFamily, setDefaultAutoSelectFamily, type AddressInfo } from "node:net";
 
 const mocks = vi.hoisted(() => ({ lookup: vi.fn() }));
 
@@ -73,5 +75,27 @@ describe("SSRF host filtering", () => {
       address: "127.0.0.1",
       family: 4,
     });
+  });
+
+  it.each([true, false])("makes a pinned HTTP request with autoSelectFamily=%s", async (autoSelectFamily) => {
+    const previous = getDefaultAutoSelectFamily();
+    setDefaultAutoSelectFamily(autoSelectFamily);
+    const server = createServer((request, response) => {
+      response.setHeader("Content-Type", "application/json");
+      response.end(JSON.stringify({ host: request.headers.host }));
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    try {
+      const { port } = server.address() as AddressInfo;
+      mocks.lookup.mockResolvedValue([{ address: "127.0.0.1", family: 4 }]);
+      const response = await safeFetchHttp(`http://pinned.example.test:${port}/profile`, { signal: AbortSignal.timeout(3000) }, true);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ host: `pinned.example.test:${port}` });
+      expect(mocks.lookup).toHaveBeenCalledTimes(1);
+    } finally {
+      setDefaultAutoSelectFamily(previous);
+      server.closeAllConnections();
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    }
   });
 });
