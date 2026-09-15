@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { magicLink, organization, twoFactor } from "better-auth/plugins";
 import { sso } from "@better-auth/sso";
+import { mcpOAuthProvider, mcpOAuthResourceGuard, withMcpOAuthLock } from "./mcp-oauth";
 
 import {
   db,
@@ -337,7 +338,8 @@ async function organizationExists(): Promise<boolean> {
   return result;
 }
 
-export const auth = betterAuth({
+const configuredAuth = betterAuth({
+  hooks: { before: mcpOAuthResourceGuard(appUrl) },
   baseURL: appUrl,
   secret: process.env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, {
@@ -362,6 +364,7 @@ export const auth = betterAuth({
     },
   },
   plugins: [
+    mcpOAuthProvider(appUrl),
     organization({
       organizationHooks: {
         beforeCreateOrganization: async () => {
@@ -429,5 +432,15 @@ export const auth = betterAuth({
   },
   trustedOrigins: [appUrl],
 });
+
+export const auth = {
+  ...configuredAuth,
+  handler: (request: Request) => {
+    const path = new URL(request.url).pathname;
+    return path.startsWith("/api/auth/oauth2/")
+      ? withMcpOAuthLock(() => configuredAuth.handler(request))
+      : configuredAuth.handler(request);
+  },
+};
 
 export type Auth = typeof auth;

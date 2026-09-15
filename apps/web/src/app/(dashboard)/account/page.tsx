@@ -12,6 +12,9 @@ import { CalConnectionCard } from "@/features/account/CalConnectionCard";
 import { getMyCalConnection } from "@/features/account/cal-actions";
 import { getMyFathomConnection } from "@/features/account/fathom-actions";
 import { FathomConnectionCard } from "@/features/account/FathomConnectionCard";
+import { McpConnectionsCard } from "@/features/account/McpConnectionsCard";
+import { listMyMcpConnections } from "@/features/account/mcp-actions";
+import { getHarlyPublicOrigin } from "@/lib/public-origin";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +25,7 @@ export default async function AccountPage({ searchParams }: {
   const googleStatus = await getMyGoogleConnection();
   const calStatus = await getMyCalConnection();
   const fathomStatus = await getMyFathomConnection();
+  const mcpConnections = await listMyMcpConnections();
   const { user } = await getWorkspaceContext();
   const profile = await getOwnProfileAction();
   const sessions = await listMySessionsAction();
@@ -43,7 +47,7 @@ export default async function AccountPage({ searchParams }: {
       <PageTitle title="Account" />
       <AccountSettingsPanel
         initialTab={params.tab === "connections" ? "connections" : "profile"}
-        connectionsSlot={<><GoogleConnectionCard status={googleStatus} error={params.gcal_error} /><CalConnectionCard status={calStatus} /><FathomConnectionCard status={fathomStatus} /></>}
+        connectionsSlot={<><GoogleConnectionCard status={googleStatus} error={params.gcal_error} /><CalConnectionCard status={calStatus} /><FathomConnectionCard status={fathomStatus} /><McpConnectionsCard connections={mcpConnections} endpoint={`${getHarlyPublicOrigin()}/api/mcp`} /></>}
         user={{
           id: user.id,
           name: profile?.name ?? user.name,

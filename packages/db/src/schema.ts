@@ -3622,6 +3622,67 @@ export const interviews = pgTable(
   ],
 );
 
+// Better Auth OAuth Provider models. OAuth tokens are stored as hashes.
+export const oauthClient = pgTable("oauth_client", {
+  id: text("id").primaryKey(),
+  clientId: text("client_id").notNull().unique(),
+  clientSecret: text("client_secret"),
+  disabled: boolean("disabled").default(false),
+  skipConsent: boolean("skip_consent"),
+  enableEndSession: boolean("enable_end_session"),
+  subjectType: text("subject_type"),
+  scopes: jsonb("scopes").$type<string[]>(),
+  userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }),
+  name: text("name"), uri: text("uri"), icon: text("icon"),
+  contacts: jsonb("contacts").$type<string[]>(),
+  tos: text("tos"), policy: text("policy"), softwareId: text("software_id"),
+  softwareVersion: text("software_version"), softwareStatement: text("software_statement"),
+  redirectUris: jsonb("redirect_uris").$type<string[]>().notNull(),
+  postLogoutRedirectUris: jsonb("post_logout_redirect_uris").$type<string[]>(),
+  tokenEndpointAuthMethod: text("token_endpoint_auth_method"),
+  grantTypes: jsonb("grant_types").$type<string[]>(),
+  responseTypes: jsonb("response_types").$type<string[]>(),
+  public: boolean("public"), type: text("type"), requirePKCE: boolean("require_pkce"),
+  referenceId: text("reference_id"), metadata: jsonb("metadata"),
+});
+
+export const oauthRefreshToken = pgTable("oauth_refresh_token", {
+  id: text("id").primaryKey(), token: text("token").notNull().unique(),
+  clientId: text("client_id").notNull().references(() => oauthClient.clientId, { onDelete: "cascade" }),
+  sessionId: text("session_id").references(() => session.id, { onDelete: "set null" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  referenceId: text("reference_id"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  revoked: timestamp("revoked", { withTimezone: true }),
+  authTime: timestamp("auth_time", { withTimezone: true }),
+  scopes: jsonb("scopes").$type<string[]>().notNull(),
+}, table => [index("oauth_refresh_user_client_idx").on(table.userId, table.clientId)]);
+
+export const oauthAccessToken = pgTable("oauth_access_token", {
+  id: text("id").primaryKey(), token: text("token").notNull().unique(),
+  clientId: text("client_id").notNull().references(() => oauthClient.clientId, { onDelete: "cascade" }),
+  sessionId: text("session_id").references(() => session.id, { onDelete: "set null" }),
+  userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  referenceId: text("reference_id"),
+  refreshId: text("refresh_id").references(() => oauthRefreshToken.id, { onDelete: "cascade" }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  scopes: jsonb("scopes").$type<string[]>().notNull(),
+}, table => [index("oauth_access_user_client_idx").on(table.userId, table.clientId)]);
+
+export const oauthConsent = pgTable("oauth_consent", {
+  id: text("id").primaryKey(),
+  clientId: text("client_id").notNull().references(() => oauthClient.clientId, { onDelete: "cascade" }),
+  userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  referenceId: text("reference_id"), scopes: jsonb("scopes").$type<string[]>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+}, table => [uniqueIndex("oauth_consent_user_client_reference_idx").on(table.userId, table.clientId, table.referenceId)]);
+
 export const personalFathomConnections = pgTable("personal_fathom_connections", {
   id: uuid("id").defaultRandom().primaryKey(),
   workspaceId: text("workspace_id").notNull().references(() => organization.id, { onDelete: "cascade" }),

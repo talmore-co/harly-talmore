@@ -130,8 +130,8 @@ export async function getCurrentPermissions(): Promise<Permission[]> {
  * Throw unless the current user holds `permission`. Returns the workspace
  * context so callers can reuse it. Owners/admins always pass.
  */
-export async function requirePermission(permission: Permission) {
-  const context = await getWorkspaceContext();
+export async function requirePermission(permission: Permission, actor?: WorkspaceContext) {
+  const context = actor ?? await getWorkspaceContext();
   if (roleIsAllPowerful(context.roleKey)) {
     return context;
   }
@@ -149,8 +149,9 @@ export async function requirePermission(permission: Permission) {
 export async function requireJobPermission(
   permission: Permission,
   jobId: string,
+  actor?: WorkspaceContext,
 ) {
-  const context = await requirePermission(permission);
+  const context = await requirePermission(permission, actor);
   const policy = await getRolePolicy(context.organization.id, context.roleKey);
   const [job] = await db
     .select({
@@ -204,8 +205,9 @@ export async function requireJobPermission(
 export async function requireApplicationPermission(
   permission: Permission,
   applicationId: string,
+  actor?: WorkspaceContext,
 ) {
-  const context = await requirePermission(permission);
+  const context = await requirePermission(permission, actor);
 
   const [application] = await db
     .select({ jobId: applications.jobId })
@@ -226,7 +228,7 @@ export async function requireApplicationPermission(
     )
     .limit(1);
   if (!application) throw new Error("Application not found.");
-  return requireJobPermission(permission, application.jobId);
+  return requireJobPermission(permission, application.jobId, context);
 }
 
 /** Resolve an offer to its application/job, then enforce job-scoped access. */
@@ -253,8 +255,9 @@ export async function requireOfferPermission(
 export async function requireCandidatePermission(
   permission: Permission,
   candidateId: string,
+  actor?: WorkspaceContext,
 ) {
-  const context = await requirePermission(permission);
+  const context = await requirePermission(permission, actor);
   const [candidate] = await db
     .select({ id: candidates.id })
     .from(candidates)
@@ -295,7 +298,7 @@ export async function requireCandidatePermission(
   // related job is inside the actor's contextual scope.
   for (const application of applicationsForCandidate) {
     try {
-      return await requireJobPermission(permission, application.jobId);
+      return await requireJobPermission(permission, application.jobId, context);
     } catch {
       // Check the next application without revealing inaccessible job data.
     }
@@ -307,8 +310,9 @@ export async function requireCandidatePermission(
 export async function requireInterviewPermission(
   permission: Permission,
   interviewId: string,
+  actor?: WorkspaceContext,
 ) {
-  const context = await requirePermission(permission);
+  const context = await requirePermission(permission, actor);
   const [interview] = await db
     .select({ jobId: interviews.jobId })
     .from(interviews)
@@ -336,7 +340,7 @@ export async function requireInterviewPermission(
     )
     .limit(1);
   if (!interview) throw new Error("Interview not found.");
-  return requireJobPermission(permission, interview.jobId);
+  return requireJobPermission(permission, interview.jobId, context);
 }
 
 /** Soft check (no throw) , for conditional logic in actions. */

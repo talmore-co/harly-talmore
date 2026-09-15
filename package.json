@@ -45,6 +45,8 @@
       "@babel/core": "7.29.6",
       "drizzle-orm": "0.45.2",
       "esbuild": "0.28.1",
+      "ajv>fast-uri": "3.1.6",
+      "qs@<6.16.0": "6.16.0",
       "ip-address": "10.4.0",
       "postcss": "8.5.25",
       "next>sharp": "0.35.2",

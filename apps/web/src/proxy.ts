@@ -15,6 +15,12 @@ const PUBLIC_PATHS = [
   "/reset-password",
   "/setup",
   "/api/auth",
+  // MCP performs bearer authentication in its route; discovery and OAuth login
+  // must remain reachable without a browser session cookie.
+  "/api/mcp",
+  "/mcp/login",
+  "/.well-known/oauth-authorization-server",
+  "/.well-known/oauth-protected-resource",
   "/api/health",
   "/api/metrics",
   // SSE authenticates in the route so unauthenticated EventSource clients get
@@ -44,7 +50,7 @@ const PUBLIC_PATHS = [
   "/api/native-sign",
 ];
 
-const PROTECTED_PATH_PREFIXES = ["/dashboard", "/settings"];
+const PROTECTED_PATH_PREFIXES = ["/dashboard", "/settings", "/mcp/consent"];
 const SECURITY_EXEMPT_PREFIXES = ["/settings/security", "/account", "/api"];
 // Reachable while a forced password change is pending, so the member can
 // actually complete it (and sign out) without bouncing back here.
