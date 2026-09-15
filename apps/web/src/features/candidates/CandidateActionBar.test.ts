@@ -11,6 +11,7 @@ vi.mock("lucide-react", () => ({
   Download: () => null,
   FileText: () => null,
   Mail: () => null,
+  MoreHorizontal: () => null,
   Pencil: () => null,
   RotateCcw: () => null,
   Trash2: () => null,

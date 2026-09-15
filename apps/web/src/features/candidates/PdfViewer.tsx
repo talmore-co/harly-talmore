@@ -7,7 +7,8 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { Download, Loader2, Maximize2, Minus, Plus } from "lucide-react";
+import { Download, Loader2, Maximize2, Minimize2, Minus, Plus } from "lucide-react";
+import { toast } from "@/lib/notification-island/toast";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -53,6 +54,7 @@ export function PdfViewer({
   const lastWidthRef = useRef(0);
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [zoom, setZoom] = useState(1);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   // pdfjs is browser-only (canvas, worker, import.meta.url); render nothing on
   // the server so the client-only toolbar/canvas never hydrates against SSR markup.
   const mounted = useSyncExternalStore(
@@ -60,6 +62,30 @@ export function PdfViewer({
     () => true,
     () => false,
   );
+
+  useEffect(() => {
+    const updateFullscreen = () => {
+      setIsFullscreen(Boolean(rootRef.current && document.fullscreenElement === rootRef.current));
+    };
+    updateFullscreen();
+    document.addEventListener("fullscreenchange", updateFullscreen);
+    return () => document.removeEventListener("fullscreenchange", updateFullscreen);
+  }, [mounted]);
+
+  async function toggleFullscreen() {
+    const root = rootRef.current;
+    if (!root) return;
+    try {
+      if (document.fullscreenElement === root) {
+        await document.exitFullscreen();
+      } else {
+        await root.requestFullscreen?.();
+      }
+      setIsFullscreen(document.fullscreenElement === root);
+    } catch {
+      toast.error("Could not change fullscreen mode.");
+    }
+  }
 
   // ── Load the document ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -273,11 +299,12 @@ export function PdfViewer({
             size="sm"
             variant="ghost"
             className="size-8 p-0 text-muted-foreground hover:text-foreground"
-            onClick={() => rootRef.current?.requestFullscreen?.()}
-            title="Fullscreen"
+            type="button"
+            onClick={toggleFullscreen}
+            title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
           >
-            <Maximize2 className="size-4" />
-            <span className="sr-only">Fullscreen</span>
+            {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+            <span className="sr-only">{isFullscreen ? "Exit fullscreen" : "Fullscreen"}</span>
           </Button>
         </div>
       </div>

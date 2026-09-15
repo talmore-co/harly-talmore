@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,9 +20,11 @@ import { addCandidateToPipeline } from "./pipeline-actions";
 export function AddToPipelineDialog({
   candidateId,
   jobs,
+  primary = false,
 }: {
   candidateId: string;
   jobs: Array<{ id: string; title: string; referred: boolean }>;
+  primary?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [jobId, setJobId] = useState("");
@@ -41,7 +44,12 @@ export function AddToPipelineDialog({
       }}
     >
       <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm">
+        <Button
+          type="button"
+          variant={primary ? "default" : "outline"}
+          size="sm"
+        >
+          <Plus className="size-4" />
           Add to pipeline
         </Button>
       </DialogTrigger>

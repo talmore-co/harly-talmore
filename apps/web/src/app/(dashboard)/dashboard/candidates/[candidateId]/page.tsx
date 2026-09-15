@@ -190,7 +190,6 @@ export default async function CandidateDetailPage({
     )
   ).filter((candidateRow): candidateRow is (typeof allCandidates)[number] => Boolean(candidateRow));
 
-  const isHired = applications.some((application) => application.status === "hired");
   const [calStatus, aiStatus, esignStatus, workspaceContext, canManageDsar, canDeleteCandidates, canManageDocuments, canCollaborate, canEditCandidates] = await Promise.all([
     getWorkspaceCalStatus(workspaceId),
     getWorkspaceAiStatus(workspaceId),
@@ -479,41 +478,32 @@ export default async function CandidateDetailPage({
                       workspaceId={workspaceId}
                       tags={tags}
                     />
-                    {canCollaborate ? (
-                      <ReferCandidateDrawer
-                        candidateId={candidate.id}
-                        workspaceId={workspaceId}
-                        jobs={jobOptions.map((job) => ({ id: job.id, title: job.title }))}
-                        members={members}
-                        currentUserId={workspaceContext.user.id}
-                        canAttributeToOthers={canEditCandidates}
-                        trigger={
-                          <Button type="button" variant="outline" size="sm">
-                            <UserPlus className="size-4" />
-                            Refer
-                          </Button>
-                        }
-                      />
-                    ) : null}
                   </div>
                   <CandidateReferrals
                     referrals={referrals}
                     currentUserId={workspaceContext.user.id}
                     canEditCandidates={canEditCandidates}
                   />
-                  {canEditCandidates && (
-                    <div className="mt-2">
-                      <AddToPipelineDialog candidateId={candidate.id} jobs={pipelineJobs} />
-                    </div>
-                  )}
                 </div>
               </div>
 
               {/* Actions , grouped with clear hierarchy, delete isolated */}
               <div
-                className={`w-full min-w-0 lg:pl-2${isHired ? " lg:pl-[76px]" : ""}`}
+                className="w-full min-w-0 border-t border-border/60 pt-4"
               >
                 <CandidateActionBar
+                  pipelineAction={canEditCandidates ? <AddToPipelineDialog candidateId={candidate.id} jobs={pipelineJobs} primary={!moveTarget} /> : null}
+                  referralAction={canCollaborate ? (
+                    <ReferCandidateDrawer
+                      candidateId={candidate.id}
+                      workspaceId={workspaceId}
+                      jobs={jobOptions.map((job) => ({ id: job.id, title: job.title }))}
+                      members={members}
+                      currentUserId={workspaceContext.user.id}
+                      canAttributeToOthers={canEditCandidates}
+                      trigger={<Button type="button" variant="ghost" size="sm"><UserPlus className="size-4" />Refer</Button>}
+                    />
+                  ) : null}
                   candidate={actionCandidate}
                   name={fullName}
                   resumeUrl={latestResume?.fileUrl ?? null}

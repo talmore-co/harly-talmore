@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { useState, useTransition } from "react";
 
 import { useRouter } from "next/navigation";
@@ -12,6 +12,7 @@ import {
   Download,
   FileText,
   Mail,
+  MoreHorizontal,
   Pencil,
   RotateCcw,
   Trash2,
@@ -47,6 +48,11 @@ import {
 } from "@/features/candidates/actions";
 import { CandidatePoolButton } from "@/features/pool/CandidatePoolButton";
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Dialog,
   DialogContent,
@@ -146,7 +152,10 @@ function DecisionApplicationSelector({
         onChange={(event) => onChange(event.target.value)}
       >
         {applications.map((application) => (
-          <option key={application.applicationId} value={application.applicationId}>
+          <option
+            key={application.applicationId}
+            value={application.applicationId}
+          >
             {application.jobTitle}
           </option>
         ))}
@@ -241,7 +250,7 @@ function RejectButton({
   );
 }
 
-function CandidateStatusMenu({
+function CandidateStatusActions({
   name,
   application,
 }: {
@@ -285,28 +294,24 @@ function CandidateStatusMenu({
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button size="sm" variant="outline" disabled={isPending}>
-          Status
-          <ChevronDown className="size-4" />
+    <div>
+      {STATUS_ACTIONS.filter(
+        (action) => action.status !== application?.status,
+      ).map(({ status, label, icon: Icon, confirm, destructive }) => (
+        <Button
+          key={status}
+          type="button"
+          size="sm"
+          variant="ghost"
+          disabled={isPending}
+          className={destructive ? "text-destructive" : undefined}
+          onClick={() => handleSelect(status, label, confirm)}
+        >
+          <Icon className="size-4" />
+          {label}
         </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {STATUS_ACTIONS.map(
-          ({ status, label, icon: Icon, confirm, destructive }) => (
-            <DropdownMenuItem
-              key={status}
-              variant={destructive ? "destructive" : "default"}
-              onSelect={() => handleSelect(status, label, confirm)}
-            >
-              <Icon className="size-4" />
-              {label}
-            </DropdownMenuItem>
-          ),
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      ))}
+    </div>
   );
 }
 
@@ -331,7 +336,7 @@ function DeleteCandidateButton({
         return;
       }
       setConfirmOpen(false);
-      toast.success(`${name} deleted permanently.`);
+      toast.success(`${name} moved to trash.`);
       router.push("/dashboard/candidates");
     });
   }
@@ -396,6 +401,8 @@ export function CandidateActionBar({
   inPool = false,
   variant = "full",
   aiConfigured = false,
+  pipelineAction,
+  referralAction,
 }: {
   candidate: EditableCandidate;
   name: string;
@@ -413,6 +420,8 @@ export function CandidateActionBar({
   inPool?: boolean;
   variant?: "full" | "compact";
   aiConfigured?: boolean;
+  pipelineAction?: ReactNode;
+  referralAction?: ReactNode;
 }) {
   const [selectedApplicationId, setSelectedApplicationId] = useState(
     applications[0]?.applicationId ?? null,
@@ -525,14 +534,16 @@ export function CandidateActionBar({
   ) : null;
 
   const isHired = selectedApplication?.status === "hired";
-  const reject = isHired ? null : (
-    <RejectButton
-      name={name}
-      application={selectedApplication}
-      compact={variant === "compact"}
-    />
-  );
-  const moveTarget = isHired ? null : selectedMoveTarget;
+  const reject =
+    !selectedApplication || isHired ? null : (
+      <RejectButton
+        name={name}
+        application={selectedApplication}
+        compact={variant === "compact"}
+      />
+    );
+  const moveTarget =
+    selectedApplication?.status === "active" ? selectedMoveTarget : null;
 
   // ── Compact (sticky bar): fast-path actions only ──
   if (variant === "compact") {
@@ -540,7 +551,7 @@ export function CandidateActionBar({
       <div className="flex items-center gap-1.5">
         {applicationSelector}
         {email}
-        {schedule}
+        {applications.length > 0 && schedule}
         {evaluate}
         {reject}
         <MoveStageButton target={moveTarget} />
@@ -562,19 +573,23 @@ export function CandidateActionBar({
    * read "Move to Screening", "Move to Interview" , and `stageAction` picks the
    * verb that matters at that stage.
    */
-  const stageAction = stageContextualAction(stageName, {
-    schedule,
-    evaluate,
-    email,
-  });
+  const stageAction = stageContextualAction(
+    selectedApplication?.currentStageName ?? stageName,
+    {
+      schedule,
+      evaluate,
+      email,
+    },
+  );
 
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
       {/* Primary , advance the pipeline. Label and target follow the stage. */}
-      <MoveStageButton target={moveTarget} />
+      {moveTarget ? <MoveStageButton target={moveTarget} /> : pipelineAction}
 
       {/* The one action this stage actually calls for. */}
-      {stageAction}
+      {email}
+      {selectedApplication && stageAction !== email && stageAction}
 
       {/* Reject , grave, adjacent to the advance it opposes, never hidden in a
           menu: an irreversible decision should cost a deliberate click, not a
@@ -582,99 +597,133 @@ export function CandidateActionBar({
       {reject}
 
       {/* Everything rare , status, pool, edit, resume, delete , lives here. */}
-      <div className="ml-auto flex items-center gap-1">
+      <div className="ml-auto flex flex-wrap items-center gap-2">
         {applicationSelector}
-        <CandidateStatusMenu
-          name={name}
-          application={selectedApplication}
-        />
-        <CandidatePoolButton candidateId={candidate.id} inPool={inPool} />
-        <EditCandidateDrawer
-          candidate={candidate}
-          trigger={
+        <Popover>
+          <PopoverTrigger asChild>
             <Button
+              type="button"
               size="sm"
               variant="ghost"
-              className="size-8 p-0 text-muted-foreground hover:text-foreground"
-              title="Edit candidate"
+              className="px-2 sm:px-3"
             >
-              <Pencil className="size-4" />
-              <span className="sr-only">Edit</span>
+              <MoreHorizontal className="size-4" />
+              <span className="sr-only sm:not-sr-only">More</span>
             </Button>
-          }
-        />
-        {resumeUrl ? (
-          isPdfResume(resumeUrl, resumeFileType, resumeFileName) ? (
-            <Dialog>
-              <DialogTrigger asChild>
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            className="w-60 space-y-0.5 p-1.5 [&_:is(button,a)]:h-9 [&_:is(button,a)]:w-full [&_:is(button,a)]:justify-start [&_:is(button,a)]:gap-2.5 [&_:is(button,a)]:rounded-md [&_:is(button,a)]:border-0 [&_:is(button,a)]:bg-transparent! [&_:is(button,a)]:px-3 [&_:is(button,a)]:py-2 [&_:is(button,a)]:text-sm [&_:is(button,a)]:font-normal [&_:is(button,a)]:text-foreground [&_:is(button,a)]:shadow-none [&_:is(button,a):hover]:bg-accent! [&_:is(button,a):hover]:text-accent-foreground [&_[data-destructive]]:text-destructive! [&_[data-destructive]:hover]:bg-destructive/10! [&_svg]:size-4"
+            onInteractOutside={(event) => {
+              // Keep drawer/dialog owners mounted while their portals are open.
+              if (
+                document.querySelector(
+                  '[role="dialog"]:not([data-slot="popover-content"])',
+                )
+              )
+                event.preventDefault();
+            }}
+          >
+            {moveTarget && pipelineAction}
+            {referralAction}
+            {selectedApplication && (
+              <CandidateStatusActions
+                name={name}
+                application={selectedApplication}
+              />
+            )}
+            <CandidatePoolButton candidateId={candidate.id} inPool={inPool} />
+            <EditCandidateDrawer
+              candidate={candidate}
+              trigger={
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="size-8 p-0 text-muted-foreground hover:text-foreground"
+                  className="text-muted-foreground hover:text-foreground"
+                  title="Edit candidate"
+                >
+                  <Pencil className="size-4" />
+                  Edit profile
+                </Button>
+              }
+            />
+            {resumeUrl ? (
+              isPdfResume(resumeUrl, resumeFileType, resumeFileName) ? (
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-foreground"
+                      title="View resume"
+                    >
+                      <FileText className="size-4" />
+                      View resume
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-3xl">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center justify-between gap-3 pr-8">
+                        <span className="truncate">
+                          {resumeFileName ?? `${name}'s resume`}
+                        </span>
+                        <Button asChild size="sm" variant="outline">
+                          <a href={resumeUrl} target="_blank" rel="noreferrer">
+                            <Download className="size-4" />
+                            Download
+                          </a>
+                        </Button>
+                      </DialogTitle>
+                      <DialogDescription className="sr-only">
+                        Resume preview for {name}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <PdfViewer
+                      fileUrl={resumeUrl}
+                      fileName={resumeFileName}
+                      className="h-[75vh]"
+                    />
+                  </DialogContent>
+                </Dialog>
+              ) : (
+                <Button
+                  asChild
+                  size="sm"
+                  variant="ghost"
+                  className="text-muted-foreground hover:text-foreground"
                   title="View resume"
                 >
-                  <FileText className="size-4" />
-                  <span className="sr-only">Resume</span>
+                  <a href={resumeUrl} target="_blank" rel="noreferrer">
+                    <FileText className="size-4" />
+                    View resume
+                  </a>
                 </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-3xl">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center justify-between gap-3 pr-8">
-                    <span className="truncate">
-                      {resumeFileName ?? `${name}'s resume`}
-                    </span>
-                    <Button asChild size="sm" variant="outline">
-                      <a href={resumeUrl} target="_blank" rel="noreferrer">
-                        <Download className="size-4" />
-                        Download
-                      </a>
-                    </Button>
-                  </DialogTitle>
-                  <DialogDescription className="sr-only">
-                    Resume preview for {name}
-                  </DialogDescription>
-                </DialogHeader>
-                <PdfViewer
-                  fileUrl={resumeUrl}
-                  fileName={resumeFileName}
-                  className="h-[75vh]"
-                />
-              </DialogContent>
-            </Dialog>
-          ) : (
-            <Button
-              asChild
-              size="sm"
-              variant="ghost"
-              className="size-8 p-0 text-muted-foreground hover:text-foreground"
-              title="View resume"
-            >
-              <a href={resumeUrl} target="_blank" rel="noreferrer">
-                <FileText className="size-4" />
-                <span className="sr-only">Resume</span>
-              </a>
-            </Button>
-          )
-        ) : null}
+              )
+            ) : null}
 
-        {/* Destructive , last in the row so it can't be hit by accident. */}
-        {!isHired ? (
-          <DeleteCandidateButton
-            candidateId={candidate.id}
-            name={name}
-            trigger={
-              <Button
-                size="sm"
-                variant="ghost"
-                className="size-8 p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                title="Delete candidate"
-              >
-                <Trash2 className="size-4" />
-                <span className="sr-only">Delete</span>
-              </Button>
-            }
-          />
-        ) : null}
+            {/* Destructive , last in the row so it can't be hit by accident. */}
+            {!isHired ? (
+              <div className="mt-2 border-t pt-2">
+                <DeleteCandidateButton
+                  candidateId={candidate.id}
+                  name={name}
+                  trigger={
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      title="Delete candidate"
+                      data-destructive
+                    >
+                      <Trash2 className="size-4" />
+                      Delete candidate
+                    </Button>
+                  }
+                />
+              </div>
+            ) : null}
+          </PopoverContent>
+        </Popover>
       </div>
     </div>
   );
