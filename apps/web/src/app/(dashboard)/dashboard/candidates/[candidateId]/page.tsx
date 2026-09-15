@@ -24,6 +24,7 @@ import { PipelineSpine } from "@/components/ui/PipelineSpine";
 import { CandidateAvatarEdit } from "@/features/candidates/CandidateAvatarEdit";
 import { Button } from "@/components/ui/button";
 import { CandidateActionBar } from "@/features/candidates/CandidateActionBar";
+import { AddToPipelineDialog } from "@/features/candidates/AddToPipelineDialog";
 import { CandidateActivityRail } from "@/features/candidates/CandidateActivityRail";
 import { CandidatePager } from "@/features/candidates/CandidatePager";
 import { CandidateStickyHeader } from "@/features/candidates/CandidateStickyHeader";
@@ -46,6 +47,7 @@ import {
   can,
   requireApplicationPermission,
   requireCandidatePermission,
+  requireJobPermission,
 } from "@/features/workspaces/permissions-server";
 import { listWorkspaceMembers } from "@/features/jobs/hiring-team-data";
 import { listJobOptions } from "@/features/jobs/data";
@@ -201,6 +203,22 @@ export default async function CandidateDetailPage({
     can("candidates:edit"),
   ]);
   const workspaceName = workspaceContext.organization.name;
+  const pipelineJobs = canEditCandidates
+    ? (await Promise.all(jobOptions
+        .filter(job => job.status === "open" && !applications.some(application => application.jobId === job.id))
+        .map(async job => {
+          try {
+            await requireJobPermission("candidates:edit", job.id);
+            return {
+              id: job.id,
+              title: job.title,
+              referred: referrals.some(referral => referral.jobId === job.id),
+            };
+          } catch {
+            return null;
+          }
+        }))).filter((job): job is NonNullable<typeof job> => job !== null)
+    : [];
   const currentUserName = workspaceContext.user.name;
   const fullName = `${candidate.firstName} ${candidate.lastName}`;
   const latestResume = files[0] ?? null;
@@ -483,6 +501,11 @@ export default async function CandidateDetailPage({
                     currentUserId={workspaceContext.user.id}
                     canEditCandidates={canEditCandidates}
                   />
+                  {canEditCandidates && (
+                    <div className="mt-2">
+                      <AddToPipelineDialog candidateId={candidate.id} jobs={pipelineJobs} />
+                    </div>
+                  )}
                 </div>
               </div>
 

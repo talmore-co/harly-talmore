@@ -255,6 +255,21 @@ export async function requireCandidatePermission(
   candidateId: string,
 ) {
   const context = await requirePermission(permission);
+  const [candidate] = await db
+    .select({ id: candidates.id })
+    .from(candidates)
+    .where(
+      and(
+        eq(candidates.id, candidateId),
+        eq(candidates.workspaceId, context.organization.id),
+        isNull(candidates.deletedAt),
+      ),
+    )
+    .limit(1);
+  if (!candidate) throw new Error("Candidate not found.");
+  const policy = await getRolePolicy(context.organization.id, context.roleKey);
+  // Workspace-wide access is independent of whether a related job was trashed.
+  if (policy.scope.jobAccess === "all") return context;
   const applicationsForCandidate = await db
     .select({ jobId: applications.jobId })
     .from(applications)
@@ -274,8 +289,6 @@ export async function requireCandidatePermission(
     )
     .limit(100);
   if (applicationsForCandidate.length === 0) {
-    const policy = await getRolePolicy(context.organization.id, context.roleKey);
-    if (policy.scope.jobAccess === "all") return context;
     throw new Error("Candidate is not assigned to a job.");
   }
   // Candidates can have multiple applications. Access is granted when one

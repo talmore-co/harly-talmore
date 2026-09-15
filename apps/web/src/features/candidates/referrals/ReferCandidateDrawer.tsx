@@ -84,7 +84,7 @@ export function ReferCandidateDrawer({
       }}
       trigger={trigger}
       title="Refer candidate"
-      description="Credit whoever recommended this candidate."
+      description="Credit whoever recommended this candidate. To create a job application, use Add to pipeline on the candidate profile after saving."
       footer={
         <>
           <Button variant="outline" disabled={isPending} onClick={() => setOpen(false)}>

@@ -53,7 +53,7 @@ describe("candidate permission scope without applications", () => {
       user: { id: "owner-1" },
       roleKey: "owner",
     });
-    mocks.select.mockReturnValue(makeSelectReturning([]));
+    mocks.select.mockReturnValue(makeSelectReturning([{ id: "candidate-1" }]));
 
     await expect(
       requireCandidatePermission("candidates:view", "candidate-1"),
@@ -71,7 +71,7 @@ describe("candidate permission scope without applications", () => {
         makeSelectReturning([{ permissions: ["candidates:view"] }]),
       )
       .mockReturnValueOnce(
-        makeSelectReturning([]),
+        makeSelectReturning([{ id: "candidate-1" }]),
       )
       .mockReturnValueOnce(
         makeSelectReturning([
@@ -98,7 +98,7 @@ describe("candidate permission scope without applications", () => {
         makeSelectReturning([{ permissions: ["candidates:view"] }]),
       )
       .mockReturnValueOnce(
-        makeSelectReturning([]),
+        makeSelectReturning([{ id: "candidate-1" }]),
       )
       .mockReturnValueOnce(
         makeSelectReturning([
@@ -107,7 +107,7 @@ describe("candidate permission scope without applications", () => {
             scope: { jobAccess: "assigned" },
           },
         ]),
-      );
+      ).mockReturnValueOnce(makeSelectReturning([]));
 
     await expect(
       requireCandidatePermission("candidates:view", "candidate-1"),
