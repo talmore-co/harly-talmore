@@ -45,6 +45,7 @@ import { cn } from "@/lib/utils";
 
 import { InterviewBriefSheet } from "./InterviewBriefSheet";
 import { SummarizeNotesSheet } from "./SummarizeNotesSheet";
+import { InterviewRecordings } from "./InterviewRecordings";
 
 const INTERVIEW_MODE_ICON = {
   video: Video,
@@ -196,6 +197,7 @@ export function InterviewCard({
         </span>
 
         {/* Location */}
+        {interview.hasRecordings && <InterviewRecordings interviewId={interview.id} />}
         {interview.source === "cal.com-personal" && <Button asChild size="sm" variant="outline" className="w-fit">
           <a href="https://app.cal.com/bookings" target="_blank" rel="noopener noreferrer">Manage booking in Cal.com</a>
         </Button>}

@@ -33,6 +33,7 @@ export type InterviewSyncItem = {
 };
 
 export type CandidateInterviewItem = {
+  hasRecordings?: boolean;
   source?: string;
   id: string;
   applicationId: string;

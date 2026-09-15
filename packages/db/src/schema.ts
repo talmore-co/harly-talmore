@@ -3622,6 +3622,34 @@ export const interviews = pgTable(
   ],
 );
 
+export const personalFathomConnections = pgTable("personal_fathom_connections", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: text("workspace_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  recorderEmail: text("recorder_email"),
+  apiKey: jsonb("api_key").$type<{ ciphertext: string; iv: string; tag: string }>(),
+  webhookId: text("webhook_id"),
+  setupPending: boolean("setup_pending").notNull().default(false),
+  secret: jsonb("secret").$type<{ ciphertext: string; iv: string; tag: string }>(),
+  lastImportedAt: timestamp("last_imported_at", { withTimezone: true }),
+  ...timestamps(),
+}, table => [uniqueIndex("personal_fathom_workspace_user_idx").on(table.workspaceId, table.userId)]);
+
+export const interviewRecordings = pgTable("interview_recordings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: text("workspace_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  interviewId: uuid("interview_id").notNull().references(() => interviews.id, { onDelete: "cascade" }),
+  provider: text("provider").notNull().default("fathom"),
+  recordingId: text("recording_id").notNull(),
+  recordingUrl: text("recording_url").notNull(),
+  summary: text("summary"),
+  transcript: jsonb("transcript").$type<Array<{ speaker: string; text: string; timestamp: string }>>(),
+  ...timestamps(),
+}, table => [
+  uniqueIndex("interview_recordings_provider_id_idx").on(table.workspaceId, table.provider, table.recordingId),
+  index("interview_recordings_interview_idx").on(table.interviewId),
+]);
+
 export const interviewsRelations = relations(interviews, ({ one }) => ({
   application: one(applications, {
     fields: [interviews.applicationId],

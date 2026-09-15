@@ -1,12 +1,13 @@
 import "server-only";
 
-import { and, asc, between, desc, eq, gte, inArray, isNull } from "drizzle-orm";
+import { and, asc, between, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 
 import { db } from "@harly/db";
 import {
   candidates,
   interviewSyncs,
   interviews,
+  interviewRecordings,
   jobs,
   user as authUsers,
 } from "@harly/db";
@@ -44,6 +45,7 @@ export async function listCandidateInterviews(
       teamsMeetingId: interviews.teamsMeetingId,
       zoomMeetingId: interviews.zoomMeetingId,
       briefContent: interviews.briefContent,
+      hasRecordings: sql<boolean>`exists (select 1 from ${interviewRecordings} where ${interviewRecordings.interviewId} = ${interviews.id} and ${interviewRecordings.workspaceId} = ${workspace.id})`,
     })
     .from(interviews)
     .innerJoin(
@@ -103,6 +105,7 @@ export async function listCandidateInterviews(
 
   return rows.map((row) => ({
     id: row.id,
+    hasRecordings: row.hasRecordings,
     applicationId: row.applicationId,
     type: row.type,
     mode: row.mode,

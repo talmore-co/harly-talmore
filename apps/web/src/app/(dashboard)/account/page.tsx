@@ -10,6 +10,8 @@ import { getMyGoogleConnection } from "@/features/account/google-actions";
 import { GoogleConnectionCard } from "@/features/account/GoogleConnectionCard";
 import { CalConnectionCard } from "@/features/account/CalConnectionCard";
 import { getMyCalConnection } from "@/features/account/cal-actions";
+import { getMyFathomConnection } from "@/features/account/fathom-actions";
+import { FathomConnectionCard } from "@/features/account/FathomConnectionCard";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,7 @@ export default async function AccountPage({ searchParams }: {
   const params = await searchParams;
   const googleStatus = await getMyGoogleConnection();
   const calStatus = await getMyCalConnection();
+  const fathomStatus = await getMyFathomConnection();
   const { user } = await getWorkspaceContext();
   const profile = await getOwnProfileAction();
   const sessions = await listMySessionsAction();
@@ -40,7 +43,7 @@ export default async function AccountPage({ searchParams }: {
       <PageTitle title="Account" />
       <AccountSettingsPanel
         initialTab={params.tab === "connections" ? "connections" : "profile"}
-        connectionsSlot={<><GoogleConnectionCard status={googleStatus} error={params.gcal_error} /><CalConnectionCard status={calStatus} /></>}
+        connectionsSlot={<><GoogleConnectionCard status={googleStatus} error={params.gcal_error} /><CalConnectionCard status={calStatus} /><FathomConnectionCard status={fathomStatus} /></>}
         user={{
           id: user.id,
           name: profile?.name ?? user.name,
