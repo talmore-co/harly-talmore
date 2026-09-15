@@ -8,9 +8,15 @@ Each recruiter connects their own Cal.com account under **Account → Connection
 2. Paste the key into Harly's Cal.com connection card. Harly stores it encrypted and never sends it back to the browser.
 3. Choose an existing personal interview event, or create a basic event with a name and duration.
 4. Review the event's availability, connected calendars and meeting location in Cal.com. Preview the booking page before sharing it.
-5. Click **Save event & configure sync**. Harly generates a signing secret and registers an event-specific webhook automatically.
+5. Click **Save interview event**. Harly generates a signing secret and registers an event-specific webhook automatically.
 
-The card reports webhook configuration separately from the last verified booking received. Loading event types tests the API connection, but does not prove webhook delivery.
+The connected card shows the selected event and booking-sync status. Use **Change event** to edit it. The three-dot connection menu contains API-key replacement, event refresh/connection testing and disconnect. Loading event types tests the API connection, but does not prove webhook delivery.
+
+The dashboard scheduling checklist recognizes a personal Cal.com connection once
+its default event has a registered webhook. An API key alone does not complete
+setup. A connected personal Google calendar also completes the scheduling step.
+Only connections belonging to current workspace members count. The checklist
+disappears when no pending steps remain.
 
 Use single-host, non-seated interview events. This integration validates the connected recruiter as the booking's sole host. Cal.com controls candidate-bookable availability, including its treatment of busy calendar blocks. Harly's advisory Google conflict warnings do not change Cal.com's availability rules.
 

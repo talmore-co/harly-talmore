@@ -1,11 +1,19 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { ImageUp, Loader2, Pencil, RefreshCw, UploadCloud, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  ImageUp,
+  Loader2,
+  Pencil,
+  RefreshCw,
+  UploadCloud,
+  X,
+} from "lucide-react";
 import { toast } from "@/lib/notification-island/toast";
 
 import { getImageFileValidationError } from "@/lib/storage-validation";
 import { cn } from "@/lib/utils";
+import { ImageCropDialog } from "./AvatarCropDialog";
 
 type PresignResponse = { uploadUrl: string; fileUrl: string; key: string };
 
@@ -13,7 +21,10 @@ async function uploadImage(file: File, publicAsset: boolean): Promise<string> {
   if (publicAsset) {
     const body = new FormData();
     body.set("file", file);
-    const response = await fetch("/api/public/assets", { method: "POST", body });
+    const response = await fetch("/api/public/assets", {
+      method: "POST",
+      body,
+    });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Upload failed.");
     return result.fileUrl;
@@ -57,6 +68,7 @@ export function FileDropzone({
   hint = "PNG, JPG, SVG or WEBP · up to 5MB",
   className,
   publicAsset = false,
+  crop,
 }: {
   value: string | null;
   onChange: (url: string | null) => void;
@@ -68,33 +80,72 @@ export function FileDropzone({
   className?: string;
   /** Public company/career-page image, served through Harly from isolated storage. */
   publicAsset?: boolean;
+  /** Crop photos to these output dimensions before upload. Omit for logos. */
+  crop?: { width: number; height: number };
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  useEffect(
+    () => () => {
+      if (cropSrc?.startsWith("blob:")) URL.revokeObjectURL(cropSrc);
+    },
+    [cropSrc],
+  );
 
-  const ratio = aspect === "banner" ? "aspect-[16/6] max-h-48" : "aspect-[4/3] max-h-64";
+  const ratio =
+    aspect === "banner" ? "aspect-[16/6] max-h-48" : "aspect-[4/3] max-h-64";
   const hasPreview = Boolean(value && value !== failedUrl);
 
   async function handleFile(file: File | null) {
-    if (!file) return;
+    if (!file || disabled || uploading || cropSrc) return;
     const error = getImageFileValidationError(file);
     if (error) {
       toast.error(error);
       return;
     }
+    if (crop) {
+      setCropSrc(URL.createObjectURL(file));
+      return;
+    }
+    await saveFile(file);
+  }
+
+  async function saveFile(file: File) {
     setUploading(true);
     try {
       const url = await uploadImage(file, publicAsset);
       setFailedUrl(null);
       onChange(url);
+      return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Upload failed.");
+      return false;
     } finally {
       setUploading(false);
     }
   }
+
+  const cropDialog =
+    crop && cropSrc ? (
+      <ImageCropDialog
+        key={cropSrc}
+        open
+        imageSrc={cropSrc}
+        output={crop}
+        onOpenChange={(open) => {
+          if (!open) setCropSrc(null);
+        }}
+        onCropComplete={async (blob) => {
+          const file = new File([blob], "banner.png", { type: blob.type });
+          const error = getImageFileValidationError(file);
+          if (error) throw new Error(error);
+          if (await saveFile(file)) setCropSrc(null);
+        }}
+      />
+    ) : null;
 
   const fileInput = (
     <input
@@ -160,10 +211,10 @@ export function FileDropzone({
           </>
         )}
         {fileInput}
+        {cropDialog}
       </div>
     );
   }
-
 
   // ---- Filled: image preview + floating toolbar ----------------------------
   if (hasPreview) {
@@ -200,6 +251,16 @@ export function FileDropzone({
                 )}
                 Replace
               </button>
+              {crop && (
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => setCropSrc(value)}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+                >
+                  Adjust crop
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -207,6 +268,7 @@ export function FileDropzone({
                   onChange(null);
                 }}
                 aria-label="Remove image"
+                disabled={uploading}
                 className="inline-flex size-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-rust/10 hover:text-rust active:scale-[0.97] motion-reduce:transition-none"
               >
                 <X className="size-4" />
@@ -225,6 +287,7 @@ export function FileDropzone({
             }}
           />
         </div>
+        {cropDialog}
       </div>
     );
   }
@@ -299,6 +362,7 @@ export function FileDropzone({
           }}
         />
       </button>
+      {cropDialog}
     </div>
   );
 }

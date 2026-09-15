@@ -2,6 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { MoreHorizontal } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,6 +44,7 @@ export function CalConnectionCard({ status }: { status: Status }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [apiKey, setApiKey] = useState("");
+  const [editingKey, setEditingKey] = useState(false);
   const [events, setEvents] = useState<Event[] | null>(null);
   const [eventId, setEventId] = useState(
     String(status.connection?.defaultEventTypeId ?? ""),
@@ -73,36 +82,90 @@ export function CalConnectionCard({ status }: { status: Status }) {
           </p>
         )}
         {status.connection?.enabled && (
-          <div className="space-y-1 text-sm">
-            <p>Connected as {status.connection.accountEmail}</p>
-            {current && (
-              <p>
-                Default event: {current.title} · {current.durationMins} minutes
+          <div className="flex items-start justify-between gap-3 text-sm">
+            <div className="min-w-0 space-y-1">
+              <p className="break-words">
+                Connected as {status.connection.accountEmail}
               </p>
-            )}
-            <p>
-              Booking sync:{" "}
-              {current?.webhookConfigured
-                ? "Configured"
-                : "Choose an event to finish setup"}
-            </p>
-            <p className="text-muted-foreground">
-              Last verified booking received:{" "}
-              {status.connection.lastReceivedAt
-                ? new Date(status.connection.lastReceivedAt).toLocaleString()
-                : "None yet"}
-            </p>
+              {current && (
+                <p>
+                  Default event: {current.title} · {current.durationMins}{" "}
+                  minutes
+                </p>
+              )}
+              <p>
+                Booking sync:{" "}
+                {current?.webhookConfigured
+                  ? "Configured"
+                  : "Choose an event to finish setup"}
+              </p>
+              <p className="text-muted-foreground">
+                Last booking received:{" "}
+                {status.connection.lastReceivedAt
+                  ? new Date(status.connection.lastReceivedAt).toLocaleString()
+                  : "None yet"}
+              </p>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0"
+                  disabled={pending}
+                  aria-label="Cal.com connection options"
+                >
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onSelect={() => {
+                    setEditingKey(true);
+                    setApiKey("");
+                  }}
+                >
+                  Replace API key
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => start(loadEvents)}>
+                  Refresh events / test connection
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  onSelect={() =>
+                    start(async () => {
+                      const result = await disconnectMyCalAccount();
+                      if (!result.ok) {
+                        setError(result.error);
+                        return;
+                      }
+                      setEvents(null);
+                      setEditingKey(false);
+                      setCreating(false);
+                      setApiKey("");
+                      setError("");
+                      toast.success("Cal.com disconnected");
+                      router.refresh();
+                    })
+                  }
+                >
+                  Disconnect
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
         {!status.configured ? (
           <p className="text-sm text-muted-foreground">
             Ask an administrator to configure server encryption.
           </p>
-        ) : (
+        ) : !status.connection?.enabled || editingKey ? (
           <div className="space-y-2">
             <Label htmlFor="cal-api-key">
-              Personal Cal.com API key
-              {status.connection ? " · reconnect or replace key" : ""}
+              {status.connection?.enabled
+                ? "Replace API key"
+                : "Personal Cal.com API key"}
             </Label>
             <Input
               id="cal-api-key"
@@ -123,6 +186,7 @@ export function CalConnectionCard({ status }: { status: Status }) {
                       return;
                     }
                     setApiKey("");
+                    setEditingKey(false);
                     setError("");
                     toast.success("Cal.com connected");
                     await loadEvents();
@@ -130,8 +194,20 @@ export function CalConnectionCard({ status }: { status: Status }) {
                   })
                 }
               >
-                Connect Cal.com
+                {status.connection?.enabled ? "Update key" : "Connect Cal.com"}
               </Button>
+              {status.connection?.enabled && (
+                <Button
+                  variant="ghost"
+                  disabled={pending}
+                  onClick={() => {
+                    setEditingKey(false);
+                    setApiKey("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              )}
               <a
                 className="text-sm underline"
                 href="https://app.cal.com/settings/developer/api-keys"
@@ -142,42 +218,49 @@ export function CalConnectionCard({ status }: { status: Status }) {
               </a>
             </div>
           </div>
-        )}
+        ) : null}
         {status.connection?.enabled && (
           <div className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                disabled={pending}
-                onClick={() => start(loadEvents)}
-              >
-                Choose event / test connection
-              </Button>
-              <Button
-                variant="outline"
-                disabled={pending}
-                onClick={() =>
-                  start(async () => {
-                    const result = await disconnectMyCalAccount();
-                    if (!result.ok) {
-                      setError(result.error);
-                      return;
-                    }
-                    setEvents(null);
-                    setError("");
-                    toast.success("Cal.com disconnected");
-                    router.refresh();
-                  })
-                }
-              >
-                Disconnect
-              </Button>
-            </div>
+            {!events && (
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  variant={current?.webhookConfigured ? "outline" : "default"}
+                  disabled={pending}
+                  onClick={() => start(loadEvents)}
+                >
+                  {current?.webhookConfigured
+                    ? "Change event"
+                    : "Choose interview event"}
+                </Button>
+                {current && (
+                  <a
+                    className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                    href={current.bookingUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Preview booking page
+                  </a>
+                )}
+              </div>
+            )}
             {events && (
               <div className="space-y-3">
-                <Label htmlFor="cal-event">Default interview event</Label>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Label htmlFor="cal-event">Default interview event</Label>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto px-0 py-1 text-muted-foreground"
+                    disabled={pending}
+                    onClick={() => setCreating(!creating)}
+                  >
+                    {creating ? "Use an existing event" : "Create new event"}
+                  </Button>
+                </div>
                 <select
                   id="cal-event"
+                  disabled={pending || creating}
                   className="h-10 w-full rounded-md border bg-background px-3 text-sm"
                   value={eventId}
                   onChange={(event) => setEventId(event.target.value)}
@@ -189,46 +272,55 @@ export function CalConnectionCard({ status }: { status: Status }) {
                     </option>
                   ))}
                 </select>
-                {selected && (
-                  <a
-                    className="block text-sm underline"
-                    href={selected.bookingUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Preview booking page
-                  </a>
-                )}
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    disabled={pending || !selected}
-                    onClick={() =>
-                      start(async () => {
-                        const result = await saveMyCalEvent({
-                          eventTypeId: Number(eventId),
-                        });
-                        if (!result.ok) {
-                          setError(result.error);
-                          return;
-                        }
-                        setError("");
-                        toast.success(
-                          "Interview event and booking sync configured",
+                {!creating && (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                      disabled={pending || !selected}
+                      onClick={() =>
+                        start(async () => {
+                          const result = await saveMyCalEvent({
+                            eventTypeId: Number(eventId),
+                          });
+                          if (!result.ok) {
+                            setError(result.error);
+                            return;
+                          }
+                          setError("");
+                          setEvents(null);
+                          toast.success(
+                            "Interview event and booking sync configured",
+                          );
+                          router.refresh();
+                        })
+                      }
+                    >
+                      {pending ? "Saving…" : "Save interview event"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      disabled={pending}
+                      onClick={() => {
+                        setEvents(null);
+                        setEventId(
+                          String(status.connection?.defaultEventTypeId ?? ""),
                         );
-                        router.refresh();
-                      })
-                    }
-                  >
-                    Save event &amp; configure sync
-                  </Button>
-                  <Button
-                    variant="outline"
-                    disabled={pending}
-                    onClick={() => setCreating(!creating)}
-                  >
-                    Create an interview event
-                  </Button>
-                </div>
+                        setError("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    {selected && (
+                      <a
+                        className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                        href={selected.bookingUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Preview booking page
+                      </a>
+                    )}
+                  </div>
+                )}
                 {creating && (
                   <div className="space-y-3 rounded-md border p-3">
                     <Label htmlFor="cal-event-title">Event name</Label>
@@ -278,7 +370,7 @@ export function CalConnectionCard({ status }: { status: Status }) {
               </div>
             )}
             <p className="text-sm text-muted-foreground">
-              Set your availability, connected calendar and meeting location in{" "}
+              Manage availability and meeting location in{" "}
               <a
                 className="underline"
                 href="https://app.cal.com/event-types"
@@ -287,9 +379,7 @@ export function CalConnectionCard({ status }: { status: Status }) {
               >
                 Cal.com
               </a>
-              . Cal.com sends invitations and manages these bookings. Changing
-              your default keeps earlier event subscriptions active for existing
-              bookings.
+              . Booking sync is configured automatically when you save.
             </p>
           </div>
         )}

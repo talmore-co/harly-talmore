@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, count, eq, isNull, sql } from "drizzle-orm";
+import { and, count, eq, isNull, isNotNull, sql } from "drizzle-orm";
 
 import { db } from "@harly/db";
 import {
@@ -9,6 +9,9 @@ import {
   jobs,
   member as authMembers,
   workspaceSettings,
+  personalGoogleConnections,
+  personalCalConnections,
+  personalCalEvents,
 } from "@harly/db";
 import { getWorkspaceContext } from "@/features/workspaces/context";
 import { DEFAULT_BOARD_PRIMARY_COLOR } from "@/features/workspaces/board";
@@ -44,7 +47,7 @@ export type SetupChecklist = {
  * Progressive "get your workspace ready" checklist for the dashboard.
  *
  * Reads existing workspace state and links to existing pages , it never owns
- * any setup itself. Kept deliberately cheap (four small aggregate queries), so
+ * any setup itself. Uses small aggregate and existence queries so
  * it can run on every dashboard render and in the sidebar layout without
  * pulling the heavy member/invite lists of getWorkspaceSettingsData.
  */
@@ -55,50 +58,98 @@ export async function getSetupChecklist(): Promise<SetupChecklist> {
   // Owner/admin gate , mirrors isOwnerRole in features/workspaces/actions.ts.
   const visible = context.role === "owner" || context.role === "admin";
 
-  const [settingsRow, jobsAgg, membersRow, invitesRow] = await Promise.all([
-    db
-      .select({
-        tagline: workspaceSettings.tagline,
-        description: workspaceSettings.description,
-        websiteUrl: workspaceSettings.websiteUrl,
-        primaryColor: workspaceSettings.primaryColor,
-        heroImageUrl: workspaceSettings.heroImageUrl,
-        careerPageConfig: workspaceSettings.careerPageConfig,
-        legalConfigured: workspaceSettings.legalConfigured,
-        captchaEnabled: workspaceSettings.captchaEnabled,
-        gcalEnabled: workspaceSettings.gcalEnabled,
-        zoomEnabled: workspaceSettings.zoomEnabled,
-        calEnabled: workspaceSettings.calEnabled,
-        emailEnabled: workspaceSettings.emailEnabled,
-        outlookEnabled: workspaceSettings.outlookEnabled,
-        slackEnabled: workspaceSettings.slackEnabled,
-      })
-      .from(workspaceSettings)
-      .where(eq(workspaceSettings.organizationId, workspaceId))
-      .limit(1),
-    db
-      .select({
-        jobCount: sql<number>`count(distinct ${jobs.id})::int`,
-        applicantCount: sql<number>`count(${applications.id})::int`,
-      })
-      .from(jobs)
-      .leftJoin(
-        applications,
-        and(
-          eq(applications.workspaceId, workspaceId),
-          eq(applications.jobId, jobs.id),
-        ),
-      )
-      .where(and(eq(jobs.workspaceId, workspaceId), isNull(jobs.deletedAt))),
-    db
-      .select({ value: count() })
-      .from(authMembers)
-      .where(eq(authMembers.organizationId, workspaceId)),
-    db
-      .select({ value: count() })
-      .from(invitation)
-      .where(eq(invitation.organizationId, workspaceId)),
-  ]);
+  const [settingsRow, jobsAgg, membersRow, invitesRow, googleRows, calRows] =
+    await Promise.all([
+      db
+        .select({
+          tagline: workspaceSettings.tagline,
+          description: workspaceSettings.description,
+          websiteUrl: workspaceSettings.websiteUrl,
+          primaryColor: workspaceSettings.primaryColor,
+          heroImageUrl: workspaceSettings.heroImageUrl,
+          careerPageConfig: workspaceSettings.careerPageConfig,
+          legalConfigured: workspaceSettings.legalConfigured,
+          captchaEnabled: workspaceSettings.captchaEnabled,
+          gcalEnabled: workspaceSettings.gcalEnabled,
+          zoomEnabled: workspaceSettings.zoomEnabled,
+          calEnabled: workspaceSettings.calEnabled,
+          emailEnabled: workspaceSettings.emailEnabled,
+          outlookEnabled: workspaceSettings.outlookEnabled,
+          slackEnabled: workspaceSettings.slackEnabled,
+        })
+        .from(workspaceSettings)
+        .where(eq(workspaceSettings.organizationId, workspaceId))
+        .limit(1),
+      db
+        .select({
+          jobCount: sql<number>`count(distinct ${jobs.id})::int`,
+          applicantCount: sql<number>`count(${applications.id})::int`,
+        })
+        .from(jobs)
+        .leftJoin(
+          applications,
+          and(
+            eq(applications.workspaceId, workspaceId),
+            eq(applications.jobId, jobs.id),
+          ),
+        )
+        .where(and(eq(jobs.workspaceId, workspaceId), isNull(jobs.deletedAt))),
+      db
+        .select({ value: count() })
+        .from(authMembers)
+        .where(eq(authMembers.organizationId, workspaceId)),
+      db
+        .select({ value: count() })
+        .from(invitation)
+        .where(eq(invitation.organizationId, workspaceId)),
+      db
+        .select({ id: personalGoogleConnections.id })
+        .from(personalGoogleConnections)
+        .innerJoin(
+          authMembers,
+          and(
+            eq(authMembers.userId, personalGoogleConnections.userId),
+            eq(authMembers.organizationId, workspaceId),
+          ),
+        )
+        .where(
+          and(
+            eq(personalGoogleConnections.workspaceId, workspaceId),
+            eq(personalGoogleConnections.enabled, true),
+            isNotNull(personalGoogleConnections.refreshTokenCiphertext),
+          ),
+        )
+        .limit(1),
+      db
+        .select({ id: personalCalConnections.id })
+        .from(personalCalConnections)
+        .innerJoin(
+          authMembers,
+          and(
+            eq(authMembers.userId, personalCalConnections.userId),
+            eq(authMembers.organizationId, workspaceId),
+          ),
+        )
+        .innerJoin(
+          personalCalEvents,
+          and(
+            eq(personalCalEvents.connectionId, personalCalConnections.id),
+            eq(
+              personalCalEvents.eventTypeId,
+              personalCalConnections.defaultEventTypeId,
+            ),
+          ),
+        )
+        .where(
+          and(
+            eq(personalCalConnections.workspaceId, workspaceId),
+            eq(personalCalConnections.enabled, true),
+            isNotNull(personalCalConnections.apiKeyCiphertext),
+            isNotNull(personalCalEvents.webhookId),
+          ),
+        )
+        .limit(1),
+    ]);
 
   const settings = settingsRow[0];
   const jobCount = jobsAgg[0]?.jobCount ?? 0;
@@ -106,7 +157,9 @@ export async function getSetupChecklist(): Promise<SetupChecklist> {
   const memberCount = membersRow[0]?.value ?? 0;
   const inviteCount = invitesRow[0]?.value ?? 0;
 
+  const hasPersonalCalendar = googleRows.length > 0 || calRows.length > 0;
   const hasIntegration = Boolean(
+    hasPersonalCalendar ||
     settings?.gcalEnabled ||
     settings?.zoomEnabled ||
     settings?.calEnabled ||
@@ -115,7 +168,10 @@ export async function getSetupChecklist(): Promise<SetupChecklist> {
     settings?.slackEnabled,
   );
   const hasCalendar = Boolean(
-    settings?.gcalEnabled || settings?.zoomEnabled || settings?.calEnabled,
+    hasPersonalCalendar ||
+    settings?.gcalEnabled ||
+    settings?.zoomEnabled ||
+    settings?.calEnabled,
   );
 
   const hasJob = jobCount > 0;
@@ -244,8 +300,8 @@ export async function getSetupChecklist(): Promise<SetupChecklist> {
     push({
       key: "scheduling",
       title: "Set up interview scheduling",
-      value: "Let candidates book time without the back-and-forth.",
-      href: "/settings/integrations",
+      value: "Connect a calendar or let candidates book their own time.",
+      href: "/account?tab=connections",
       done: false,
     });
   }

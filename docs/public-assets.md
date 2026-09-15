@@ -42,3 +42,14 @@ upload; browsers cache images for up to one hour.
 This change is limited to public branding images. Candidate photos and staff
 avatars retain their existing storage behavior. Local development uses the same
 public routes backed by the local uploads directory.
+## Banner cropping
+
+Company default banners and career-page hero images open a crop editor before
+upload. Drag to position the image, zoom, or reset to center, then choose
+**Apply and upload**. These banners use a 1500 × 500 rectangular crop. Social-sharing
+images use 1200 × 630. The dialog shows the output dimensions.
+
+**Adjust crop** reopens an uploaded banner for another crop. It works from the
+saved image; use **Replace** to select the original file again when you need
+content outside the saved crop. Cancelling keeps the current image and uploads
+nothing. Logo and wordmark uploads retain their original proportions.

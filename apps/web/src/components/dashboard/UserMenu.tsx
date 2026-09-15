@@ -12,6 +12,7 @@ import {
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
+import { accountAvatarUrl } from "@/lib/account-avatar";
 
 import { authClient, signOut } from "@/lib/auth-client";
 import { UserAvatar } from "@/components/ui/UserAvatar";
@@ -25,7 +26,12 @@ const VERSION = "v0.1.0";
 const REPO_URL = "https://github.com/Vytral/harly";
 
 type UserMenuProps = {
-  user: { name: string; email: string; image: string | null; username: string | null };
+  user: {
+    name: string;
+    email: string;
+    image: string | null;
+    username: string | null;
+  };
   role: string;
   workspace: { id: string; name: string; logoUrl: string | null };
   workspaceOptions: WorkspaceOption[];
@@ -98,7 +104,12 @@ export function UserMenu({
         aria-label="Account menu"
         aria-expanded={open}
       >
-        <UserAvatar name={user.name} src={user.image} size="md" priority />
+        <UserAvatar
+          name={user.name}
+          src={accountAvatarUrl(user.image)}
+          size="md"
+          priority
+        />
       </button>
 
       {/* Backdrop + panel are portaled to <body> , the trigger lives inside
@@ -122,7 +133,11 @@ export function UserMenu({
             >
               {/* ── User info ── */}
               <div className="flex items-center gap-3 px-4 py-4">
-                <UserAvatar name={user.name} src={user.image} size="lg" />
+                <UserAvatar
+                  name={user.name}
+                  src={accountAvatarUrl(user.image)}
+                  size="lg"
+                />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{user.name}</p>
                   <p className="truncate text-xs text-muted-foreground">
@@ -256,7 +271,6 @@ export function UserMenu({
           </>,
           document.body,
         )}
-
     </>
   );
 }

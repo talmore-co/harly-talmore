@@ -349,6 +349,7 @@ export function CompanyBrandingSection({
             <FileDropzone
               publicAsset
               value={heroImageUrl || null}
+              crop={{ width: 1500, height: 500 }}
               onChange={(url) => setHeroImageUrl(url ?? "")}
               aspect="banner"
               disabled={!canEdit}

@@ -29,6 +29,7 @@ import {
 import { toast } from "@/lib/notification-island/toast";
 
 import { authClient, signOut } from "@/lib/auth-client";
+import { accountAvatarUrl } from "@/lib/account-avatar";
 import { getImageFileValidationError } from "@/lib/storage-validation";
 import {
   changeUsernameAction,
@@ -55,7 +56,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { revokeMySessionAction, revokeOtherMySessionsAction, type SessionDevice } from "@/features/security/session-actions";
+import {
+  revokeMySessionAction,
+  revokeOtherMySessionsAction,
+  type SessionDevice,
+} from "@/features/security/session-actions";
 
 const WEEKDAYS: (keyof WeeklyAvailability)[] = [
   "monday",
@@ -307,7 +312,7 @@ async function uploadImage(file: File | Blob): Promise<string> {
   });
 
   if (!put.ok) throw new Error("Upload failed. Try again.");
-  return data.fileUrl;
+  return accountAvatarUrl(data.fileUrl)!;
 }
 
 export function AccountSettingsPanel({
@@ -510,7 +515,6 @@ export function AccountSettingsPanel({
     startProfile(async () => {
       try {
         const url = await uploadImage(blob);
-        setImage(url);
         let payload: ReturnType<typeof buildProfilePayload>;
         try {
           payload = { ...buildProfilePayload(), image: url };
@@ -523,6 +527,8 @@ export function AccountSettingsPanel({
           toast.error("Could not update avatar.");
           return;
         }
+
+        setImage(url);
 
         await authClient.updateUser({
           name: displayName,
@@ -641,7 +647,7 @@ export function AccountSettingsPanel({
         <div className="group relative shrink-0">
           <UserAvatar
             name={displayName}
-            src={image || null}
+            src={accountAvatarUrl(image) || null}
             size="xl"
             className="size-20 text-2xl ring-2 ring-border/50 ring-offset-2 ring-offset-background"
           />
@@ -1182,17 +1188,62 @@ export function AccountSettingsPanel({
           <SectionCard title="Active sessions">
             <div className="space-y-3">
               {sessions.map((item) => (
-                <div key={item.id} className="flex items-center gap-3 rounded-lg border bg-muted/20 px-4 py-3">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Globe className="size-4" /></span>
-                  <div className="min-w-0 flex-1"><p className="text-sm font-medium">{item.current ? "Current browser" : "Other device"}</p><p className="truncate text-xs text-muted-foreground">{item.userAgent ?? "Unknown browser"}{item.ipAddress ? ` · ${item.ipAddress}` : ""}</p><p className="text-[11px] text-muted-foreground">Last active {item.updatedAt.toLocaleString()}</p></div>
-                  {item.current ? <Badge variant="secondary" className="shrink-0">This device</Badge> : <Button type="button" size="sm" variant="outline" onClick={() => revokeSession(item.id)}>Revoke</Button>}
+                <div
+                  key={item.id}
+                  className="flex items-center gap-3 rounded-lg border bg-muted/20 px-4 py-3"
+                >
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Globe className="size-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">
+                      {item.current ? "Current browser" : "Other device"}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {item.userAgent ?? "Unknown browser"}
+                      {item.ipAddress ? ` · ${item.ipAddress}` : ""}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Last active {item.updatedAt.toLocaleString()}
+                    </p>
+                  </div>
+                  {item.current ? (
+                    <Badge variant="secondary" className="shrink-0">
+                      This device
+                    </Badge>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => revokeSession(item.id)}
+                    >
+                      Revoke
+                    </Button>
+                  )}
                 </div>
               ))}
               <p className="text-xs text-muted-foreground">
                 Signing out will end this session. Use &ldquo;Sign out
                 everywhere&rdquo; from settings to revoke all sessions.
               </p>
-              {sessions.some((item) => !item.current) ? <Button type="button" variant="outline" onClick={() => startSignOut(async () => { const result = await revokeOtherMySessionsAction(); if (result.ok) { toast.success("Other sessions revoked."); router.refresh(); } })}>Sign out everywhere else</Button> : null}
+              {sessions.some((item) => !item.current) ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    startSignOut(async () => {
+                      const result = await revokeOtherMySessionsAction();
+                      if (result.ok) {
+                        toast.success("Other sessions revoked.");
+                        router.refresh();
+                      }
+                    })
+                  }
+                >
+                  Sign out everywhere else
+                </Button>
+              ) : null}
             </div>
           </SectionCard>
 

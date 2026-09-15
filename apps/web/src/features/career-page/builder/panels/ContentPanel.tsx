@@ -58,6 +58,7 @@ export function ContentPanel({ config, update, workspace }: ContentPanelProps) {
                     publicAsset
                     aspect="banner"
                     value={config.hero.imageUrl}
+                    crop={{ width: 1500, height: 500 }}
                     onChange={(url) => update((d) => (d.hero.imageUrl = url))}
                   />
                 </Field>
@@ -136,6 +137,7 @@ export function ContentPanel({ config, update, workspace }: ContentPanelProps) {
                 publicAsset
                 aspect="banner"
                 value={config.hero.imageUrl}
+                crop={{ width: 1500, height: 500 }}
                 onChange={(url) => update((d) => (d.hero.imageUrl = url))}
               />
             </Field>
