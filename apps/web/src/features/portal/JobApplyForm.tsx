@@ -5,6 +5,7 @@ import { toast } from "@/lib/notification-island/toast";
 
 import { cn } from "@/lib/utils";
 import { applyToJobAction } from "@/features/portal/actions";
+import { MultiSelectQuestion } from "@/features/applications/MultiSelectQuestion";
 
 type Question = {
   id: string;
@@ -230,6 +231,8 @@ export function JobApplyForm({
                       "transition-colors resize-none",
                     )}
                   />
+                ) : q.type === "multiselect" ? (
+                  <MultiSelectQuestion name={q.key} label={q.label} options={(Array.isArray(q.options) ? q.options : []).filter((option): option is string => typeof option === "string")} value={answers[q.key] ?? ""} onChange={next => setAnswer(q.key, next)} required={q.required} />
                 ) : q.type === "select" ? (
                   <select
                     id={q.key}

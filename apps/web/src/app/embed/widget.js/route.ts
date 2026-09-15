@@ -343,7 +343,31 @@ const WIDGET = String.raw`(function () {
 
         var questions = (cfg && cfg.questions) || [];
         questions.forEach(function (qn) {
+          if (qn.type === "multiselect") {
+            var group = el("fieldset", "oh-field");
+            group.appendChild(el("legend", null, qn.label + (qn.required ? " *" : "")));
+            group.appendChild(el("p", "oh-note", "Select all that apply."));
+            var checks = [];
+            (qn.options || []).forEach(function (option) {
+              var label = el("label");
+              label.style.display = "block";
+              var check = el("input"); check.type = "checkbox"; check.value = option;
+              check.onchange = function () {
+                if (checks[0]) checks[0].setCustomValidity(qn.required && !checks.some(function (c) { return c.checked; }) ? "Select at least one option." : "");
+              };
+              checks.push(check); label.appendChild(check); label.appendChild(document.createTextNode(" " + option)); group.appendChild(label);
+            });
+            if (qn.required && checks[0]) checks[0].setCustomValidity("Select at least one option.");
+            questionInputs.push({ id: qn.id, readValue: function () { return JSON.stringify(checks.filter(function (c) { return c.checked; }).map(function (c) { return c.value; })); } });
+            form.insertBefore(group, captchaBox);
+            return;
+          }
           var input = textInput(qn.type === "textarea" ? "textarea" : (qn.type === "url" ? "url" : "text"));
+          if (qn.type === "select") {
+            input = el("select", "oh-input");
+            input.appendChild(new Option("Select an option", ""));
+            (qn.options || []).forEach(function (option) { input.appendChild(new Option(option, option)); });
+          }
           if (qn.required) input.required = true;
           questionInputs.push({ id: qn.id, input: input });
           form.insertBefore(field(qn.label, input, qn.required), captchaBox);
@@ -379,7 +403,7 @@ const WIDGET = String.raw`(function () {
       submit.disabled = true;
       status.textContent = "Submitting…";
       var answers = {};
-      questionInputs.forEach(function (q) { answers[q.id] = q.input.value; });
+      questionInputs.forEach(function (q) { answers[q.id] = q.readValue ? q.readValue() : q.input.value; });
       var payload = {
         firstName: first.value, lastName: last.value, email: email.value,
         questionAnswers: answers,

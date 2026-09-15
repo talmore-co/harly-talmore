@@ -1,4 +1,5 @@
 import { isWorkspaceStorageKey } from "@/lib/storage-validation";
+import { questionAnswerText, validateMultiSelectAnswer } from "@/features/applications/multi-select";
 
 type PortalQuestion = {
   id: string;
@@ -38,6 +39,14 @@ export function validatePortalApplication(input: PortalApplicationInput):
   const answers: Record<string, string> = {};
   for (const question of input.questions) {
     const value = input.answers[question.key]?.trim() ?? "";
+    if (question.type === "multiselect") {
+      const options = Array.isArray(question.options) ? question.options.filter((option): option is string => typeof option === "string") : [];
+      const error = validateMultiSelectAnswer(value, options, question.required);
+      if (error) return { ok: false, error };
+      const text = questionAnswerText(question.type, value);
+      if (text) answers[question.key] = text;
+      continue;
+    }
     if (question.required && !value) {
       return { ok: false, error: "This question is required." };
     }

@@ -213,8 +213,10 @@ of truth for custom questions:
 ```
 
 The question's `id` is the key used in `questionAnswers`. Supported question
-types are `text`, `textarea`, `url`, and `select`; `select` questions also
-return an `options` array. The same response describes standard fields under
+types are `text`, `textarea`, `url`, `select`, and `multiselect`. Both select types
+return an `options` array. For `multiselect`, send a JSON-encoded array as the answer
+string, for example `questionAnswers: { equipment: JSON.stringify(["RC car", "Drone"]) }`.
+A required multi-select needs at least one choice. The same response describes standard fields under
 `applicationConfig.sections`, including resume, links, education, experience,
 and cover letter visibility (`required`, `optional`, or `disabled`).
 

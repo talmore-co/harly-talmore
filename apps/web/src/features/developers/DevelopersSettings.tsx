@@ -1077,8 +1077,9 @@ function EmbedSection({
         const label = document.createElement("label");
         label.textContent = q.label + (q.required ? " *" : "");
         let input = document.createElement(q.type === "textarea" ? "textarea" : "input");
-        if (q.type === "select") {
+        if (q.type === "select" || q.type === "multiselect") {
           input = document.createElement("select");
+          input.multiple = q.type === "multiselect";
           (q.options || []).forEach((option) => input.add(new Option(option, option)));
         }
         input.dataset.questionId = q.id;
@@ -1095,7 +1096,7 @@ function EmbedSection({
     body.questionAnswers = Object.fromEntries(
       [...questions.querySelectorAll("[data-question-id]")].map((input) => [
         input.dataset.questionId,
-        input.value,
+        input.multiple ? JSON.stringify([...input.selectedOptions].map((option) => option.value)) : input.value,
       ])
     );
     const response = await fetch(jobApi + "/applications", {

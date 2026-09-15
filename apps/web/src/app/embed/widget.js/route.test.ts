@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Script } from "node:vm";
 
 const mocks = vi.hoisted(() => ({
   enforceRateLimit: vi.fn(),
@@ -42,6 +43,7 @@ describe("GET /embed/widget.js", () => {
     const script = await response.text();
 
     expect(response.status).toBe(200);
+    expect(() => new Script(script)).not.toThrow();
     expect(script).toContain("legalConfigured");
     expect(script).toContain("consentText");
     expect(script).toContain("consentGiven");

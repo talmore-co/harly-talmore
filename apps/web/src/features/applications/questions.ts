@@ -1,3 +1,5 @@
+import { questionAnswerText } from "./multi-select";
+
 export type PersistableApplicationQuestion = {
   dbId: string;
   id: string;
@@ -23,6 +25,6 @@ export function buildQuestionAnswerRows({
     workspaceId,
     applicationId,
     questionId: question.dbId,
-    answer: answers[question.id]?.trim() ?? "",
+    answer: questionAnswerText(question.type, answers[question.id] ?? ""),
   }));
 }

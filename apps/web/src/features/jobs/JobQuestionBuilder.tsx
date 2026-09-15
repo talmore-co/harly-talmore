@@ -41,7 +41,8 @@ const questionTypes: Array<{ value: JobQuestionType; label: string }> = [
   { value: "text", label: "Short text" },
   { value: "textarea", label: "Long text" },
   { value: "url", label: "URL" },
-  { value: "select", label: "Select" },
+  { value: "select", label: "Single select" },
+  { value: "multiselect", label: "Multi-select" },
 ];
 
 function createQuestion(index: number): JobApplicationQuestion {
@@ -240,7 +241,7 @@ export function JobQuestionBuilder({ initialQuestions, aiContext }: JobQuestionB
                 className={fieldBoxControlClassName}
               />
             </FieldBox>
-            <FieldBox label="Minimum characters">
+            {question.type !== "multiselect" && <FieldBox label="Minimum characters">
               <Input
                 value={question.minLength ?? ""}
                 onChange={(event) =>
@@ -252,10 +253,10 @@ export function JobQuestionBuilder({ initialQuestions, aiContext }: JobQuestionB
                 min="0"
                 className={fieldBoxControlClassName}
               />
-            </FieldBox>
+            </FieldBox>}
           </div>
 
-          {question.type === "select" ? (
+          {question.type === "select" || question.type === "multiselect" ? (
             <FieldBox label="Options">
               <Textarea
                 value={optionsToText(question.options)}

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { slugify } from "@/lib/utils";
 
-export const jobQuestionTypes = ["text", "textarea", "url", "select"] as const;
+export const jobQuestionTypes = ["text", "textarea", "url", "select", "multiselect"] as const;
 
 export type JobQuestionType = (typeof jobQuestionTypes)[number];
 
@@ -255,17 +255,17 @@ const questionSchema = z
       label: question.label,
       type: question.type,
       required: question.required,
-      minLength: question.minLength,
+      minLength: question.type === "multiselect" ? undefined : question.minLength,
       placeholder: question.placeholder,
       options:
-        question.type === "select"
+        question.type === "select" || question.type === "multiselect"
           ? Array.from(new Set(question.options ?? []))
           : undefined,
     };
   })
   .refine(
     (question) =>
-      question.type !== "select" ||
+      (question.type !== "select" && question.type !== "multiselect") ||
       Boolean(question.options && question.options.length > 0),
     "Select questions require at least one option.",
   );

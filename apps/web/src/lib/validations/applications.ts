@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { validateMultiSelectAnswer } from "@/features/applications/multi-select";
 
 import type {
   ApplicationFieldVisibility,
@@ -343,6 +344,12 @@ export function validateApplicationQuestionAnswers(
 
   for (const question of questions) {
     const value = answers[question.id]?.trim() ?? "";
+
+    if (question.type === "multiselect") {
+      const error = validateMultiSelectAnswer(value, question.options ?? [], question.required);
+      if (error) errors[question.id] = [error];
+      continue;
+    }
 
     if (question.required && value.length === 0) {
       errors[question.id] = ["This question is required."];

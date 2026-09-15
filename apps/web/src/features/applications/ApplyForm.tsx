@@ -1,4 +1,5 @@
 "use client";
+import { MultiSelectQuestion } from "./MultiSelectQuestion";
 
 import {
   useActionState,
@@ -2421,6 +2422,9 @@ export function ApplyForm({
                           e.g.: {question.placeholder}
                         </p>
                       ) : null}
+                      {question.type === "multiselect" ? (
+                        <MultiSelectQuestion name={question.id} label={question.label} options={question.options ?? []} value={answers[question.id] ?? ""} required={question.required} onChange={next => updateAnswer(question.id, next)} invalid={Boolean(questionErrorsFor(state, question.id)?.length)} />
+                      ) : null}
                       {question.type === "textarea" ? (
                         <textarea
                           name={question.id}
@@ -3029,13 +3033,17 @@ export function ApplyForm({
                   </label>
                 ) : null}
                 {applicationConfig.questions.map((question) => (
-                  <label key={question.id} className="block">
-                    <FieldLabel required={question.required}>
+                  <div key={question.id} className="block">
+                    <label htmlFor={question.id}><FieldLabel required={question.required}>
                       {question.label}
-                    </FieldLabel>
+                    </FieldLabel></label>
+                    {question.type === "multiselect" ? (
+                      <MultiSelectQuestion name={question.id} label={question.label} options={question.options ?? []} value={answers[question.id] ?? ""} required={question.required} onChange={next => updateAnswer(question.id, next)} invalid={Boolean(questionErrorsFor(state, question.id)?.length)} />
+                    ) : null}
                     {question.type === "textarea" ? (
                       <textarea
                         name={question.id}
+                        id={question.id}
                         rows={5}
                         value={answers[question.id] ?? ""}
                         onChange={(event) =>
@@ -3048,6 +3056,7 @@ export function ApplyForm({
                     {question.type === "text" ? (
                       <input
                         name={question.id}
+                        id={question.id}
                         type="text"
                         value={answers[question.id] ?? ""}
                         onChange={(event) =>
@@ -3060,6 +3069,7 @@ export function ApplyForm({
                     {question.type === "url" ? (
                       <input
                         name={question.id}
+                        id={question.id}
                         type="url"
                         value={answers[question.id] ?? ""}
                         onChange={(event) =>
@@ -3072,6 +3082,7 @@ export function ApplyForm({
                     {question.type === "select" ? (
                       <select
                         name={question.id}
+                        id={question.id}
                         value={answers[question.id] ?? ""}
                         onChange={(event) =>
                           updateAnswer(question.id, event.target.value)
@@ -3099,7 +3110,7 @@ export function ApplyForm({
                         clientQuestionErrors[question.id],
                       )}
                     />
-                  </label>
+                  </div>
                 ))}
               </div>
             </section>
