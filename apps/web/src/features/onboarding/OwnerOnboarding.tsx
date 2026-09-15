@@ -330,6 +330,7 @@ function StepBranding({ logoUrl, onLogo, tagline, onTagline, color, onColor }: {
       </StepField>
       <StepField className="mt-7 flex items-center gap-5">
         <FileDropzone
+          publicAsset
           value={logoUrl || null}
           onChange={(url) => onLogo(url ?? "")}
           variant="avatar"

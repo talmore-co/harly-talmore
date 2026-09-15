@@ -59,10 +59,10 @@ export function DiscoveryPanel({
 
       <Section title="Share assets">
         <Field label="Favicon">
-          <FileDropzone aspect="square" value={config.seo.faviconUrl} onChange={(url) => update((draft) => (draft.seo.faviconUrl = url))} />
+          <FileDropzone publicAsset aspect="square" value={config.seo.faviconUrl} onChange={(url) => update((draft) => (draft.seo.faviconUrl = url))} />
         </Field>
         <Field label="Social share image">
-          <FileDropzone aspect="banner" value={config.seo.socialImageUrl} onChange={(url) => update((draft) => (draft.seo.socialImageUrl = url))} />
+          <FileDropzone publicAsset aspect="banner" value={config.seo.socialImageUrl} onChange={(url) => update((draft) => (draft.seo.socialImageUrl = url))} />
         </Field>
       </Section>
 

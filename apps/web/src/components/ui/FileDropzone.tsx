@@ -9,7 +9,15 @@ import { cn } from "@/lib/utils";
 
 type PresignResponse = { uploadUrl: string; fileUrl: string; key: string };
 
-async function uploadImage(file: File): Promise<string> {
+async function uploadImage(file: File, publicAsset: boolean): Promise<string> {
+  if (publicAsset) {
+    const body = new FormData();
+    body.set("file", file);
+    const response = await fetch("/api/public/assets", { method: "POST", body });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Upload failed.");
+    return result.fileUrl;
+  }
   const presign = await fetch("/api/storage/presign", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -48,6 +56,7 @@ export function FileDropzone({
   disabled,
   hint = "PNG, JPG, SVG or WEBP · up to 5MB",
   className,
+  publicAsset = false,
 }: {
   value: string | null;
   onChange: (url: string | null) => void;
@@ -57,6 +66,8 @@ export function FileDropzone({
   disabled?: boolean;
   hint?: string;
   className?: string;
+  /** Public company/career-page image, served through Harly from isolated storage. */
+  publicAsset?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -75,11 +86,11 @@ export function FileDropzone({
     }
     setUploading(true);
     try {
-      const url = await uploadImage(file);
+      const url = await uploadImage(file, publicAsset);
       setFailedUrl(null);
       onChange(url);
-    } catch {
-      toast.error("Upload failed.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Upload failed.");
     } finally {
       setUploading(false);
     }

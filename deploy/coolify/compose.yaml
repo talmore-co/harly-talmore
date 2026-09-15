@@ -1,0 +1,124 @@
+# Paste into Coolify's Docker Compose resource editor.
+# Set the required variables in Coolify before deploying.
+x-harly-image: &harly-image ${HARLY_IMAGE:-ghcr.io/talmore-co/harly-talmore@sha256:548979eca6d81e9ae8d20af95cbc80848794d4e1a5bc0b62beeed8db2a1d869a}
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+x-harly-env: &harly-env
+  NODE_ENV: production
+  HARLY_URL: ${HARLY_URL:-https://ats.talmore.co}
+  BETTER_AUTH_URL: ${HARLY_URL:-https://ats.talmore.co}
+  NEXT_PUBLIC_APP_URL: ${HARLY_URL:-https://ats.talmore.co}
+  HARLY_VERSION: ${HARLY_VERSION:-sha-3f3352307243dd17eb878675faec327218f16ca1}
+  DATABASE_URL: postgresql://harly:${POSTGRES_PASSWORD}@postgres:5432/harly
+  BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+  AI_ENCRYPTION_KEY: ${AI_ENCRYPTION_KEY}
+  STORAGE_UPLOAD_SECRET: ${STORAGE_UPLOAD_SECRET}
+  CRON_SECRET: ${CRON_SECRET}
+  HARLY_SETUP_SECRET: ${HARLY_SETUP_SECRET}
+  HARLY_INITIAL_ADMIN_EMAIL: ${HARLY_INITIAL_ADMIN_EMAIL}
+  STORAGE_PROVIDER: s3
+  S3_BUCKET: ${S3_BUCKET}
+  S3_REGION: auto
+  S3_ENDPOINT: ${S3_ENDPOINT}
+  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+  S3_PUBLIC_URL: ${S3_PUBLIC_URL:-}
+  ASSETS_S3_BUCKET: ${ASSETS_S3_BUCKET:-}
+  ASSETS_S3_ACCESS_KEY_ID: ${ASSETS_S3_ACCESS_KEY_ID:-}
+  ASSETS_S3_SECRET_ACCESS_KEY: ${ASSETS_S3_SECRET_ACCESS_KEY:-}
+  RESEND_API_KEY: ${RESEND_API_KEY:-}
+  EMAIL_FROM: ${EMAIL_FROM:-}
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+  HARLY_CACHE_MAX_MB: "256"
+  HARLY_CACHE_MAX_AGE_DAYS: "7"
+
+services:
+  postgres:
+    image: postgres:16-bookworm
+    restart: unless-stopped
+    mem_limit: 768m
+    shm_size: 128m
+    logging: *logging
+    environment:
+      POSTGRES_USER: harly
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: harly
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    image: *harly-image
+    command: ["migrate"]
+    restart: "no"
+    # Coolify-specific: a successful one-time job exits normally.
+    exclude_from_hc: true
+    mem_limit: 768m
+    logging: *logging
+    environment: *harly-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  app:
+    image: *harly-image
+    command: ["serve"]
+    restart: unless-stopped
+    stop_grace_period: 30s
+    mem_limit: 1536m
+    logging: *logging
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    environment:
+      <<: *harly-env
+      NODE_OPTIONS: --max-old-space-size=1024
+    expose:
+      - "3000"
+    volumes:
+      - next-cache:/app/apps/web/.next/cache
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 4s
+      start_period: 30s
+      retries: 12
+
+  scheduler:
+    image: *harly-image
+    command: ["scheduler"]
+    restart: unless-stopped
+    stop_grace_period: 30s
+    mem_limit: 256m
+    logging: *logging
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    environment:
+      <<: *harly-env
+      HARLY_INTERNAL_URL: http://app:3000
+      NODE_OPTIONS: --max-old-space-size=160
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "/app/runtime.mjs", "doctor"]
+      interval: 30s
+      timeout: 10s
+      start_period: 45s
+      retries: 3
+
+volumes:
+  postgres-data:
+  next-cache:

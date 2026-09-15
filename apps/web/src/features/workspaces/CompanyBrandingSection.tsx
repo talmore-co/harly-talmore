@@ -165,6 +165,7 @@ export function CompanyBrandingSection({
           {/* Logo + name */}
           <div className="flex items-center gap-5">
             <FileDropzone
+              publicAsset
               value={logoUrl || null}
               onChange={(url) => {
                 shouldAutoSaveLogo.current = true;
@@ -215,6 +216,7 @@ export function CompanyBrandingSection({
                     Light mode
                   </Label>
                   <FileDropzone
+                    publicAsset
                     value={sidebarLogoUrl || null}
                     onChange={(url) => setSidebarLogoUrl(url ?? "")}
                     aspect="banner"
@@ -228,6 +230,7 @@ export function CompanyBrandingSection({
                   </Label>
                   <div className="rounded-2xl bg-zinc-950 p-2">
                     <FileDropzone
+                      publicAsset
                       value={sidebarLogoDarkUrl || null}
                       onChange={(url) => setSidebarLogoDarkUrl(url ?? "")}
                       aspect="banner"
@@ -344,6 +347,7 @@ export function CompanyBrandingSection({
           <div className="space-y-2">
             <Label>Default banner</Label>
             <FileDropzone
+              publicAsset
               value={heroImageUrl || null}
               onChange={(url) => setHeroImageUrl(url ?? "")}
               aspect="banner"

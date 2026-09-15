@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 
 import { db, organization as organizationTable } from "@harly/db";
 import { safeFetchImage } from "@/lib/ssrf";
+import { createPublicAssetKey, getPublicAssetStorage, publicAssetKeyFromUrl, publicAssetUrl } from "@/lib/public-assets";
 
 export type ImageFormat = "png" | "jpeg" | "webp";
 const MAX_LOGO_DOWNLOAD_BYTES = 5 * 1024 * 1024;
@@ -150,7 +151,11 @@ export async function convertAndStoreLogo(input: {
   // host. Read those bytes straight from the storage adapter instead.
   let buffer: Buffer;
   let contentType: string;
-  if (logoUrl.startsWith("/uploads/")) {
+  const assetKey = publicAssetKeyFromUrl(logoUrl);
+  if (assetKey) {
+    buffer = await getPublicAssetStorage().read(assetKey);
+    contentType = guessMimeTypeFromExtension(logoUrl);
+  } else if (logoUrl.startsWith("/uploads/")) {
     buffer = await storage.read(logoUrl.slice("/uploads/".length));
     contentType = guessMimeTypeFromExtension(logoUrl);
   } else {
@@ -162,60 +167,22 @@ export async function convertAndStoreLogo(input: {
     buffer = await readLogoBody(response);
   }
 
-  if (!needsEmailConversion(contentType)) {
-    const format = getRecommendedEmailFormat(contentType);
-    const converted = await convertLogoForEmail(buffer, contentType, {
-      format,
-      width: 400,
-      height: 120,
-      quality: 90,
-    });
-
-    const emailKey = `logos/${organizationId}/email.${converted.extension}`;
-    // getPresignedUploadUrl is only consulted for its fileUrl shape here — the
-    // actual write goes through the trusted server-side storage.put(), not the
-    // intent-gated /api/storage/upload endpoint (that's scoped to browser
-    // uploads under workspaces/{id}/{resumes,images,documents}/... and would
-    // reject a logos/... key outright).
-    const uploadResult = await storage.getPresignedUploadUrl({
-      key: emailKey,
-      contentType: converted.mimeType,
-      contentLength: converted.buffer.length,
-    });
-    await storage.put(emailKey, converted.buffer, converted.mimeType);
-
-    await db
-      .update(organizationTable)
-      .set({ logoEmail: uploadResult.fileUrl })
-      .where(eq(organizationTable.id, organizationId));
-
-    return {
-      success: true,
-      logoEmailUrl: uploadResult.fileUrl,
-      format: converted.extension,
-    };
-  }
-
   const converted = await convertLogoForEmail(buffer, contentType, {
-    format: "png",
+    format: getRecommendedEmailFormat(contentType),
     width: 400,
     height: 120,
   });
 
-  const emailKey = `logos/${organizationId}/email.png`;
-  const uploadResult = await storage.getPresignedUploadUrl({
-    key: emailKey,
-    contentType: "image/png",
-    contentLength: converted.buffer.length,
-  });
-  await storage.put(emailKey, converted.buffer, "image/png");
+  const emailKey = createPublicAssetKey(organizationId, converted.extension);
+  await getPublicAssetStorage().put(emailKey, converted.buffer, converted.mimeType);
+  const logoEmailUrl = publicAssetUrl(emailKey);
 
   await db
     .update(organizationTable)
-    .set({ logoEmail: uploadResult.fileUrl })
+    .set({ logoEmail: logoEmailUrl })
     .where(eq(organizationTable.id, organizationId));
 
-  return { success: true, logoEmailUrl: uploadResult.fileUrl, format: "png" };
+  return { success: true, logoEmailUrl, format: converted.extension };
 }
 
 /**

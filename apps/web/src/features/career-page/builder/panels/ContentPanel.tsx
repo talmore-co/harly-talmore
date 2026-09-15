@@ -55,6 +55,7 @@ export function ContentPanel({ config, update, workspace }: ContentPanelProps) {
               <>
                 <Field label="Banner image">
                   <FileDropzone
+                    publicAsset
                     aspect="banner"
                     value={config.hero.imageUrl}
                     onChange={(url) => update((d) => (d.hero.imageUrl = url))}
@@ -85,6 +86,7 @@ export function ContentPanel({ config, update, workspace }: ContentPanelProps) {
                 </Field>
                 <Field label="Full logo, white letters for dark banners">
                   <FileDropzone
+                    publicAsset
                     aspect="banner"
                     value={config.hero.bannerLogoDark}
                     onChange={(url) => update((d) => (d.hero.bannerLogoDark = url))}
@@ -92,6 +94,7 @@ export function ContentPanel({ config, update, workspace }: ContentPanelProps) {
                 </Field>
                 <Field label="Full logo, dark letters for light banners">
                   <FileDropzone
+                    publicAsset
                     aspect="banner"
                     value={config.hero.bannerLogoLight}
                     onChange={(url) => update((d) => (d.hero.bannerLogoLight = url))}
@@ -130,6 +133,7 @@ export function ContentPanel({ config, update, workspace }: ContentPanelProps) {
           <>
             <Field label="Banner image">
               <FileDropzone
+                publicAsset
                 aspect="banner"
                 value={config.hero.imageUrl}
                 onChange={(url) => update((d) => (d.hero.imageUrl = url))}
