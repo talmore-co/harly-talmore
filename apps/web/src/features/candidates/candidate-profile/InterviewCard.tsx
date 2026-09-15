@@ -167,7 +167,7 @@ export function InterviewCard({
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {interview.status === "scheduled" ? (
+            {interview.status === "scheduled" && interview.source !== "cal.com-personal" ? (
               <EditInterviewDialog
                 interview={interview}
                 candidateId={candidateId}
@@ -196,6 +196,9 @@ export function InterviewCard({
         </span>
 
         {/* Location */}
+        {interview.source === "cal.com-personal" && <Button asChild size="sm" variant="outline" className="w-fit">
+          <a href="https://app.cal.com/bookings" target="_blank" rel="noopener noreferrer">Manage booking in Cal.com</a>
+        </Button>}
         {interview.location ? (
           <div className="flex items-center gap-2 text-sm text-foreground/90">
             <MapPin
@@ -315,7 +318,7 @@ export function InterviewCard({
                       size="sm"
                       variant="ghost"
                       className="text-muted-foreground"
-                      disabled={isPending}
+                      disabled={isPending || interview.source === "cal.com-personal"}
                     >
                       <X className="size-4" />
                       Cancel

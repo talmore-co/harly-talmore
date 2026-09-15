@@ -1,18 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { db, workspaceSettings } from "@harly/db";
+import { eq } from "drizzle-orm";
+import { db, personalGoogleConnections, workspaceSettings } from "@harly/db";
 
 import { auth } from "@/lib/auth";
 import { encryptSecret } from "@/lib/crypto";
 import { createOAuth2Client } from "@/lib/gcal/config";
-import { createLogger } from "@/lib/logger";
 import { getHarlyPublicOrigin } from "@/lib/public-origin";
 import { requirePermission } from "@/features/workspaces/permissions-server";
 import {
   verifyAndConsumeOauthStateNonce,
+  verifySignedState,
 } from "@/server/oauth-state";
-
-const log = createLogger("api-google-callback");
+import { getWorkspaceContextOrNull } from "@/features/workspaces/context";
+import { listCalendars } from "@/lib/gcal/client";
 
 export const runtime = "nodejs";
 
@@ -31,13 +32,15 @@ export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   const state = req.nextUrl.searchParams.get("state");
   const error = req.nextUrl.searchParams.get("error");
+  const personal = Boolean(state && verifySignedState(state)?.p === "google-personal");
+  const fail = (message: string) => redirectWithError(message, personal);
 
   if (error) {
-    return redirectWithError(`Google denied access: ${error}`);
+    return fail("Google Calendar access was not granted.");
   }
 
   if (!code || !state) {
-    return redirectWithError("Missing code or state from Google.");
+    return fail("Missing code or state from Google.");
   }
 
   // Verify the server-side nonce: single-use, TTL-scoped, bound to the user +
@@ -47,86 +50,105 @@ export async function GET(req: NextRequest) {
   const userId = session.user.id;
   const workspaceId = actor.activeOrganizationId;
   if (!workspaceId) {
-    return redirectWithError("No workspace available for this account.");
+    return fail("No workspace available for this account.");
   }
 
   const nonceCheck = await verifyAndConsumeOauthStateNonce({
     state,
     userId,
     workspaceId,
-    provider: "google",
+    provider: personal ? "google-personal" : "google",
   });
   if (!nonceCheck.ok) {
-    return redirectWithError(`${nonceCheck.error} Please try again.`);
+    return fail(`${nonceCheck.error} Please try again.`);
   }
 
-  await requirePermission("integrations:manage");
+  const context = await getWorkspaceContextOrNull();
+  if (!context || context.organization.id !== workspaceId || context.user.id !== userId) {
+    return fail("Workspace membership is required.");
+  }
+  if (!personal) await requirePermission("integrations:manage");
 
   const wsId = nonceCheck.workspaceId;
 
   const oauth2Client = createOAuth2Client();
   if (!oauth2Client) {
-    return redirectWithError("Google OAuth credentials not configured.");
+    return fail("Google OAuth credentials not configured.");
   }
 
-  // Exchange code for tokens
-  const { tokens } = await oauth2Client.getToken(code);
-
-  if (!tokens.refresh_token) {
-    return redirectWithError(
-      "No refresh token received. Please revoke access at myaccount.google.com/permissions and try again.",
-    );
-  }
-
-  // Fetch connected Google account email
-  oauth2Client.setCredentials(tokens);
-  let accountEmail: string | null = null;
   try {
-    const res = await fetch(
-      "https://www.googleapis.com/oauth2/v2/userinfo",
-      {
-        headers: {
-          Authorization: `Bearer ${tokens.access_token}`,
-        },
-      },
-    );
+    const { tokens } = await oauth2Client.getToken(code);
+    if (!tokens.refresh_token) {
+      return fail("No refresh token received. Try connecting Google again and approve calendar access.");
+    }
+    oauth2Client.setCredentials(tokens);
+    const res = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    });
+    let accountEmail: string | null = null;
     if (res.ok) {
       const info = (await res.json()) as { email?: string };
-      accountEmail = info.email ?? null;
+      accountEmail = info.email?.toLowerCase() ?? null;
     }
-  } catch (error) {
-    log.error(error, "google callback userinfo fetch failed");
+    const encrypted = encryptSecret(tokens.refresh_token);
+
+    if (personal) {
+      if (!accountEmail) return fail("Could not identify your Google account. Try connecting again.");
+      const calendars = await listCalendars(oauth2Client);
+      const primary = calendars.find((calendar) => calendar.primary) ?? calendars[0];
+      if (!primary) return fail("This Google account has no writable calendar.");
+      const credentials = {
+        enabled: true,
+        refreshTokenCiphertext: encrypted.ciphertext,
+        refreshTokenIv: encrypted.iv,
+        refreshTokenTag: encrypted.tag,
+        updatedAt: new Date(),
+      };
+      // Atomic identity guard: concurrent callbacks cannot swap the account
+      // behind a connection ID already referenced by calendar events.
+      const saved = await db.insert(personalGoogleConnections)
+        .values({
+          workspaceId: wsId, userId, accountEmail,
+          calendarId: primary.id, availabilityCalendarIds: [primary.id],
+          ...credentials,
+        })
+        .onConflictDoUpdate({
+          target: [personalGoogleConnections.workspaceId, personalGoogleConnections.userId],
+          set: credentials,
+          setWhere: eq(personalGoogleConnections.accountEmail, accountEmail),
+        })
+        .returning({ id: personalGoogleConnections.id });
+      if (saved.length !== 1) return fail("Reconnect the same Google account previously linked to your profile.");
+      return NextResponse.redirect(`${getAppUrl()}/account?tab=connections&gcal=connected`);
+    }
+
+    const set: Partial<typeof workspaceSettings.$inferInsert> = {
+      gcalEnabled: true,
+      gcalAccountEmail: accountEmail,
+      gcalCalendarId: "primary",
+      gcalRefreshTokenCiphertext: encrypted.ciphertext,
+      gcalRefreshTokenIv: encrypted.iv,
+      gcalRefreshTokenTag: encrypted.tag,
+      updatedAt: new Date(),
+    };
+
+    await db
+      .insert(workspaceSettings)
+      .values({ organizationId: wsId, ...set })
+      .onConflictDoUpdate({ target: workspaceSettings.organizationId, set });
+
+    return NextResponse.redirect(`${getAppUrl()}/settings/integrations?gcal=connected`);
+  } catch {
+    return fail("Could not connect Google Calendar. Please try again.");
   }
-
-  const encrypted = encryptSecret(tokens.refresh_token);
-
-  const set: Partial<typeof workspaceSettings.$inferInsert> = {
-    gcalEnabled: true,
-    gcalAccountEmail: accountEmail,
-    gcalCalendarId: "primary",
-    gcalRefreshTokenCiphertext: encrypted.ciphertext,
-    gcalRefreshTokenIv: encrypted.iv,
-    gcalRefreshTokenTag: encrypted.tag,
-    updatedAt: new Date(),
-  };
-
-  await db
-    .insert(workspaceSettings)
-    .values({ organizationId: wsId, ...set })
-    .onConflictDoUpdate({ target: workspaceSettings.organizationId, set });
-
-  const appUrl = getAppUrl();
-  return NextResponse.redirect(
-    `${appUrl}/settings/integrations?gcal=connected`,
-  );
 }
 
 function getAppUrl(): string {
   return getHarlyPublicOrigin();
 }
 
-function redirectWithError(msg: string) {
-  const url = new URL(`${getAppUrl()}/settings/integrations`);
+function redirectWithError(msg: string, personal = false) {
+  const url = new URL(`${getAppUrl()}${personal ? "/account?tab=connections" : "/settings/integrations"}`);
   url.searchParams.set("gcal_error", msg);
   return NextResponse.redirect(url.toString());
 }

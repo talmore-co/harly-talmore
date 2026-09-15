@@ -3,9 +3,11 @@
 import { and, eq, gt, lt, ne } from "drizzle-orm";
 
 import { db, interviews } from "@harly/db";
-import { getWorkspaceGCalConfig } from "@/lib/gcal/config";
+import { getInterviewerGCalConfig } from "@/lib/gcal/personal";
 import { getFreeBusy } from "@/lib/gcal/client";
 import { getWorkspaceContext } from "@/features/workspaces/context";
+import { requireInterviewPermission, requirePermission } from "@/features/workspaces/permissions-server";
+import { z } from "zod";
 
 type AvailabilityResult = {
   gcalBusy: Array<{ start: string; end: string }>;
@@ -33,29 +35,49 @@ export async function checkAvailability(opts: {
 }): Promise<AvailabilityResult> {
   try {
     const { organization: workspace } = await getWorkspaceContext();
+    const parsed = z.object({ timeMin: z.date(), timeMax: z.date(), interviewerId: z.string().optional(), excludeInterviewId: z.string().uuid().optional() }).safeParse(opts);
+    if (!parsed.success || opts.timeMax <= opts.timeMin || opts.timeMax.getTime() - opts.timeMin.getTime() > 7 * 86400000) {
+      return { gcalBusy: [], internalConflicts: [], error: "Choose a valid availability window of up to seven days." };
+    }
+    let interviewerId = opts.interviewerId;
+    if (opts.excludeInterviewId) {
+      await requireInterviewPermission("collab:write", opts.excludeInterviewId);
+      if (!interviewerId) {
+        const [interview] = await db.select({ interviewerId: interviews.interviewerId }).from(interviews)
+          .where(and(eq(interviews.id, opts.excludeInterviewId), eq(interviews.workspaceId, workspace.id))).limit(1);
+        interviewerId = interview?.interviewerId ?? undefined;
+      }
+    } else {
+      await requirePermission("collab:write");
+    }
 
     // 1. GCal free/busy
     let gcalBusy: Array<{ start: string; end: string }> = [];
-    const config = await getWorkspaceGCalConfig(workspace.id);
+    let error: string | undefined;
+    const config = await getInterviewerGCalConfig(workspace.id, interviewerId);
     if (config) {
       try {
-        gcalBusy = await getFreeBusy(
+        gcalBusy = (await Promise.all(config.availabilityCalendarIds.map((calendarId) => getFreeBusy(
           config.oauth2Client,
-          config.calendarId,
+          calendarId,
           opts.timeMin,
           opts.timeMax,
-        );
+        )))).flat();
       } catch {
-        // GCal check failing shouldn't block scheduling.
+        error = "Could not check the interviewer's Google Calendar. Confirm availability before scheduling.";
       }
+    } else {
+      error = interviewerId
+        ? "This interviewer has not connected Google Calendar. Calendar availability and automatic Meet creation are unavailable."
+        : "Select an interviewer to check their calendar.";
     }
 
     // 2. Internal interview conflicts (same interviewer overlap)
     let internalConflicts: AvailabilityResult["internalConflicts"] = [];
-    if (opts.interviewerId) {
+    if (interviewerId) {
       const conditions = [
         eq(interviews.workspaceId, workspace.id),
-        eq(interviews.interviewerId, opts.interviewerId),
+        eq(interviews.interviewerId, interviewerId),
         eq(interviews.status, "scheduled"),
         lt(interviews.scheduledAt, opts.timeMax),
         gt(
@@ -96,7 +118,7 @@ export async function checkAvailability(opts: {
       }));
     }
 
-    return { gcalBusy, internalConflicts };
+    return { gcalBusy, internalConflicts, error };
   } catch {
     return { gcalBusy: [], internalConflicts: [], error: "Could not check availability." };
   }

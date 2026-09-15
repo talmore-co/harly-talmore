@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, type ReactNode } from "react";
+import { useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "@/lib/notification-island/toast";
@@ -52,10 +52,13 @@ export function RescheduleDrawer({
   const [isPending, startTransition] = useTransition();
   const [availabilityWarning, setAvailabilityWarning] = useState<string | null>(null);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const availabilityRequest = useRef(0);
 
   async function checkTimeAvailability(newDate: string, newTime: string, duration: string) {
+    const request = ++availabilityRequest.current;
+    setAvailabilityWarning(null);
     if (!newDate || !newTime) {
-      setAvailabilityWarning(null);
+      setCheckingAvailability(false);
       return;
     }
     setCheckingAvailability(true);
@@ -64,17 +67,18 @@ export function RescheduleDrawer({
       const start = parseScheduledAt(`${newDate}T${newTime}`, timeZone);
       const end = new Date(start.getTime() + Number(duration) * 60_000);
       const result = await checkAvailability({ timeMin: start, timeMax: end, excludeInterviewId: interviewId });
+      if (request !== availabilityRequest.current) return;
       if (result.gcalBusy.length > 0) {
         setAvailabilityWarning(
-          `This time overlaps with ${result.gcalBusy.length} existing event${result.gcalBusy.length > 1 ? "s" : ""} on your calendar.`,
+          `This time overlaps with ${result.gcalBusy.length} existing event${result.gcalBusy.length > 1 ? "s" : ""} on the interviewer's calendar.`,
         );
       } else {
-        setAvailabilityWarning(null);
+        setAvailabilityWarning(result.internalConflicts.length ? "This interviewer already has an interview at that time." : result.error ?? null);
       }
     } catch {
-      // Silently fail , don't block rescheduling on availability check.
+      if (request === availabilityRequest.current) setAvailabilityWarning("Could not check availability. Confirm the time with the interviewer.");
     } finally {
-      setCheckingAvailability(false);
+      if (request === availabilityRequest.current) setCheckingAvailability(false);
     }
   }
 

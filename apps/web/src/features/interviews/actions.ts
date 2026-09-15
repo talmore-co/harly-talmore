@@ -24,7 +24,7 @@ import {
   cancelInterviewGCalEvent,
   updateInterviewGCalEvent,
 } from "@/lib/gcal/sync";
-import { getWorkspaceGCalConfig } from "@/lib/gcal/config";
+import { getInterviewerGCalConfig } from "@/lib/gcal/personal";
 import {
   syncInterviewToTeams,
   cancelInterviewTeamsMeeting,
@@ -558,7 +558,7 @@ export async function scheduleInterview(
           await Promise.all([
             getZoomToken(workspace.id),
             getWorkspaceOutlookConfig(workspace.id),
-            getWorkspaceGCalConfig(workspace.id),
+            getInterviewerGCalConfig(workspace.id, data.interviewerId),
             getWorkspaceJitsiConfig(workspace.id),
           ]);
         if (hasExplicitMeetingLink || provider === "external") {
@@ -845,7 +845,7 @@ export async function setInterviewStatus(input: {
     // recruiter gets an accurate message instead of a misleading "not found"
     // when the interview was already completed/canceled.
     const [existing] = await db
-      .select({ id: interviews.id, status: interviews.status })
+      .select({ id: interviews.id, status: interviews.status, source: interviews.source })
       .from(interviews)
       .innerJoin(
         candidates,
@@ -870,6 +870,9 @@ export async function setInterviewStatus(input: {
         success: false,
         error: "This interview is no longer scheduled and can't be changed.",
       };
+    }
+    if (existing.source === "cal.com-personal" && parsed.data.status === "canceled") {
+      return { success: false, error: "Manage this booking in Cal.com. Its changes will sync back to Harly." };
     }
 
     const statusEvent: { current: PersistedDomainEvent | null } = {
@@ -1150,6 +1153,7 @@ export async function rescheduleInterview(input: {
         candidateId: interviews.candidateId,
         meetLink: interviews.meetLink,
         gcalEventId: interviews.gcalEventId,
+        source: interviews.source,
         teamsMeetingId: interviews.teamsMeetingId,
         zoomMeetingId: interviews.zoomMeetingId,
         jitsiRoom: interviews.jitsiRoom,
@@ -1167,6 +1171,9 @@ export async function rescheduleInterview(input: {
       )
       .limit(1);
 
+    if (row?.source === "cal.com-personal") {
+      return { success: false, error: "Manage this booking in Cal.com. Its changes will sync back to Harly." };
+    }
     if (!row) {
       return { success: false, error: "Interview not found." };
     }
@@ -1686,6 +1693,7 @@ export async function updateInterview(input: {
         id: interviews.id,
         candidateId: interviews.candidateId,
         gcalEventId: interviews.gcalEventId,
+        source: interviews.source,
         teamsMeetingId: interviews.teamsMeetingId,
         zoomMeetingId: interviews.zoomMeetingId,
         jitsiRoom: interviews.jitsiRoom,
@@ -1707,6 +1715,9 @@ export async function updateInterview(input: {
       )
       .limit(1);
 
+    if (row?.source === "cal.com-personal") {
+      return { success: false, error: "Manage this booking in Cal.com. Its changes will sync back to Harly." };
+    }
     if (!row) {
       return { success: false, error: "Interview not found." };
     }
@@ -1971,7 +1982,7 @@ export async function updateInterview(input: {
           await Promise.all([
             getZoomToken(workspace.id),
             getWorkspaceOutlookConfig(workspace.id),
-            getWorkspaceGCalConfig(workspace.id),
+            getInterviewerGCalConfig(workspace.id, effectiveInterviewerId),
             getWorkspaceJitsiConfig(workspace.id),
         ]);
         if (zoomToken) {
@@ -2020,6 +2031,7 @@ export async function updateInterview(input: {
               syncInterviewToGCal({
                 workspaceId: workspace.id,
                 interviewId: row.id,
+                interviewerId: effectiveInterviewerId,
                 summary,
                 start,
                 durationMins,

@@ -114,6 +114,7 @@ export async function retryInterviewSyncForWorkspace(input: {
     if (!row) return { success: false, error: "Sync attempt not found." };
 
     const { sync, interview } = row;
+    if (interview.source === "cal.com-personal") return { success: false, error: "This booking is managed by Cal.com." };
     const attendees = [row.candidateEmail, row.interviewerEmail].filter(
       (email): email is string => Boolean(email),
     );

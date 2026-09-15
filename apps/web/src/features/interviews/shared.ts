@@ -33,6 +33,7 @@ export type InterviewSyncItem = {
 };
 
 export type CandidateInterviewItem = {
+  source?: string;
   id: string;
   applicationId: string;
   type: InterviewType;

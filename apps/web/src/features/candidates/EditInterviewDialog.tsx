@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, type ReactNode } from "react";
+import { useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "@/lib/notification-island/toast";
@@ -77,6 +77,7 @@ export function EditInterviewDialog({
   const [isPending, startTransition] = useTransition();
   const [availabilityWarning, setAvailabilityWarning] = useState<string | null>(null);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const availabilityRequest = useRef(0);
 
   const locationLabel = mode === "onsite" ? "Address" : "Meeting link";
 
@@ -86,8 +87,10 @@ export function EditInterviewDialog({
     duration: number,
     interviewer?: string,
   ) {
+    const request = ++availabilityRequest.current;
+    setAvailabilityWarning(null);
     if (!newDate || !newTime) {
-      setAvailabilityWarning(null);
+      setCheckingAvailability(false);
       return;
     }
     setCheckingAvailability(true);
@@ -101,6 +104,7 @@ export function EditInterviewDialog({
         interviewerId: interviewer ?? (interviewerId || undefined),
         excludeInterviewId: interview.id,
       });
+      if (request !== availabilityRequest.current) return;
       const warnings: string[] = [];
       if (result.gcalBusy.length > 0) {
         warnings.push(
@@ -115,12 +119,12 @@ export function EditInterviewDialog({
       setAvailabilityWarning(
         warnings.length > 0
           ? `This time conflicts with ${warnings.join(" and ")}.`
-          : null,
+          : result.error ?? null,
       );
     } catch {
-      // Silently fail
+      if (request === availabilityRequest.current) setAvailabilityWarning("Could not check availability. Confirm the time with the interviewer.");
     } finally {
-      setCheckingAvailability(false);
+      if (request === availabilityRequest.current) setCheckingAvailability(false);
     }
   }
 

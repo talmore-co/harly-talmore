@@ -1,9 +1,11 @@
 import "server-only";
 
 import { getWorkspaceContext } from "@/features/workspaces/context";
-import { getWorkspaceCalStatus } from "@/lib/cal/config";
+import type { getWorkspaceCalStatus } from "@/lib/cal/config";
 import { getWorkspaceEsignStatus } from "@/lib/esign/config";
-import { getWorkspaceGCalStatus } from "@/lib/gcal/config";
+import type { getWorkspaceGCalStatus } from "@/lib/gcal/config";
+import { getMyGoogleConnection } from "@/features/account/google-actions";
+import { getMyCalConnection } from "@/features/account/cal-actions";
 import { getWorkspaceJitsiStatus } from "@/lib/jitsi/config";
 import { getWorkspaceChatStatus } from "@/lib/notify/config";
 import { getWorkspaceOutlookStatus } from "@/lib/outlook/config";
@@ -87,31 +89,34 @@ export const CATEGORY_ORDER: IntegrationCategory[] = [
 export const INTEGRATIONS: IntegrationDefinition[] = [
   {
     slug: "cal",
+    externalHref: "/account?tab=connections",
     name: "Cal.com",
     category: "calendar",
     description: "Let candidates book time with your team.",
     detail:
-      "Connect Cal.com so candidates can self-schedule interviews and bookings flow straight into your pipeline.",
+      "Each recruiter connects a personal Cal.com account in Account → Connections. Candidate-specific links attach bookings to the right application and interviewer.",
     tileClassName:
       "bg-gradient-to-br from-slate-700 via-slate-900 to-black text-white",
   },
   {
     slug: "google-calendar",
+    externalHref: "/account?tab=connections",
     name: "Google Calendar",
     category: "calendar",
-    description: "Sync events and interviewer availability.",
+    description: "Connect your personal interview calendar.",
     detail:
-      "Keep interviews and interviewer availability in sync with Google Calendar across your whole team.",
+      "Each recruiter connects Google Calendar in Account → Connections to check their availability and host interviews.",
     // Multicolor Google mark , light neutral so every fill reads.
     tileClassName: "bg-gradient-to-br from-white via-sky-50 to-sky-200",
   },
   {
     slug: "google-meet",
+    externalHref: "/account?tab=connections",
     name: "Google Meet",
     category: "calendar",
     description: "Generate video links for every video interview.",
     detail:
-      "Connect Google to add a Google Meet video link to every scheduled video interview. Meet shares your Google Calendar connection — connect once and both light up.",
+      "Google Meet uses the assigned interviewer's personal Google Calendar connection. Connect yours in Account → Connections.",
     // Multicolor Meet mark , light emerald-teal neutral so every fill reads
     // while staying distinct from the GCal sky tile and Zoom's stronger blue.
     tileClassName: "bg-gradient-to-br from-white via-emerald-50 to-teal-100",
@@ -329,8 +334,25 @@ export async function getIntegrationStatuses(
 ): Promise<IntegrationStatuses> {
   const [cal, gcal, slack, outlook, zoom, chat, telegram, jitsi, docuseal, captcha] =
     await Promise.all([
-      getWorkspaceCalStatus(workspaceId),
-      getWorkspaceGCalStatus(workspaceId),
+      getMyCalConnection().then((status) => {
+        const connection = status.workspaceId === workspaceId ? status.connection : null;
+        const event = connection ? status.events.find((item) => item.eventTypeId === connection.defaultEventTypeId) : null;
+        return {
+          enabled: Boolean(connection?.enabled), baseUrl: "https://api.cal.com/v2",
+          bookingUrl: event?.bookingUrl ?? null,
+          defaultEventTypeId: connection?.defaultEventTypeId ?? null,
+          hasApiKey: Boolean(connection?.enabled), hasWebhookSecret: Boolean(event?.webhookConfigured),
+          encryptionReady: status.configured,
+        };
+      }),
+      getMyGoogleConnection().then((status) => ({
+        enabled: status.workspaceId === workspaceId && Boolean(status.connection?.enabled),
+        accountEmail: status.workspaceId === workspaceId ? status.connection?.accountEmail ?? null : null,
+        calendarId: status.workspaceId === workspaceId ? status.connection?.calendarId ?? null : null,
+        hasRefreshToken: status.workspaceId === workspaceId && Boolean(status.connection?.enabled),
+        hasCredentials: status.configured,
+        encryptionReady: status.configured,
+      })),
       getWorkspaceSlackStatus(workspaceId),
       getWorkspaceOutlookStatus(workspaceId),
       getZoomConfig(workspaceId),

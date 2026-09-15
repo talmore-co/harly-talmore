@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 import { db, interviews } from "@harly/db";
 
@@ -9,6 +9,8 @@ import {
   getWorkspaceGCalConfig,
   invalidateWorkspaceGCalConnection,
 } from "@/lib/gcal/config";
+import { getInterviewerGCalConfig, getPersonalGCalConfig, invalidatePersonalGCalConnection } from "./personal";
+import type { GCalConfig } from "./config";
 import {
   createEvent,
   deleteEvent,
@@ -28,6 +30,46 @@ export function gcalEventIdForInterview(interviewId: string): string {
   return `harl${createHash("sha256").update(interviewId).digest("hex")}`;
 }
 
+type OwnedConfig = GCalConfig & { connectionId?: string };
+
+/** Resolve persisted event ownership, not the current actor or default calendar. */
+async function eventConfig(
+  workspaceId: string,
+  selector: { interviewId: string } | { eventId: string },
+  interviewerId?: string | null,
+): Promise<OwnedConfig | null> {
+  const [interview] = await db.select().from(interviews).where(and(
+    eq(interviews.workspaceId, workspaceId),
+    "interviewId" in selector ? eq(interviews.id, selector.interviewId) : eq(interviews.gcalEventId, selector.eventId),
+  )).limit(1);
+  if (!interview) return null;
+  if (interview.source === "cal.com-personal") return null;
+  if (interview.gcalConnectionId) {
+    const config = await getPersonalGCalConfig(workspaceId, { connectionId: interview.gcalConnectionId });
+    return config ? { ...config, calendarId: interview.gcalCalendarId ?? config.calendarId } : null;
+  }
+  // Only events created before personal connections can use the legacy account.
+  if (interview.gcalEventId) {
+    const config = await getWorkspaceGCalConfig(workspaceId);
+    return config ? { ...config, calendarId: interview.gcalCalendarId ?? config.calendarId } : null;
+  }
+  const config = await getInterviewerGCalConfig(workspaceId, interviewerId === undefined ? interview.interviewerId : interviewerId);
+  if (!config) return null;
+  // Pin before calling Google: even a timed-out creation must retry on the same calendar.
+  const pinned = await db.update(interviews).set({
+    gcalConnectionId: config.connectionId, gcalCalendarId: config.calendarId,
+  }).where(and(
+    eq(interviews.workspaceId, workspaceId), eq(interviews.id, interview.id),
+    isNull(interviews.gcalConnectionId), isNull(interviews.gcalEventId),
+  )).returning({ id: interviews.id });
+  return pinned.length ? config : eventConfig(workspaceId, { interviewId: interview.id });
+}
+
+async function invalidateConfig(workspaceId: string, config: OwnedConfig | null) {
+  if (config?.connectionId) await invalidatePersonalGCalConnection(workspaceId, config.connectionId);
+  else if (config) await invalidateWorkspaceGCalConnection(workspaceId);
+}
+
 /**
  * Create a Google Calendar event for a new interview and store the event ID
  * back on the interview row. The database interview is the source of truth:
@@ -41,6 +83,8 @@ export type GCalSyncResult =
 export async function syncInterviewToGCal(opts: {
   workspaceId: string;
   interviewId: string;
+  /** Used by the dashboard edit flow, whose provider sync precedes its DB update. */
+  interviewerId?: string | null;
   summary: string;
   description?: string;
   start: Date;
@@ -50,8 +94,9 @@ export async function syncInterviewToGCal(opts: {
   mode?: string;
   timeZone?: string;
 }): Promise<GCalSyncResult> {
+  let config: OwnedConfig | null = null;
   try {
-    const config = await getWorkspaceGCalConfig(opts.workspaceId);
+    config = await eventConfig(opts.workspaceId, { interviewId: opts.interviewId }, opts.interviewerId);
     if (!config) return { ok: false, reason: "not_connected" };
 
     const eventId = gcalEventIdForInterview(opts.interviewId);
@@ -100,7 +145,7 @@ export async function syncInterviewToGCal(opts: {
     log.error(err, "[gcal-sync] Failed to create event");
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes("invalid_grant")) {
-      await invalidateWorkspaceGCalConnection(opts.workspaceId);
+      await invalidateConfig(opts.workspaceId, config);
       return { ok: false, reason: "invalid_grant" };
     }
     return { ok: false, reason: "failed" };
@@ -115,8 +160,9 @@ export async function cancelInterviewGCalEvent(opts: {
   interviewId: string;
   gcalEventId: string;
 }): Promise<boolean> {
+  let config: OwnedConfig | null = null;
   try {
-    const config = await getWorkspaceGCalConfig(opts.workspaceId);
+    config = await eventConfig(opts.workspaceId, { interviewId: opts.interviewId });
     if (!config) return false;
 
     await deleteEvent(config.oauth2Client, config.calendarId, opts.gcalEventId);
@@ -132,6 +178,7 @@ export async function cancelInterviewGCalEvent(opts: {
       );
     return true;
   } catch (err) {
+    if (err instanceof Error && err.message.includes("invalid_grant")) await invalidateConfig(opts.workspaceId, config);
     log.error(err, "[gcal-sync] Failed to cancel event");
     return false;
   }
@@ -151,8 +198,9 @@ export async function updateInterviewGCalEvent(opts: {
   status?: "confirmed" | "cancelled";
   timeZone?: string;
 }): Promise<boolean> {
+  let config: OwnedConfig | null = null;
   try {
-    const config = await getWorkspaceGCalConfig(opts.workspaceId);
+    config = await eventConfig(opts.workspaceId, { eventId: opts.gcalEventId });
     if (!config) return false;
 
     await updateEvent(
@@ -171,6 +219,7 @@ export async function updateInterviewGCalEvent(opts: {
     );
     return true;
   } catch (err) {
+    if (err instanceof Error && err.message.includes("invalid_grant")) await invalidateConfig(opts.workspaceId, config);
     log.error(err, "[gcal-sync] Failed to update event");
     return false;
   }

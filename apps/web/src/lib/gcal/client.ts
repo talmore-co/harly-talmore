@@ -55,11 +55,20 @@ async function gcalFetch<T>(
 
 export async function listCalendars(
   client: OAuth2Client,
+  writableOnly = true,
 ): Promise<CalendarListEntry[]> {
-  const data = await gcalFetch<{
-    items?: CalendarListEntry[];
-  }>(client, "/users/me/calendarList?minAccessRole=writer");
-  return data.items ?? [];
+  const calendars: CalendarListEntry[] = [];
+  let pageToken: string | undefined;
+  do {
+    const query = new URLSearchParams({ minAccessRole: writableOnly ? "writer" : "freeBusyReader" });
+    if (pageToken) query.set("pageToken", pageToken);
+    const data = await gcalFetch<{ items?: CalendarListEntry[]; nextPageToken?: string }>(
+      client, `/users/me/calendarList?${query}`,
+    );
+    calendars.push(...(data.items ?? []));
+    pageToken = data.nextPageToken;
+  } while (pageToken);
+  return calendars;
 }
 
 export async function createEvent(
@@ -208,7 +217,7 @@ export async function getFreeBusy(
   const data = await gcalFetch<{
     calendars?: Record<
       string,
-      { busy?: Array<{ start: string; end: string }> }
+      { busy?: Array<{ start: string; end: string }>; errors?: unknown[] }
     >;
   }>(client, "/freeBusy", {
     method: "POST",
@@ -219,5 +228,9 @@ export async function getFreeBusy(
     }),
   });
 
-  return data.calendars?.[calendarId]?.busy ?? [];
+  const calendar = data.calendars?.[calendarId];
+  if (!calendar || calendar.errors?.length) {
+    throw new Error("Google could not check this calendar's availability.");
+  }
+  return calendar.busy ?? [];
 }

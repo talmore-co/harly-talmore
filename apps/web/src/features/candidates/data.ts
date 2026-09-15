@@ -78,6 +78,7 @@ import { cancelInterviewZoomMeeting } from "@/lib/zoom/sync";
 import { cancelInterviewJitsiMeeting } from "@/lib/jitsi/sync";
 import { getWorkspaceCalConfig } from "@/lib/cal/config";
 import { cancelCalBooking } from "@/lib/cal/client";
+import { cancelPersonalCalBookingForDeletion } from "@/lib/cal/personal";
 import { getWorkspaceEsignConfig } from "@/lib/esign/config";
 import { archiveSubmissionIdempotent } from "@/lib/esign/client";
 import { storage } from "@/lib/storage";
@@ -2024,6 +2025,7 @@ export async function permanentlyDeleteCandidate(
       zoomMeetingId: interviews.zoomMeetingId,
       jitsiRoom: interviews.jitsiRoom,
       calBookingUid: interviews.calBookingUid,
+      calConnectionId: interviews.calConnectionId,
     })
     .from(interviews)
     .where(
@@ -2070,7 +2072,9 @@ export async function permanentlyDeleteCandidate(
           })
         : Promise.resolve(true),
       iv.calBookingUid
-        ? getWorkspaceCalConfig(workspace.id).then((config) =>
+        ? iv.calConnectionId
+          ? cancelPersonalCalBookingForDeletion(workspace.id, iv.calConnectionId, iv.calBookingUid)
+          : getWorkspaceCalConfig(workspace.id).then((config) =>
             config ? cancelCalBooking(config, iv.calBookingUid!) : false,
           )
         : Promise.resolve(true),

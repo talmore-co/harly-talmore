@@ -11,6 +11,8 @@ import {
   interviews,
   jobs,
   organization,
+  personalCalConnections,
+  personalCalEvents,
   workspaceSettings,
 } from "@harly/db";
 import { verifyCalSignature } from "@/lib/cal/client";
@@ -39,6 +41,7 @@ type CalWebhookBody = {
   payload?: {
     uid?: string;
     bookingId?: number;
+    eventTypeId?: number;
     startTime?: string;
     endTime?: string;
     title?: string;
@@ -387,9 +390,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, skipped: body.triggerEvent ?? "unknown" });
   }
 
+  // An older account-wide hook may also receive personal-event bookings.
+  // Only the personal receiver may import or update those bookings.
+  if (payload.metadata?.harlyBookingRef !== undefined) {
+    return NextResponse.json({ ok: true, skipped: "personal booking" });
+  }
+  if (Number.isInteger(payload.eventTypeId)) {
+    const [personal] = await db.select({ id: personalCalEvents.id })
+      .from(personalCalEvents)
+      .innerJoin(personalCalConnections, eq(personalCalConnections.id, personalCalEvents.connectionId))
+      .where(and(eq(personalCalConnections.workspaceId, workspaceId), eq(personalCalEvents.eventTypeId, payload.eventTypeId!)))
+      .limit(1);
+    if (personal) return NextResponse.json({ ok: true, skipped: "personal event subscription" });
+  }
+
   const currentWhere = and(
     eq(interviews.workspaceId, workspaceId),
     eq(interviews.calBookingUid, uid),
+    isNull(interviews.calConnectionId),
     activeCandidateForInterview(workspaceId),
   );
 

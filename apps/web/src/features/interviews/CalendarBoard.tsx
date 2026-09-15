@@ -446,7 +446,7 @@ export function CalendarBoard({
                     const ModeIcon = MODE_ICON[iv.mode];
                     const isExpanded = expandedId === iv.id;
                     const hasDetails = Boolean(
-                      iv.location || iv.notes || iv.meetLink || iv.title,
+                      iv.location || iv.notes || iv.meetLink || iv.title || iv.source === "cal.com-personal",
                     );
                     return (
                       <div
@@ -564,6 +564,7 @@ export function CalendarBoard({
                                     {iv.notes}
                                   </p>
                                 ) : null}
+                                {iv.source === "cal.com-personal" && <a href="https://app.cal.com/bookings" target="_blank" rel="noreferrer" className="text-xs underline">Manage in Cal.com</a>}
                                 {iv.gcalEventId ? (
                                   <button
                                     type="button"

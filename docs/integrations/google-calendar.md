@@ -1,20 +1,21 @@
 ---
 title: "Google Calendar and Google Meet"
-description: "Configure Google OAuth once on the server, then connect a workspace calendar from Harly."
+description: "Configure Google OAuth once, then let each recruiter connect their calendar in Account → Connections."
 ---
 
 # Google Calendar and Google Meet
 
-Harly uses Google OAuth to connect a workspace calendar. This is a two-part
+Harly uses Google OAuth to connect each recruiter's calendar. This is a two-part
 setup:
 
 1. The operator configures Harly's Google OAuth application credentials on the
    server.
-2. A workspace administrator connects the Google account and calendar from
-   **Settings → Integrations → Google Calendar**.
+2. Each workspace member connects their own Google account from
+   **Account → Connections**. Administrator permissions are not required for
+   personal connections.
 
 The Google OAuth client credentials belong to the Harly installation. The
-Google refresh token belongs to the connected workspace account. Never put the
+Google refresh token belongs to the connected member within that workspace. Never put the
 client secret in browser code, commit it to Git, or ask candidates to provide
 it.
 
@@ -24,10 +25,10 @@ Google Calendar is used to:
 
 - create, update, and cancel interview events;
 - invite interview attendees;
-- read writable calendars and check availability;
+- select a writable interview calendar and readable calendars for availability;
 - create a Google Meet link when a video interview requests Google Meet.
 
-Google Meet shares the same OAuth connection as Google Calendar. It is not a
+Google Meet shares the assigned interviewer's OAuth connection with Google Calendar. It is not a
 second credential or a separate candidate-portal integration.
 
 OAuth is the authorization method; Harly still calls the Google Calendar API
@@ -87,23 +88,84 @@ Do not add a trailing slash, path prefix, or alternate hostname unless Harly is
 actually served at that exact origin. A mismatch produces an OAuth callback
 error before Harly can save the connection.
 
-## 4. Connect a workspace
+## 4. Connect each recruiter
 
 After the server is configured:
 
-1. Sign in as a workspace owner or administrator.
-2. Open **Settings → Integrations → Google Calendar**.
+1. Sign in as the recruiter in the intended workspace.
+2. Open **Account → Connections**.
 3. Select **Connect Google**.
-4. Choose the Google account that owns or can edit the interview calendar.
+4. Choose your Google account that owns or can edit the interview calendar.
 5. Approve the requested Calendar permissions.
-6. Select a writable calendar and use **Test connection**.
+6. Use **Choose calendars / test connection**, select the interview calendar
+   and calendars to check for availability, then save. The interview calendar
+   is always included in availability checks.
 
 The Google Meet integration uses the same connection. Connecting or
 disconnecting Google Calendar also connects or disconnects Google Meet.
 
-Harly stores the refresh token encrypted in the workspace settings row. The
+Harly stores the refresh token encrypted in a workspace/member-scoped connection row. The
 browser only receives the OAuth redirect; it never receives the client secret
 or the stored refresh token.
+
+## Scheduling and ownership
+
+- New interviews use the assigned interviewer's connection, even when another
+  recruiter schedules on their behalf. An unconnected interviewer does not
+  borrow the old workspace connection.
+- Availability checks query that interviewer's selected calendars and Harly's
+  interviews assigned to them. Different recruiters can interview concurrently.
+  Google failures or missing connections produce a warning, not a claim of free
+  time. External availability is advisory; Harly enforces its own overlapping
+  interview checks separately.
+- The AI assistant's scheduling preparation uses the assigned interviewer's
+  Google connection and includes Google busy periods in its warnings. A calendar
+  block reserved for interviews can be booked over after user confirmation;
+  Google busy periods do not prevent booking.
+- Each Google event keeps its connection ID and calendar ID. Changing calendar
+  preferences only affects new events. Reassigning an existing interview changes
+  its attendees but preserves the original Google organizer and calendar.
+- Disconnecting clears that member's stored token. It does not cancel events or
+  revoke other connections using the same Google grant. Reconnect the same Google
+  account to resume updates. A different account cannot replace an existing
+  personal connection's identity.
+- Calendar creation, cancellation and rescheduling are driven by Harly. This
+  change does not add ingestion of edits made directly in Google Calendar.
+- Cal.com bookings without an assigned Harly interviewer cannot automatically
+  use a personal Google connection. Their existing supplied meeting links remain
+  usable; assign an interviewer before asking Harly to create a Google event.
+
+## Upgrade and migration
+
+Migration `0143_dashing_carmella_unuscione` adds personal connections and event
+ownership columns. It is additive and does not move events or copy the old
+workspace token to individual users. Every recruiter authorizes their own account.
+No new environment variables or Google OAuth client are needed. The existing
+callback URI is reused.
+
+The old workspace connection remains in storage for legacy events. New Google
+integration links lead to personal Connections, and their status reflects the
+current member. Existing events without personal ownership continue using the
+legacy connection. Preserve that legacy configuration if such events exist.
+
+Apply migrations before starting the new application image. To recover from an
+application deployment problem, retain the additive schema. Once personal events
+exist, an older image cannot route their updates correctly; use a forward fix or
+pause scheduling while recovering rather than running old calendar-sync code.
+
+### Deployment smoke test
+
+1. Have two recruiters connect different Google accounts through their personal
+   Connections tabs. Check that each sees only their own account and calendars.
+2. Schedule synthetic interviews for both recruiters at the same time. Confirm
+   each event is on its assigned recruiter's calendar with its own Meet link.
+3. Add an unrelated busy event to one recruiter's selected availability calendar.
+   Confirm Harly warns for that recruiter without marking the other recruiter busy.
+4. Reschedule an interview from another authorized recruiter's login. Confirm
+   the original event changes and no duplicate invitation is created.
+5. Disconnect the original host, verify sync reports a failure, reconnect the
+   same account and retry sync. Finally cancel the test interviews in Harly and
+   confirm their calendar events are cancelled.
 
 ## Candidate portal and Google login
 
@@ -143,11 +205,11 @@ even when nobody changed Harly's settings. Common causes include:
 - too many refresh tokens were issued for the same Google account and OAuth
   client.
 
-Fix it from **Settings → Integrations → Google Calendar**:
+Fix it from **Account → Connections**:
 
 1. Disconnect the stale connection if it is still shown.
 2. Connect Google again.
-3. Authorize the intended calendar account.
+3. Authorize the same calendar account.
 4. Run **Test connection**.
 
 Harly invalidates a rejected token and keeps the local interview record safe,

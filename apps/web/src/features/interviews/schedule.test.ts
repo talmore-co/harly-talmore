@@ -23,7 +23,7 @@ const mocks = vi.hoisted(() => {
     renderActiveEmailTemplate: vi.fn(),
     getZoomToken: vi.fn(),
     getWorkspaceOutlookConfig: vi.fn(),
-    getWorkspaceGCalConfig: vi.fn(),
+    getInterviewerGCalConfig: vi.fn(),
     getWorkspaceJitsiConfig: vi.fn(),
     syncInterviewToZoom: vi.fn(),
     cancelInterviewZoomMeeting: vi.fn(),
@@ -135,8 +135,8 @@ vi.mock("@/lib/outlook/teams-sync", () => ({
   cancelInterviewTeamsMeeting: mocks.cancelInterviewTeamsMeeting,
   replaceInterviewToTeams: mocks.replaceInterviewToTeams,
 }));
-vi.mock("@/lib/gcal/config", () => ({
-  getWorkspaceGCalConfig: mocks.getWorkspaceGCalConfig,
+vi.mock("@/lib/gcal/personal", () => ({
+  getInterviewerGCalConfig: mocks.getInterviewerGCalConfig,
 }));
 vi.mock("@/lib/jitsi/config", () => ({
   getWorkspaceJitsiConfig: mocks.getWorkspaceJitsiConfig,
@@ -177,6 +177,7 @@ import {
   rescheduleInterview,
   summarizeInterviewNotesAction,
   updateInterview,
+  setInterviewStatus,
 } from "./actions";
 
 beforeEach(() => {
@@ -224,7 +225,7 @@ beforeEach(() => {
   mocks.requireApplicationPermission.mockResolvedValue(undefined);
   mocks.getZoomToken.mockResolvedValue(null);
   mocks.getWorkspaceOutlookConfig.mockResolvedValue(null);
-  mocks.getWorkspaceGCalConfig.mockResolvedValue(null);
+  mocks.getInterviewerGCalConfig.mockResolvedValue(null);
   mocks.getWorkspaceJitsiConfig.mockResolvedValue(null);
   mocks.syncInterviewToJitsi.mockReset();
   mocks.cancelInterviewJitsiMeeting.mockReset();
@@ -667,7 +668,7 @@ describe("Google Calendar failure visibility", () => {
 describe("AI scheduling resilience", () => {
   it("keeps an explicit meeting link and reports a calendar reconnect warning", async () => {
     txMock([{ id: "app-1", jobId: "job-1" }], []);
-    mocks.getWorkspaceGCalConfig.mockResolvedValue({
+    mocks.getInterviewerGCalConfig.mockResolvedValue({
       oauth2Client: {},
       calendarId: "primary",
     });
@@ -886,6 +887,21 @@ describe("interview business state guards", () => {
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/no longer scheduled/i);
     expect(mocks.transactionImpl).not.toHaveBeenCalled();
+  });
+});
+
+describe("Cal.com-owned interview edits", () => {
+  it.each(["edit", "reschedule", "cancel"] as const)("keeps %s in Cal.com without local calendar or email effects", async (operation) => {
+    mocks.selectQueue.push([{ id: "cal-interview", source: "cal.com-personal", status: "scheduled" }]);
+    const result = operation === "edit"
+      ? await updateInterview({ interviewId: "cal-interview", title: "Changed" })
+      : operation === "reschedule"
+        ? await rescheduleInterview({ interviewId: "cal-interview", scheduledAt: "2099-08-01T10:00:00Z", durationMins: 30 })
+        : await setInterviewStatus({ interviewId: "cal-interview", status: "canceled" });
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("Manage this booking in Cal.com") });
+    expect(mocks.transactionImpl).not.toHaveBeenCalled();
+    expect(mocks.syncInterviewToGCal).not.toHaveBeenCalled();
+    expect(mocks.enqueueEmailOutbox).not.toHaveBeenCalled();
   });
 });
 

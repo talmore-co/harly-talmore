@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   trackInterviewSync: vi.fn(),
   syncInterviewToGCal: vi.fn(),
-  getWorkspaceGCalConfig: vi.fn(),
+  getInterviewerGCalConfig: vi.fn(),
   getZoomToken: vi.fn(),
   getWorkspaceOutlookConfig: vi.fn(),
   getWorkspaceJitsiConfig: vi.fn(),
@@ -48,8 +48,8 @@ vi.mock("@/lib/gcal/sync", () => ({
   syncInterviewToGCal: mocks.syncInterviewToGCal,
   updateInterviewGCalEvent: vi.fn(),
 }));
-vi.mock("@/lib/gcal/config", () => ({
-  getWorkspaceGCalConfig: mocks.getWorkspaceGCalConfig,
+vi.mock("@/lib/gcal/personal", () => ({
+  getInterviewerGCalConfig: mocks.getInterviewerGCalConfig,
 }));
 vi.mock("@/lib/zoom/config", () => ({ getZoomToken: mocks.getZoomToken }));
 vi.mock("@/lib/zoom/sync", () => ({
@@ -104,13 +104,42 @@ beforeEach(() => {
   );
   mocks.syncInterviewToGCal.mockReset();
   mocks.syncInterviewToGCal.mockResolvedValue({ ok: false, reason: "not_connected" });
-  mocks.getWorkspaceGCalConfig.mockResolvedValue(null);
+  mocks.getInterviewerGCalConfig.mockReset();
+  mocks.getInterviewerGCalConfig.mockResolvedValue(null);
+  mocks.getZoomToken.mockReset();
   mocks.getZoomToken.mockResolvedValue(null);
+  mocks.getInboundReplyTo.mockReset();
   mocks.getWorkspaceOutlookConfig.mockResolvedValue(null);
   mocks.getWorkspaceJitsiConfig.mockResolvedValue(null);
 });
 
 describe("REST interview side effects", () => {
+  it("does not create a second provider event or invitation for a Cal.com-owned booking", async () => {
+    await runApiInterviewSideEffects({ workspaceId: "ws-1", actorUserId: "bob", action: "scheduled", interview: { id: "cal-interview", source: "cal.com-personal" } as never });
+    expect(mocks.dbSelect).not.toHaveBeenCalled();
+    expect(mocks.trackInterviewSync).not.toHaveBeenCalled();
+    expect(mocks.getInterviewerGCalConfig).not.toHaveBeenCalled();
+    expect(mocks.getZoomToken).not.toHaveBeenCalled();
+    expect(mocks.getInboundReplyTo).not.toHaveBeenCalled();
+  });
+  it("chooses the assigned interviewer's Google account when another recruiter schedules through the API", async () => {
+    mocks.getInterviewerGCalConfig.mockResolvedValue({ oauth2Client: {}, calendarId: "alice-calendar" });
+    mocks.syncInterviewToGCal.mockResolvedValue({ ok: true, eventId: "event-1" });
+    await runApiInterviewSideEffects({
+      workspaceId: "ws-1",
+      actorUserId: "bob",
+      interview: {
+        id: "iv-1", workspaceId: "ws-1", applicationId: "app-1",
+        interviewerId: "alice", title: "Screening", type: "screening", mode: "video",
+        status: "scheduled", scheduledAt: new Date("2099-01-01T15:00:00Z"), durationMins: 45,
+        location: null, meetLink: null, gcalEventId: null,
+      } as never,
+      action: "scheduled",
+    });
+    expect(mocks.getInterviewerGCalConfig).toHaveBeenCalledWith("ws-1", "alice");
+    expect(mocks.syncInterviewToGCal).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: "ws-1", interviewId: "iv-1", mode: "video" }));
+  });
+
   it("uses the dashboard calendar ledger path even when GCal is not connected", async () => {
     const interview = {
       id: "iv-1",

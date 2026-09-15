@@ -5,6 +5,7 @@ import { createOAuth2Client } from "@/lib/gcal/config";
 import { createInstallState } from "@/server/oauth-state";
 import { getWorkspaceContextOrNull } from "@/features/workspaces/context";
 import { requirePermission } from "@/features/workspaces/permissions-server";
+import { isEncryptionConfigured } from "@/lib/crypto";
 
 export const runtime = "nodejs";
 
@@ -38,14 +39,17 @@ export async function GET(req: NextRequest) {
   if (!context || context.organization.id !== workspaceId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+  const personal = req.nextUrl.searchParams.get("scope") === "personal";
   try {
-    await requirePermission("settings:edit");
+    if (!personal) {
+      await requirePermission("settings:edit");
+    }
   } catch {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const oauth2Client = createOAuth2Client();
-  if (!oauth2Client) {
+  if (!oauth2Client || !isEncryptionConfigured()) {
     return NextResponse.json(
       { error: "Google OAuth credentials not configured." },
       { status: 503 },
@@ -55,7 +59,7 @@ export async function GET(req: NextRequest) {
   const state = await createInstallState({
     userId: session.user.id,
     workspaceId: context.organization.id,
-    provider: "google",
+    provider: personal ? "google-personal" : "google",
   });
 
   const url = oauth2Client.generateAuthUrl({

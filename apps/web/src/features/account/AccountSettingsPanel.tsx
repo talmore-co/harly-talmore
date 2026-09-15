@@ -314,10 +314,14 @@ export function AccountSettingsPanel({
   user,
   securitySlot,
   sessions,
+  connectionsSlot,
+  initialTab = "profile",
 }: {
   user: AccountUser;
   securitySlot?: React.ReactNode;
   sessions: SessionDevice[];
+  connectionsSlot?: React.ReactNode;
+  initialTab?: string;
 }) {
   const router = useRouter();
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -702,11 +706,12 @@ export function AccountSettingsPanel({
         </div>
       </div>
 
-      <Tabs defaultValue="profile">
+      <Tabs defaultValue={initialTab}>
         <TabsList>
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="session">Session</TabsTrigger>
+          <TabsTrigger value="connections">Connections</TabsTrigger>
         </TabsList>
 
         {/* ─── PROFILE TAB ─── */}
@@ -1170,6 +1175,9 @@ export function AccountSettingsPanel({
         </TabsContent>
 
         {/* ─── SESSION TAB ─── */}
+        <TabsContent value="connections" className="mt-6 space-y-6">
+          {connectionsSlot}
+        </TabsContent>
         <TabsContent value="session" className="mt-6 space-y-6">
           <SectionCard title="Active sessions">
             <div className="space-y-3">

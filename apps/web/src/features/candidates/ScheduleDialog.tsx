@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useTransition, type ReactNode } from "react";
+import { useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Link2, MapPin, Phone, Video } from "lucide-react";
 import { toast } from "@/lib/notification-island/toast";
 
 import { scheduleInterview } from "@/features/interviews/actions";
 import { checkAvailability } from "@/lib/gcal/availability";
-import { buildCalBookingLink } from "@/lib/cal/link";
+import { createCandidateCalLink } from "@/features/account/cal-actions";
 import { InterviewerSelect } from "./InterviewerSelect";
 import { DurationInput } from "./DurationInput";
 import { Button } from "@/components/ui/button";
@@ -73,11 +73,9 @@ export type ScheduleCalConfig = {
 export function ScheduleDialog({
   candidateId,
   workspaceId,
-  candidateName,
   candidateEmail,
   applications,
   members,
-  cal,
   currentUserId,
   trigger,
 }: {
@@ -108,12 +106,14 @@ export function ScheduleDialog({
   const [isPending, startTransition] = useTransition();
   const [availabilityWarning, setAvailabilityWarning] = useState<string | null>(null);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const availabilityRequest = useRef(0);
 
   const hasApplication = applications.length > 0;
   const hasCandidateEmail = candidateEmail.trim().length > 0;
   const locationLabel = mode === "onsite" ? "Address" : "Meeting link";
 
-  const calLinkAvailable = cal.enabled && Boolean(cal.bookingUrl);
+  const calLinkAvailable = hasApplication;
+  const [fallbackLink, setFallbackLink] = useState<{ applicationId: string; interviewerId: string; url: string } | null>(null);
 
   async function checkTimeAvailability(
     newDate: string,
@@ -121,8 +121,10 @@ export function ScheduleDialog({
     duration: number,
     interviewer?: string,
   ) {
+    const request = ++availabilityRequest.current;
+    setAvailabilityWarning(null);
     if (!newDate || !newTime) {
-      setAvailabilityWarning(null);
+      setCheckingAvailability(false);
       return;
     }
     setCheckingAvailability(true);
@@ -135,6 +137,7 @@ export function ScheduleDialog({
         timeMax: end,
         interviewerId: interviewer ?? (interviewerId || undefined),
       });
+      if (request !== availabilityRequest.current) return;
       const warnings: string[] = [];
       if (result.gcalBusy.length > 0) {
         warnings.push(
@@ -149,29 +152,34 @@ export function ScheduleDialog({
       setAvailabilityWarning(
         warnings.length > 0
           ? `This time conflicts with ${warnings.join(" and ")}.`
-          : null,
+          : result.error ?? null,
       );
     } catch {
-      // Silently fail , don't block scheduling on availability check.
+      if (request === availabilityRequest.current) setAvailabilityWarning("Could not check availability. Confirm the time with the interviewer.");
     } finally {
-      setCheckingAvailability(false);
+      if (request === availabilityRequest.current) setCheckingAvailability(false);
     }
   }
 
   function copyBookingLink() {
-    if (!cal.bookingUrl) return;
-    if (!applicationId) {
-      toast.error("Pick which role this interview is for.");
+    if (!applicationId || !interviewerId) {
+      toast.error("Select the role and interviewer below first.");
       return;
     }
-    const link = buildCalBookingLink({
-      bookingUrl: cal.bookingUrl,
-      name: candidateName,
-      email: candidateEmail,
-      metadata: { applicationId, candidateId, workspaceId },
+    startTransition(async () => {
+      try {
+        const result = await createCandidateCalLink({ applicationId, interviewerId });
+        if (!result.ok) { toast.error(result.error); return; }
+        try {
+          await navigator.clipboard.writeText(result.url);
+          setFallbackLink(null);
+          toast.success("Scheduling link copied. Send it to the candidate.");
+        } catch {
+          setFallbackLink({ applicationId, interviewerId, url: result.url });
+          toast.info("Select and copy the booking link below.");
+        }
+      } catch { toast.error("Could not copy the scheduling link. Please try again."); }
     });
-    void navigator.clipboard.writeText(link);
-    toast.success("Booking link copied. Send it to the candidate");
   }
 
   function reset() {
@@ -268,8 +276,7 @@ export function ScheduleDialog({
                   </p>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Send a Cal.com link. When they book, the interview syncs here
-                  automatically.
+                  Select the interviewer below, then copy their personal Cal.com link for this application. The booking syncs here automatically.
                 </p>
                 <Button
                   type="button"
@@ -277,10 +284,12 @@ export function ScheduleDialog({
                   size="sm"
                   className="w-full bg-card"
                   onClick={copyBookingLink}
+                  disabled={isPending}
                 >
                   <Link2 className="size-4" />
                   Copy booking link
                 </Button>
+                {fallbackLink?.applicationId === applicationId && fallbackLink.interviewerId === interviewerId && <Input aria-label="Booking link to copy" readOnly value={fallbackLink.url} onFocus={(event) => event.currentTarget.select()} />}
                 <p className="text-center text-[11px] uppercase tracking-wide text-muted-foreground">
                   or log it manually
                 </p>

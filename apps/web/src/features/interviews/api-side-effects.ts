@@ -16,7 +16,7 @@ import {
   syncInterviewToGCal,
   updateInterviewGCalEvent,
 } from "@/lib/gcal/sync";
-import { getWorkspaceGCalConfig } from "@/lib/gcal/config";
+import { getInterviewerGCalConfig } from "@/lib/gcal/personal";
 import {
   cancelInterviewTeamsMeeting,
   replaceInterviewToTeams,
@@ -164,6 +164,7 @@ async function syncCalendarForApi(
   context: InterviewContext,
   action: ApiInterviewAction,
 ) {
+  if (interview.source === "cal.com-personal") return;
   const attendees = [context.email, context.interviewerEmail].filter(
     (email): email is string => Boolean(email),
   );
@@ -349,7 +350,7 @@ async function syncVideoForApi(input: {
   const [zoomToken, outlookConfig, gcalConfig, jitsiConfig] = await Promise.all([
     getZoomToken(workspaceId),
     getWorkspaceOutlookConfig(workspaceId),
-    getWorkspaceGCalConfig(workspaceId),
+    getInterviewerGCalConfig(workspaceId, interview.interviewerId),
     getWorkspaceJitsiConfig(workspaceId),
   ]);
   const summary = interview.title ?? TYPE_LABEL[interview.type] ?? "Interview";
@@ -465,6 +466,7 @@ export async function runApiInterviewSideEffects(input: {
   previous?: Interview;
   action: ApiInterviewAction;
 }): Promise<void> {
+  if (input.interview.source === "cal.com-personal") return;
   let context: InterviewContext | null;
   try {
     context = await getInterviewContext(input.workspaceId, input.interview.id);

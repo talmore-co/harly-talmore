@@ -3467,6 +3467,68 @@ export const mailIdempotencyKeys = pgTable(
   ],
 );
 
+export const personalCalConnections = pgTable("personal_cal_connections", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: text("workspace_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  calUserId: integer("cal_user_id").notNull(),
+  username: text("username").notNull(),
+  accountEmail: text("account_email").notNull(),
+  enabled: boolean("enabled").default(true).notNull(),
+  apiKeyCiphertext: text("api_key_ciphertext"),
+  apiKeyIv: text("api_key_iv"),
+  apiKeyTag: text("api_key_tag"),
+  defaultEventTypeId: integer("default_event_type_id"),
+  lastReceivedAt: timestamp("last_received_at", { withTimezone: true }),
+  ...timestamps(),
+}, (table) => [uniqueIndex("personal_cal_connections_member_idx").on(table.workspaceId, table.userId)]);
+
+// Keep previous event subscriptions so changing the default does not lose updates.
+export const personalCalEvents = pgTable("personal_cal_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  connectionId: uuid("connection_id").notNull().references(() => personalCalConnections.id, { onDelete: "cascade" }),
+  eventTypeId: integer("event_type_id").notNull(),
+  title: text("title").notNull(),
+  bookingUrl: text("booking_url").notNull(),
+  durationMins: integer("duration_mins").notNull(),
+  webhookId: text("webhook_id"),
+  webhookSecret: text("webhook_secret").notNull(),
+  ...timestamps(),
+}, (table) => [uniqueIndex("personal_cal_events_connection_event_idx").on(table.connectionId, table.eventTypeId)]);
+
+// A small inbox of verified bookings, including ones awaiting application matching.
+export const personalCalBookings = pgTable("personal_cal_bookings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  connectionId: uuid("connection_id").notNull().references(() => personalCalConnections.id, { onDelete: "cascade" }),
+  subscriptionId: uuid("subscription_id").notNull().references(() => personalCalEvents.id, { onDelete: "cascade" }),
+  bookingUid: text("booking_uid").notNull(),
+  applicationId: uuid("application_id").references(() => applications.id, { onDelete: "cascade" }),
+  interviewId: uuid("interview_id"),
+  attendeeName: text("attendee_name").notNull(),
+  attendeeEmail: text("attendee_email").notNull(),
+  scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
+  status: text("status").notNull(),
+  reason: text("reason"),
+  ...timestamps(),
+}, (table) => [uniqueIndex("personal_cal_bookings_connection_uid_idx").on(table.connectionId, table.bookingUid)]);
+
+// Personal calendar credentials are scoped to a member's workspace.
+export const personalGoogleConnections = pgTable("personal_google_connections", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: text("workspace_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  accountEmail: text("account_email").notNull(),
+  calendarId: text("calendar_id").notNull(),
+  availabilityCalendarIds: jsonb("availability_calendar_ids").$type<string[]>().notNull(),
+  enabled: boolean("enabled").default(true).notNull(),
+  refreshTokenCiphertext: text("refresh_token_ciphertext"),
+  refreshTokenIv: text("refresh_token_iv"),
+  refreshTokenTag: text("refresh_token_tag"),
+  ...timestamps(),
+}, (table) => [
+  uniqueIndex("personal_google_connections_member_idx").on(table.workspaceId, table.userId),
+]);
+
 // Scheduled interviews — power the dashboard agenda and hiring-velocity metrics.
 export const interviews = pgTable(
   "interviews",
@@ -3502,7 +3564,13 @@ export const interviews = pgTable(
     // Cal.com booking UID — set when the interview originates from / is synced
     // with a Cal.com booking. Lets the webhook upsert instead of duplicating.
     calBookingUid: text("cal_booking_uid"),
+    calConnectionId: uuid("cal_connection_id"),
+    calUpdatedAt: timestamp("cal_updated_at", { withTimezone: true }),
     gcalEventId: text("gcal_event_id"),
+    // Keep the owning calendar even if the interviewer or default calendar changes.
+    // No FK: a deleted connection must never make an event fall back to another account.
+    gcalConnectionId: uuid("gcal_connection_id"),
+    gcalCalendarId: text("gcal_calendar_id"),
     meetLink: text("meet_link"),
     teamsMeetingId: text("teams_meeting_id"),
     zoomMeetingId: text("zoom_meeting_id"),

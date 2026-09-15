@@ -1,6 +1,7 @@
 import "server-only";
 
 import { checkAvailability } from "@/lib/gcal/availability";
+import { getInterviewerGCalConfig } from "@/lib/gcal/personal";
 import {
   getIntegrationStatuses,
   type IntegrationStatuses,
@@ -103,11 +104,30 @@ export async function prepareInterviewScheduling(input: {
     timeMax: new Date(when.getTime() + input.durationMins * 60_000),
     interviewerId: input.interviewerId ?? undefined,
   });
-  const statuses = await getIntegrationStatuses(input.workspaceId);
+  const [workspaceStatuses, interviewerGoogle] = await Promise.all([
+    getIntegrationStatuses(input.workspaceId),
+    getInterviewerGCalConfig(input.workspaceId, input.interviewerId),
+  ]);
+  // Integration settings describe the chatting user's Google connection.
+  // Meeting creation instead uses the assigned interviewer's connection.
+  const statuses: IntegrationStatuses = {
+    ...workspaceStatuses,
+    gcal: {
+      enabled: Boolean(interviewerGoogle),
+      hasRefreshToken: Boolean(interviewerGoogle),
+      hasCredentials: workspaceStatuses.gcal.hasCredentials,
+      encryptionReady: workspaceStatuses.gcal.encryptionReady,
+      accountEmail: null,
+      calendarId: interviewerGoogle?.calendarId ?? null,
+    },
+  };
   const hasExplicitLocation = Boolean(input.location?.trim());
   const provider = chooseMeetingProvider(input.meetingProvider, statuses, hasExplicitLocation);
   const warnings: string[] = [];
   if (availability.internalConflicts.length > 0) warnings.push("The interviewer has an internal scheduling conflict.");
+  if (availability.gcalBusy.length > 0) {
+    warnings.push("The interviewer's Google Calendar has a busy period at this time. This is advisory: you can still confirm the interview if the time is intentionally reserved for interviews.");
+  }
   if (availability.error) warnings.push(availability.error);
   if (provider === "none") {
     warnings.push(input.meetingProvider === "external" ? "An explicit external meeting link is required." : "No requested video provider is connected; the interview can still be saved without a video link.");

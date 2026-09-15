@@ -1023,7 +1023,7 @@ function buildReadTools(ctx: HarlyToolContext) {
     prepareInterview: tool({
       strict: true,
       description:
-        "Prepare an interview schedule without writing anything. Resolve the candidate's application, interpret the requested time in the supplied IANA timezone, check internal and Google Calendar availability, and choose/validate the video provider. Use before scheduling when the request includes a time or meeting provider. If status is needs_attention, explain the warning and still let the user decide through the confirmation card.",
+        "Prepare an interview schedule without writing anything. Resolve the candidate's application, interpret the requested time in the supplied IANA timezone, check the assigned interviewer's internal and Google Calendar availability, and choose/validate the video provider using their Google connection. Use before scheduling when the request includes a time or meeting provider. If status is needs_attention, explain the warnings. Google Calendar busy periods are advisory, including blocks reserved for interviews: still offer the confirmation card so the user can choose to book. An overlapping Harly interview is blocked by the scheduling action.",
       inputSchema: z.object({
         candidateId: z.string().describe("The resolved candidate id."),
         jobQuery: z.string().nullable().describe("The role phrase, or null."),
