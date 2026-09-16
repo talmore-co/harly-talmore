@@ -9,6 +9,7 @@ type Country = { code: string; name: string; dial: string };
 
 // Curated set , majors + full LATAM + Europe + common. `dial` has no "+".
 const COUNTRIES: Country[] = [
+  { code: "PH", name: "Philippines", dial: "63" },
   { code: "CL", name: "Chile", dial: "56" },
   { code: "AR", name: "Argentina", dial: "54" },
   { code: "BO", name: "Bolivia", dial: "591" },
@@ -65,12 +66,11 @@ const COUNTRIES: Country[] = [
   { code: "TH", name: "Thailand", dial: "66" },
   { code: "VN", name: "Vietnam", dial: "84" },
   { code: "ID", name: "Indonesia", dial: "62" },
-  { code: "PH", name: "Philippines", dial: "63" },
   { code: "AU", name: "Australia", dial: "61" },
   { code: "NZ", name: "New Zealand", dial: "64" },
 ];
 
-const DEFAULT = COUNTRIES[0]; // Chile
+const DEFAULT = COUNTRIES[0]; // Philippines
 
 /** ISO 3166-1 alpha-2 → flag emoji via regional indicator symbols. */
 function flagOf(code: string): string {
@@ -157,10 +157,11 @@ export function PhoneInput({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return COUNTRIES;
+    const dialQuery = q.replace(/\D/g, "");
     return COUNTRIES.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
-        c.dial.includes(q.replace(/\D/g, "")) ||
+        (dialQuery.length > 0 && c.dial.includes(dialQuery)) ||
         c.code.toLowerCase().includes(q),
     );
   }, [query]);
@@ -196,7 +197,7 @@ export function PhoneInput({
           value={national}
           disabled={disabled}
           onChange={(e) => onNationalChange(e.target.value)}
-          placeholder="9 1234 5678"
+          placeholder={activeCountry.code === "PH" ? "917 123 4567" : "9 1234 5678"}
           className="min-w-0 flex-1 bg-transparent px-3 text-zinc-900 outline-none placeholder:text-zinc-400"
         />
       </div>
