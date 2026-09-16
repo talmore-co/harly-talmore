@@ -1,4 +1,4 @@
-import { Button, Hr, Section, Text } from "@react-email/components";
+import { Hr, Section, Text } from "@react-email/components";
 
 import { WorkspaceLayout } from "./WorkspaceLayout";
 import { DetailTable } from "./DetailTable";
@@ -102,18 +102,10 @@ export function InterviewScheduled({
                     Google Calendar
                   </a>
                 </td>
-                <td className="pb-2" style={{ paddingBottom: 8 }}>
-                  <a
-                    href={calendarLinks.icsDataUri}
-                    download={`${interviewType}-${jobTitle}.ics`}
-                    className="border-stroke text-[14px] leading-[1.5] font-inter text-fg inline-block border bg-bg px-4 py-2.5 text-center box-border no-underline"
-                  >
-                    Download .ics
-                  </a>
-                </td>
               </tr>
             </tbody>
           </table>
+          <Text className="text-[13px] text-fg-2">A calendar file is attached for other calendar apps. If you already received a calendar invitation, use that event to avoid duplicates.</Text>
         </Section>
       ) : null}
 
@@ -125,7 +117,7 @@ export function InterviewScheduled({
       ) : null}
 
       <Text className="text-[14px] leading-[1.5] font-inter text-fg-2 m-0 mb-4">
-        Need to reschedule? Just reply to this email.
+        Need to reschedule? Please contact your recruiter.
       </Text>
     </WorkspaceLayout>
   );

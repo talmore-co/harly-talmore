@@ -752,6 +752,8 @@ export async function scheduleInterview(
           workspace.id,
           "interview.scheduled",
           {
+            interviewId: result.interviewId,
+            timeZone: data.timeZone ?? "UTC",
             candidateEmail: recipient.email,
             candidateName: `${recipient.firstName} ${recipient.lastName}`,
             companyName: recipient.companyName,
@@ -1035,6 +1037,7 @@ export async function setInterviewStatus(input: {
           workspace.id,
           "interview.canceled",
           {
+            interviewId: parsed.data.interviewId,
             candidateEmail: info.email,
             candidateName: info.firstName,
             companyName: info.companyName,
@@ -1516,6 +1519,8 @@ export async function rescheduleInterview(input: {
         workspace.id,
         "interview.rescheduled",
         {
+          interviewId: data.interviewId,
+          timeZone: data.timeZone ?? "UTC",
           candidateEmail: info.email,
           candidateName: info.firstName,
           companyName: info.companyName,
@@ -2172,6 +2177,8 @@ export async function updateInterview(input: {
             INTERVIEW_TYPE_LABEL[data.type ?? row.type] ?? "Interview",
           scheduledAt: effectiveScheduledAt.toISOString(),
           mode: INTERVIEW_MODE_LABEL[effectiveMode] ?? effectiveMode,
+          interviewId: data.interviewId,
+          timeZone: data.timeZone ?? "UTC",
           location: data.location ?? undefined,
           durationMins: effectiveDurationMins,
           replyTo,

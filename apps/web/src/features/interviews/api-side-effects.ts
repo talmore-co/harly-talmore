@@ -146,6 +146,8 @@ async function sendInterviewEmail(
       jobTitle: context.jobTitle,
       interviewType: TYPE_LABEL[interview.type] ?? "Interview",
       scheduledAt: interview.scheduledAt.toISOString(),
+      interviewId: interview.id,
+      timeZone: "UTC",
       mode: MODE_LABEL[interview.mode] ?? interview.mode,
       location: interview.meetLink ?? interview.location ?? undefined,
       durationMins: interview.durationMins,

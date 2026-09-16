@@ -1,20 +1,22 @@
 import { Button, Hr, Section, Text } from "@react-email/components";
 
-import { HarlyLayout } from "./HarlyLayout";
+import { WorkspaceLayout } from "./WorkspaceLayout";
+import type { WorkspaceEmailBranding } from "./HarlyLayout";
 import { EmailFallbackLink } from "./EmailFallbackLink";
 
 export type PortalMagicLinkEmailProps = {
   candidateName?: string;
   loginUrl: string;
+  branding?: WorkspaceEmailBranding;
 };
 
 export function portalMagicLinkSubject() {
   return "Your sign-in link";
 }
 
-export function PortalMagicLinkEmail({ candidateName, loginUrl }: PortalMagicLinkEmailProps) {
+export function PortalMagicLinkEmail({ candidateName, loginUrl, branding }: PortalMagicLinkEmailProps) {
   return (
-    <HarlyLayout preview="Your sign-in link is ready — expires in 15 minutes.">
+    <WorkspaceLayout preview="Your sign-in link expires in 15 minutes." companyName={branding?.name || "Talmore"} companyLogoUrl={branding?.logoUrl ?? undefined} accentColor={branding?.primaryColor ?? undefined}>
       <Text className="text-[40px] leading-[1.05] tracking-[-1px] font-inter text-fg m-0 mb-3.5 font-medium">
         Sign in to your portal
       </Text>
@@ -37,7 +39,7 @@ export function PortalMagicLinkEmail({ candidateName, loginUrl }: PortalMagicLin
       <Text className="text-[13px] leading-[1.5] tracking-[-0.039px] font-inter text-fg-3 m-0">
         Didn&apos;t request this? You can safely ignore it.
       </Text>
-    </HarlyLayout>
+    </WorkspaceLayout>
   );
 }
 

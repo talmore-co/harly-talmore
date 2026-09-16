@@ -1,4 +1,5 @@
 "use server";
+import { getWorkspaceEmailBranding } from "@/lib/email/branding";
 import { scoreQuestionnaire } from "@/features/applications/questionnaire-score";
 import { isCurrentJobQuestion } from "@/features/jobs/config";
 
@@ -133,10 +134,11 @@ export async function sendPortalMagicLinkAction(
 
     const sender = await getWorkspaceEmailSender(workspaceId);
     if (sender) {
+      const branding = await getWorkspaceEmailBranding(workspaceId);
       await sender.send({
         to: parsed.data,
         subject: portalMagicLinkSubject(),
-        react: createElement(PortalMagicLinkEmail, { loginUrl: url }),
+        react: createElement(PortalMagicLinkEmail, { loginUrl: url, branding }),
       });
     } else {
       // Dev fallback: magic link URL is logged server-side when no email sender is configured.

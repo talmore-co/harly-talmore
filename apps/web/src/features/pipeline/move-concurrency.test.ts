@@ -13,6 +13,9 @@ const mocks = vi.hoisted(() => {
     requirePermission: vi.fn(),
     requireApplicationPermission: vi.fn(),
     emitWebhookEvent: vi.fn(),
+    enqueueEmailOutbox: vi.fn(),
+    processEmailOutbox: vi.fn(),
+    applicationRows: [] as unknown[],
   };
 });
 
@@ -24,12 +27,13 @@ vi.mock("@harly/db", () => ({
       set: () => ({ where: () => ({ returning: async () => [] }) }),
     })),
     insert: vi.fn(() => ({ values: () => ({ returning: async () => [] }) })),
-    select: vi.fn(() => ({
-      from: () => ({
-        leftJoin: () => ({ where: () => ({ limit: async () => [] }) }),
-        where: () => ({ limit: async () => [] }),
-      }),
-    })),
+    select: vi.fn(() => {
+      const query: Record<string, unknown> = {};
+      query.from = query.innerJoin = query.leftJoin = query.where = () => query;
+      query.limit = async () => [];
+      query.then = (resolve: (rows: unknown[]) => void) => resolve(mocks.applicationRows);
+      return query;
+    }),
   },
   applications: {
     id: "applications.id",
@@ -63,8 +67,9 @@ vi.mock("@/server/webhooks/emit", () => ({
   emitWebhookEvent: mocks.emitWebhookEvent,
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/email/outbox-processor", () => ({ enqueueEmailOutbox: mocks.enqueueEmailOutbox, processEmailOutbox: mocks.processEmailOutbox }));
 
-import { moveApplicationInPipeline } from "./actions";
+import { moveApplicationInPipeline, updateApplicationStatus } from "./actions";
 
 const WORKSPACE_ID = "ws-1";
 
@@ -79,7 +84,7 @@ const APPLICATION_ROW = {
   jobTitle: "Engineer",
   workspaceName: "Acme",
   toStageName: "Interview",
-  toStageEmailConfig: { candidateUpdatesEnabled: false },
+  toStageEmailConfig: { candidateUpdatesEnabled: true },
 };
 
 function makeTx(firstUpdateRows: unknown[]) {
@@ -166,6 +171,26 @@ describe("F1-08 pipeline move concurrency guard", () => {
     });
     mocks.requirePermission.mockResolvedValue(undefined);
     mocks.emitWebhookEvent.mockReset();
+    mocks.enqueueEmailOutbox.mockReset();
+    mocks.applicationRows = [];
+    mocks.processEmailOutbox.mockResolvedValue({ processed: 1, sent: 1, failed: 0 });
+  });
+
+  it.each([undefined, false, true])("only enqueues a rejection with explicit opt-in: %s", async sendRejectionEmail => {
+    mocks.applicationRows = [APPLICATION_ROW];
+    mocks.transactionImpl.mockResolvedValue([{ type: "rejected", applicationId: "app-1", candidateEmail: "test@example.com" }]);
+    const result = await updateApplicationStatus({ applicationIds: ["app-1"], workspaceId: WORKSPACE_ID, status: "rejected", sendRejectionEmail });
+    expect(result.success).toBe(true);
+    expect(mocks.enqueueEmailOutbox).toHaveBeenCalledTimes(sendRejectionEmail === true ? 1 : 0);
+  });
+
+  it("keeps a committed rejection successful when email enqueueing fails", async () => {
+    mocks.applicationRows = [APPLICATION_ROW];
+    mocks.transactionImpl.mockResolvedValue([{ type: "rejected", applicationId: "app-1", candidateEmail: "test@example.com" }]);
+    mocks.enqueueEmailOutbox.mockRejectedValue(new Error("Queue unavailable"));
+    const result = await updateApplicationStatus({ applicationIds: ["app-1"], workspaceId: WORKSPACE_ID, status: "rejected", sendRejectionEmail: true });
+    expect(result.success).toBe(true);
+    expect(result.warning).toContain("Status updated");
   });
 
   it("rejects the move when the application stays modified concurrently (optimistic lock)", async () => {
@@ -205,6 +230,7 @@ describe("F1-08 pipeline move concurrency guard", () => {
     });
 
     expect(result.success).toBe(true);
+    expect(mocks.enqueueEmailOutbox).not.toHaveBeenCalled();
   });
 
   it("silently retries after a transient optimistic-lock conflict and succeeds on the next attempt", async () => {

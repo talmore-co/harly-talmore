@@ -51,7 +51,7 @@ export function CandidateRejected({
       </Text>
       <Text className="text-[14px] leading-[1.5] font-inter text-fg-2 m-0 mb-4">
         {customMessage ??
-          `Thank you for applying to ${jobTitle} at ${companyName}. After careful consideration, we've decided to move forward with other candidates.`}
+          `Thank you for your interest in the ${jobTitle} position and for taking the time to apply. We won't be progressing your application for this role. We appreciate your interest and wish you well in your search.`}
       </Text>
       <Hr className="border-stroke border-t my-7" />
       <Text className="text-[13px] leading-[1.5] tracking-[-0.039px] font-inter text-fg-3 m-0">

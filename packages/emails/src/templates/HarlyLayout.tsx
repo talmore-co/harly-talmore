@@ -9,9 +9,9 @@ import {
   Text,
 } from "@react-email/components";
 
-import { harlyTailwindConfig } from "./theme";
+import { workspaceEmailTheme } from "./theme";
 import { HarlyFonts } from "./HarlyFonts";
-import { EmailLogo, poweredByHarlyInline } from "./EmailLogo";
+import { EmailLogo } from "./EmailLogo";
 
 export type SocialLink = {
   platform: string;
@@ -26,6 +26,7 @@ export type WorkspaceEmailBranding = {
   socialLinks?: SocialLink[];
   /** When true, omit the "Powered by Harly" footer credit for this workspace. */
   hideBranding?: boolean;
+  portalEnabled?: boolean;
 };
 
 type HarlyLayoutProps = {
@@ -40,8 +41,8 @@ type HarlyLayoutProps = {
  * workspace invitation, recruiter notifications). Structure mirrors the
  * Resend "Matte" demo: a card lifted on the paper canvas by a diffuse
  * evergreen-tinted shadow, with an inner bordered surface. Header shows the
- * workspace logo when branded, otherwise the Harly product wordmark. Footer
- * is always "Powered by Harly" because these originate from the product.
+ * workspace logo when branded, otherwise a Talmore name lockup. The footer
+ * identifies the sender without vendor credits.
  */
 export function HarlyLayout({
   preview,
@@ -50,11 +51,11 @@ export function HarlyLayout({
   bodyClassName = "mobile:px-6! px-10 pt-8 pb-14",
 }: HarlyLayoutProps) {
   const workspaceName =
-    branding?.name && branding.name !== "Harly" ? branding.name : "Harly";
+    branding?.name && branding.name !== "Harly" ? branding.name : "Talmore";
   const hasBrandedLogo = Boolean(branding?.logoUrl);
 
   return (
-    <Tailwind config={harlyTailwindConfig}>
+    <Tailwind config={workspaceEmailTheme(branding?.primaryColor)}>
       <Html lang="en">
         <Head>
           <HarlyFonts />
@@ -69,7 +70,7 @@ export function HarlyLayout({
                   <EmailLogo
                     logoUrl={hasBrandedLogo ? branding?.logoUrl : undefined}
                     name={workspaceName}
-                    variant={hasBrandedLogo ? "workspace" : "harly"}
+                    variant="workspace"
                   />
                 </Section>
 
@@ -81,17 +82,7 @@ export function HarlyLayout({
                 {/* Footer */}
                 <Section className="border-stroke border-t px-10 py-8">
                   <Text className="text-[13px] leading-[1.5] tracking-[-0.039px] font-inter text-fg-3 m-0">
-                    {workspaceName !== "Harly" ? (
-                      branding?.hideBranding ? (
-                        `Sent by ${workspaceName}`
-                      ) : (
-                        <>
-                          Sent by {workspaceName} · {poweredByHarlyInline()}
-                        </>
-                      )
-                    ) : (
-                      poweredByHarlyInline()
-                    )}
+                    Sent by {workspaceName}
                   </Text>
                 </Section>
               </Section>

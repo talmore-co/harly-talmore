@@ -2,7 +2,6 @@ import { Hr, Section, Text } from "@react-email/components";
 
 import { WorkspaceLayout } from "./WorkspaceLayout";
 import { DetailTable } from "./DetailTable";
-import { buildCalendarLinks } from "./calendarLinks";
 import type { SocialLink } from "./HarlyLayout";
 
 export type InterviewRescheduledProps = {
@@ -54,16 +53,6 @@ export function InterviewRescheduled({
     ...(duration ? [{ label: "Duration", value: duration }] : []),
   ];
 
-  let calendarLinks: ReturnType<typeof buildCalendarLinks> | null = null;
-  if (startIso && durationMins) {
-    calendarLinks = buildCalendarLinks({
-      summary: `${interviewType} — ${jobTitle}`,
-      start: new Date(startIso),
-      durationMins,
-      description: notes,
-      location,
-    });
-  }
 
   return (
     <WorkspaceLayout
@@ -84,36 +73,11 @@ export function InterviewRescheduled({
       </Text>
       <DetailTable rows={rows} />
 
-      {calendarLinks ? (
+      {startIso && durationMins ? (
         <Section className="mb-5">
           <Text className="text-[13px] leading-[1.5] tracking-[-0.039px] font-inter text-fg-3 m-0 mb-2.5">
-            Update your calendar
+            Updated calendar details are attached. If your calendar invitation has already updated, use the existing event. Otherwise, import the attached file and check that the old time has been replaced.
           </Text>
-          <table>
-            <tbody>
-              <tr>
-                <td className="pr-2 pb-2" style={{ paddingRight: 8, paddingBottom: 8 }}>
-                  <a
-                    href={calendarLinks.googleCalendarUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="bg-brand text-[14px] leading-[1.5] font-inter text-fg-inverted inline-block border-none px-4 py-2.5 text-center box-border no-underline"
-                  >
-                    Google Calendar
-                  </a>
-                </td>
-                <td className="pb-2" style={{ paddingBottom: 8 }}>
-                  <a
-                    href={calendarLinks.icsDataUri}
-                    download={`${interviewType}-${jobTitle}.ics`}
-                    className="border-stroke text-[14px] leading-[1.5] font-inter text-fg inline-block border bg-bg px-4 py-2.5 text-center box-border no-underline"
-                  >
-                    Download .ics
-                  </a>
-                </td>
-              </tr>
-            </tbody>
-          </table>
         </Section>
       ) : null}
 
@@ -125,7 +89,7 @@ export function InterviewRescheduled({
       ) : null}
 
       <Text className="text-[14px] leading-[1.5] font-inter text-fg-2 m-0 mb-4">
-        Need to adjust again? Just reply to this email.
+        Need to adjust again? Please contact your recruiter.
       </Text>
     </WorkspaceLayout>
   );

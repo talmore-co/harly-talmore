@@ -51,7 +51,7 @@ export function OfferExtended({
 
   return (
     <WorkspaceLayout
-      preview={`${companyName} wants you on the team. Here's your offer.`}
+      preview={`Your offer for ${jobTitle} is ready to review.`}
       companyName={companyName}
       companyLogoUrl={companyLogoUrl}
       accentColor={accentColor}
@@ -63,8 +63,9 @@ export function OfferExtended({
       </Text>
       <Text className="text-[14px] leading-[1.5] font-inter text-fg-2 m-0 mb-4">Hi {candidateName},</Text>
       <Text className="text-[14px] leading-[1.5] font-inter text-fg-2 m-0 mb-4">
-        We&apos;d love to have you join {companyName} as{" "}
-        <span className="text-fg font-semibold">{jobTitle}</span>. Here&apos;s what we&apos;re offering:
+        We&apos;re pleased to share your offer for the{" "}
+        <span className="text-fg font-semibold">{jobTitle}</span> position.
+        Please review the offer for the employer details and full terms.
       </Text>
       <DetailTable rows={rows} />
       <Section className="mt-3">
@@ -77,8 +78,7 @@ export function OfferExtended({
         <EmailFallbackLink url={offerUrl} />
       </Section>
       <Text className="text-[14px] leading-[1.5] font-inter text-fg-2 m-0 mb-4">
-        Review the offer using the link above, or reply to this email with any questions.
-        We&apos;re excited to hear from you.
+        Review the offer using the link above. If you have any questions, please contact your recruiter.
       </Text>
     </WorkspaceLayout>
   );

@@ -8,6 +8,13 @@
  */
 type Row = { label: string; value: string };
 
+function meetingUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" ? url.href : null;
+  } catch { return null; }
+}
+
 type DetailTableProps = {
   rows: Row[];
 };
@@ -58,7 +65,9 @@ export function DetailTable({ rows }: DetailTableProps) {
                           textAlign: "left",
                         }}
                       >
-                        {row.value}
+                        {row.label === "Where" && meetingUrl(row.value)
+                          ? <a href={meetingUrl(row.value)!} style={{ color: "#171717", textDecoration: "underline", overflowWrap: "anywhere" }}>Join interview</a>
+                          : row.value}
                       </td>
                     </tr>
                   );

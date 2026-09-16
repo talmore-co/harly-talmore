@@ -1,4 +1,5 @@
 "use client";
+import { useRejectionConfirmation } from "./useRejectionConfirmation";
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
@@ -283,7 +284,9 @@ export function CandidatesTable({
     });
   }
 
-  function runBulk(next: "hired" | "rejected" | "active") {
+  const { confirmRejection, rejectionDialog } = useRejectionConfirmation();
+
+  async function runBulk(next: "hired" | "rejected" | "active") {
     const applicationIds = filtered
       .filter((r) => selected.has(r.id) && r.applicationId)
       .map((r) => r.applicationId as string);
@@ -292,9 +295,11 @@ export function CandidatesTable({
       toast.error("Selected candidates have no application to update.");
       return;
     }
+    const sendRejectionEmail = next === "rejected" ? await confirmRejection(applicationIds.length) : false;
+    if (sendRejectionEmail === null) return;
     if (
       applicationIds.length > 1 &&
-      (next === "hired" || next === "rejected") &&
+      next === "hired" &&
       !window.confirm(bulkDecisionConfirmationMessage(next, applicationIds.length))
     ) {
       return;
@@ -303,7 +308,9 @@ export function CandidatesTable({
       const result = await bulkUpdateCandidateStatusAction({
         applicationIds,
         status: next,
+        sendRejectionEmail,
       });
+      if (result.warning) toast.warning(result.warning);
       if (result.success) {
         toast.success(
           `Updated ${applicationIds.length} candidate${applicationIds.length === 1 ? "" : "s"}.`,
@@ -316,7 +323,7 @@ export function CandidatesTable({
     });
   }
 
-  function runRowStatus(
+  async function runRowStatus(
     row: CandidateRow,
     next: "hired" | "rejected" | "active",
   ) {
@@ -324,11 +331,15 @@ export function CandidatesTable({
       toast.error("This candidate has no application to update.");
       return;
     }
+    const sendRejectionEmail = next === "rejected" ? await confirmRejection(1) : false;
+    if (sendRejectionEmail === null) return;
     startTransition(async () => {
       const result = await bulkUpdateCandidateStatusAction({
         applicationIds: [row.applicationId as string],
         status: next,
+        sendRejectionEmail,
       });
+      if (result.warning) toast.warning(result.warning);
       if (result.success) {
         toast.success(`${row.fullName} updated.`);
         router.refresh();
@@ -462,6 +473,7 @@ export function CandidatesTable({
 
   return (
     <div className="space-y-4">
+      {rejectionDialog}
       {/* Search */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">

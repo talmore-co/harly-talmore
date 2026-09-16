@@ -77,13 +77,14 @@ export function AttributionControls({
       <label className="flex flex-col gap-1 text-xs text-muted-foreground">
         <span>Attribution</span>
         <Input
-          className="w-64"
+          className="h-10 w-64"
           placeholder="Source, campaign or ad ID"
           value={query}
           onChange={(event) => onChange(event.target.value)}
         />
       </label>
       <Button
+        className="h-10"
         type="button"
         variant="outline"
         disabled={!applications.length}

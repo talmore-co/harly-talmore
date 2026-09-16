@@ -21,7 +21,7 @@ export function applicationReceivedCandidateSubject({
   jobTitle,
   companyName,
 }: Pick<ApplicationReceivedCandidateProps, "jobTitle" | "companyName">) {
-  return `Got your application — ${jobTitle} at ${companyName}`;
+  return `Application received: ${jobTitle} | ${companyName}`;
 }
 
 export function ApplicationReceivedCandidate({
@@ -38,7 +38,7 @@ export function ApplicationReceivedCandidate({
 }: ApplicationReceivedCandidateProps) {
   return (
     <WorkspaceLayout
-      preview={`Your application for ${jobTitle} is in. We'll be in touch.`}
+      preview={`We've received your application for ${jobTitle}.`}
       companyName={companyName}
       companyLogoUrl={companyLogoUrl}
       accentColor={accentColor}
@@ -52,12 +52,13 @@ export function ApplicationReceivedCandidate({
         Hi {candidateName},
       </Text>
       <Text className="text-[14px] leading-[1.5] font-inter text-fg-2 m-0 mb-4">
-        We got your application for{" "}
-        <span className="text-fg font-semibold">{jobTitle}</span>. The team will
-        review it carefully and reach out if there&apos;s a fit.
+        Thank you for applying for the{" "}
+        <span className="text-fg font-semibold">{jobTitle}</span> position.
+        We&apos;ve received your application. If we&apos;d like to arrange a conversation,
+        our recruiting team will contact you with the next steps.
       </Text>
       <Text className="text-[14px] leading-[1.5] font-inter text-fg-2 m-0 mb-4">
-        Thanks for taking the time — we appreciate it.
+        Thank you,<br />The {companyName} team
       </Text>
       {portalUrl ? (
         <Section className="mt-2">

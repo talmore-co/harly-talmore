@@ -1,4 +1,4 @@
-import { and, eq, exists, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, exists, inArray, isNull, sql } from "drizzle-orm";
 import { createElement } from "react";
 import { createHash, randomUUID } from "node:crypto";
 
@@ -33,7 +33,9 @@ import {
   offerExtendedSubject,
   OfferWithdrawn,
   offerWithdrawnSubject,
+  buildInterviewCalendar,
 } from "@harly/emails";
+import { interviewEmailDetails } from "./interview-details";
 
 import { renderActiveEmailTemplate } from "@/features/email-templates/data";
 import { sendWorkspaceEmail } from "@/lib/email";
@@ -61,10 +63,6 @@ const dateFormatter = new Intl.DateTimeFormat("en", {
   day: "numeric",
 });
 
-const interviewWhenFormatter = new Intl.DateTimeFormat("en", {
-  dateStyle: "long",
-  timeStyle: "short",
-});
 
 function formatOfferDate(value: Date | null): string | undefined {
   return value ? dateFormatter.format(value) : undefined;
@@ -883,6 +881,19 @@ async function deliverApplicationReceived(
 }
 
 async function deliverPipelineEmail(row: OutboxRow): Promise<boolean> {
+  // Discard old automatic stage/rejection messages rather than replaying them
+  // after deployment. New rejection messages require an explicit user choice.
+  if (row.kind === "pipeline.stage" || (row.payload as { explicitlyRequested?: boolean } | null)?.explicitlyRequested !== true) {
+    await db.update(emailOutbox).set({
+      status: "failed",
+      lastError: "Suppressed: pipeline email was not explicitly requested.",
+      lockedAt: null,
+      lockedBy: null,
+      nextRetryAt: null,
+      updatedAt: new Date(),
+    }).where(eq(emailOutbox.id, row.id));
+    return false;
+  }
   const p = row.payload as {
     candidateEmail?: string;
     candidateName?: string;
@@ -905,7 +916,7 @@ async function deliverPipelineEmail(row: OutboxRow): Promise<boolean> {
   const branding = await getWorkspaceEmailBranding(row.workspaceId);
   const { first, last } = splitName(p.candidateName ?? "");
   const isStage = p.type === "stage";
-  const templateType = isStage ? "stage_change" : "rejection";
+  const templateType = "rejection";
 
   const custom = await renderActiveEmailTemplate(
     row.workspaceId,
@@ -967,7 +978,7 @@ async function deliverPipelineEmail(row: OutboxRow): Promise<boolean> {
             hideBranding: branding.hideBranding,
             accentColor: branding.primaryColor ?? undefined,
             socialLinks: branding.socialLinks,
-            portalUrl: p.applicationId
+            portalUrl: branding.portalEnabled && p.applicationId
               ? `${appBaseUrl()}/portal/applications/${p.applicationId}`
               : undefined,
           }),
@@ -989,7 +1000,7 @@ async function deliverPipelineEmail(row: OutboxRow): Promise<boolean> {
             hideBranding: branding.hideBranding,
             accentColor: branding.primaryColor ?? undefined,
             socialLinks: branding.socialLinks,
-            portalUrl: p.applicationId
+            portalUrl: branding.portalEnabled && p.applicationId
               ? `${appBaseUrl()}/portal/applications/${p.applicationId}`
               : undefined,
           }),
@@ -1024,6 +1035,8 @@ async function deliverPipelineEmail(row: OutboxRow): Promise<boolean> {
 }
 
 type InterviewEmailPayload = {
+  interviewId?: string;
+  timeZone?: string;
   candidateEmail?: string;
   candidateName?: string;
   companyName?: string;
@@ -1059,6 +1072,28 @@ async function deliverInterviewEmail(row: OutboxRow): Promise<boolean> {
   const [firstName, ...lastName] = (payload.candidateName ?? "")
     .trim()
     .split(/\s+/);
+  // Cancellation has no timezone selector. Reuse the last invitation's zone.
+  let timeZone = payload.timeZone;
+  if (!timeZone && payload.interviewId) {
+    const [previous] = await db.select({ payload: emailOutbox.payload }).from(emailOutbox)
+      .where(and(eq(emailOutbox.workspaceId, row.workspaceId),
+        sql`${emailOutbox.payload}->>'interviewId' = ${payload.interviewId}`,
+        sql`${emailOutbox.payload}->>'timeZone' is not null`))
+      .orderBy(desc(emailOutbox.createdAt)).limit(1);
+    timeZone = (previous?.payload as InterviewEmailPayload | undefined)?.timeZone;
+  }
+  const schedule = interviewEmailDetails(when, timeZone);
+  const attachments = row.kind !== "interview.canceled" && payload.durationMins ? [{
+    filename: "interview.ics",
+    contentType: "text/calendar; charset=utf-8; method=PUBLISH",
+    content: Buffer.from(buildInterviewCalendar({
+      uid: `${createHash("sha256").update(`${row.workspaceId}:${payload.interviewId || row.id}`).digest("hex")}@talmore`,
+      updatedAt: row.createdAt ?? when,
+      summary: `${payload.interviewType || "Interview"}: ${payload.jobTitle}`,
+      start: when, durationMins: payload.durationMins,
+      location: payload.location, description: payload.notes,
+    })),
+  }] : undefined;
   const common = {
     candidateName: firstName ?? "",
     companyName: payload.companyName,
@@ -1085,8 +1120,8 @@ async function deliverInterviewEmail(row: OutboxRow): Promise<boolean> {
           candidate_full_name: payload.candidateName ?? "",
           company_name: payload.companyName,
           job_title: payload.jobTitle,
-          interview_date: interviewWhenFormatter.format(when),
-          interview_time: interviewWhenFormatter.format(when),
+          interview_date: schedule.date,
+          interview_time: schedule.time,
           interview_location: payload.location,
           interview_duration: duration,
           interviewer_name: payload.interviewerName,
@@ -1105,6 +1140,7 @@ async function deliverInterviewEmail(row: OutboxRow): Promise<boolean> {
               to: payload.candidateEmail,
               subject: interviewSubject,
               replyTo: payload.replyTo ?? undefined,
+              attachments,
               react: createElement(CustomTemplateEmail, {
                 bodyHtml: custom.bodyHtml,
                 companyName: payload.companyName,
@@ -1119,10 +1155,11 @@ async function deliverInterviewEmail(row: OutboxRow): Promise<boolean> {
               to: payload.candidateEmail,
               subject: interviewSubject,
               replyTo: payload.replyTo ?? undefined,
+              attachments,
               react: createElement(InterviewScheduled, {
                 ...common,
                 interviewType: payload.interviewType ?? "Interview",
-                when: interviewWhenFormatter.format(when),
+                when: schedule.when,
                 mode: payload.mode ?? "Video call",
                 location: payload.location,
                 duration,
@@ -1145,10 +1182,11 @@ async function deliverInterviewEmail(row: OutboxRow): Promise<boolean> {
           to: payload.candidateEmail,
           subject: interviewSubject,
           replyTo: payload.replyTo ?? undefined,
+          attachments,
           react: createElement(InterviewRescheduled, {
             ...common,
             interviewType: payload.interviewType ?? "Interview",
-            when: interviewWhenFormatter.format(when),
+            when: schedule.when,
             mode: payload.mode ?? "Video call",
             location: payload.location,
             duration,
@@ -1170,10 +1208,11 @@ async function deliverInterviewEmail(row: OutboxRow): Promise<boolean> {
           to: payload.candidateEmail,
           subject: interviewSubject,
           replyTo: payload.replyTo ?? undefined,
+          attachments,
           react: createElement(InterviewCanceled, {
             ...common,
             interviewType: payload.interviewType ?? "Interview",
-            when: interviewWhenFormatter.format(when),
+            when: schedule.when,
           }),
           ...deliveryOptions(row),
         },
@@ -1192,7 +1231,7 @@ async function deliverInterviewEmail(row: OutboxRow): Promise<boolean> {
     return false;
   }
   await markSent(row.id, delivered);
-  const whenLabel = interviewWhenFormatter.format(when);
+  const whenLabel = schedule.when;
   const summary =
     row.kind === "interview.scheduled"
       ? `Interview scheduled — ${whenLabel}.\nType: ${payload.interviewType ?? "Interview"}\nMode: ${payload.mode ?? "Video call"}${payload.location ? `\nLocation: ${payload.location}` : ""}`

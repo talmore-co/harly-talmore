@@ -15,9 +15,10 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSepa
 import { createEmailTemplate, updateEmailTemplate } from "@/features/email-templates/actions";
 import { findUnknownVariables, interpolateTemplate, TEMPLATE_VARIABLES } from "@/features/email-templates/interpolate";
 import { SYSTEM_TEMPLATE_TYPES, type EmailTemplateItem, type TemplateType } from "@/features/email-templates/shared";
+import type { TemplateStarter } from "./starters";
 
 const LABELS: Record<TemplateType, string> = { general: "General", interview_invite: "Interview", rejection: "Rejection", offer: "Offer", screening: "Screening", stage_change: "Stage change" };
-const MANUAL: TemplateType[] = ["general", "screening"];
+const MANUAL: TemplateType[] = ["general", "screening", "stage_change"];
 type TemplateVariable = (typeof TEMPLATE_VARIABLES)[number];
 const GROUPS = Array.from(TEMPLATE_VARIABLES.reduce((map, variable) => {
   if (!map.has(variable.group)) map.set(variable.group, []);
@@ -30,13 +31,13 @@ function normalizeTemplateBody(value: string) {
   return marked.parse(value, { async: false });
 }
 
-export function TemplateEditorPage({ template, workspaceName }: { template: EmailTemplateItem | null; workspaceName: string }) {
+export function TemplateEditorPage({ template, workspaceName, starter }: { template: EmailTemplateItem | null; workspaceName: string; starter?: TemplateStarter }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [name, setName] = useState(template?.name ?? "");
-  const [type, setType] = useState<TemplateType>(template?.type ?? "general");
-  const [subject, setSubject] = useState(template?.subject ?? "");
-  const [body, setBody] = useState(() => normalizeTemplateBody(template?.body ?? ""));
+  const [name, setName] = useState(template?.name ?? starter?.name ?? "");
+  const [type, setType] = useState<TemplateType>(template?.type ?? starter?.type ?? "general");
+  const [subject, setSubject] = useState(template?.subject ?? starter?.subject ?? "");
+  const [body, setBody] = useState(() => normalizeTemplateBody(template?.body ?? starter?.body ?? ""));
   const [mode, setMode] = useState<"edit" | "preview">("edit");
   const editorRef = useRef<{ insertText: (text: string) => void } | null>(null);
   const unknown = findUnknownVariables(`${subject}\n${body}`);

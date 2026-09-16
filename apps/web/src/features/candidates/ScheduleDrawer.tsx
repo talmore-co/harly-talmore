@@ -435,14 +435,15 @@ export function ScheduleDrawer({
             />
           </Field>
 
-          <Field label="Notes" htmlFor="schedule-notes">
+          <Field label="Message to candidate" htmlFor="schedule-notes">
             <Textarea
               id="schedule-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Focus areas, panel, prep…"
+              placeholder="Joining instructions or preparation to share with the candidate…"
               className="min-h-20"
             />
+            <p className="text-xs text-muted-foreground">Included in the invitation and calendar event. Keep internal preparation in candidate notes.</p>
           </Field>
           {calLinkAvailable ? (
             <div className="space-y-2.5 rounded-xl border border-primary/30 bg-accent/40 p-3.5">

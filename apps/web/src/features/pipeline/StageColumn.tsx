@@ -5,18 +5,11 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { BellIcon, BellSlashIcon } from "@/components/ui/icons/phosphor";
 import { CandidateCard } from "@/features/pipeline/CandidateCard";
 import type {
   PipelineApplication,
   PipelineStage,
 } from "@/features/pipeline/data";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 type StageColumnProps = {
@@ -29,7 +22,6 @@ type StageColumnProps = {
   index: number;
   total: number;
   onSelect: (applicationId: string, selected: boolean) => void;
-  onToggleStageEmail: (stageId: string, enabled: boolean) => void;
 };
 
 /**
@@ -54,14 +46,12 @@ export function StageColumn({
   index,
   total,
   onSelect,
-  onToggleStageEmail,
 }: StageColumnProps) {
   const { isOver, setNodeRef } = useDroppable({
     disabled: disabled || dragDisabled,
     id: stage.id,
     data: { type: "stage", stageId: stage.id },
   });
-  const emailOn = stage.emailConfig.candidateUpdatesEnabled;
 
   return (
     <section
@@ -90,47 +80,6 @@ export function StageColumn({
             </span>
           </div>
 
-          {/*
-            The bell used to sit in every column header as a coloured toggle ,
-            five always-on switches for a setting you change once. It moved into
-            a per-column overflow, which is where rare configuration belongs.
-          */}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label={`${stage.name} settings`}
-              disabled={disabled}
-              className="flex size-6 shrink-0 items-center justify-center rounded-md text-quiet-mist opacity-0 transition-opacity hover:text-near-ink focus-visible:opacity-100 focus-visible:outline-none group-hover/board:opacity-100 data-[state=open]:opacity-100"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              >
-                <circle cx="12" cy="5" r="1" />
-                <circle cx="12" cy="12" r="1" />
-                <circle cx="12" cy="19" r="1" />
-              </svg>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-56">
-              <DropdownMenuItem
-                className="gap-2.5"
-                onClick={() => onToggleStageEmail(stage.id, !emailOn)}
-              >
-                {emailOn ? (
-                  <BellSlashIcon className="size-4 text-soft-ink" />
-                ) : (
-                  <BellIcon className="size-4 text-soft-ink" />
-                )}
-                {emailOn
-                  ? "Stop emailing candidates here"
-                  : "Email candidates who reach here"}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </div>
 

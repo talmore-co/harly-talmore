@@ -9,9 +9,9 @@ import {
   Text,
 } from "@react-email/components";
 
-import { harlyTailwindConfig } from "./theme";
+import { workspaceEmailTheme } from "./theme";
 import { HarlyFonts } from "./HarlyFonts";
-import { EmailLogo, poweredByHarlyInline } from "./EmailLogo";
+import { EmailLogo } from "./EmailLogo";
 import type { SocialLink } from "./HarlyLayout";
 
 type WorkspaceLayoutProps = {
@@ -20,7 +20,7 @@ type WorkspaceLayoutProps = {
   companyLogoUrl?: string;
   accentColor?: string;
   socialLinks?: SocialLink[];
-  /** When true, omit the "Powered by Harly" footer credit. */
+  /** Retained for compatibility; workspace emails never show vendor credits. */
   hideBranding?: boolean;
   children: React.ReactNode;
 };
@@ -32,22 +32,20 @@ type WorkspaceLayoutProps = {
  * canvas by a diffuse evergreen-tinted shadow, with an inner bordered
  * surface. Header shows the company logo (email-optimized PNG from
  * /api/logo/convert) or a typographic lockup with the company name. Footer
- * credits both the sender company and "Powered by Harly".
+ * identifies the sender company without vendor credits.
  */
 export function WorkspaceLayout({
   preview,
   companyName,
   companyLogoUrl,
-  // accentColor and socialLinks are accepted for parity with the system
-  // template props; the layout itself stays neutral so company branding
-  // lives in the logo + per-template CTA color, not the chrome.
-  accentColor: _accentColor,
+  // The workspace accent colors CTAs; the surrounding card stays neutral.
+  accentColor,
   socialLinks: _socialLinks,
-  hideBranding,
+  hideBranding: _hideBranding,
   children,
 }: WorkspaceLayoutProps) {
   return (
-    <Tailwind config={harlyTailwindConfig}>
+    <Tailwind config={workspaceEmailTheme(accentColor)}>
       <Html lang="en">
         <Head>
           <HarlyFonts />
@@ -74,13 +72,7 @@ export function WorkspaceLayout({
                 {/* Footer */}
                 <Section className="border-stroke border-t px-10 py-8">
                   <Text className="text-[13px] leading-[1.5] tracking-[-0.039px] font-inter text-fg-3 m-0">
-                    {hideBranding ? (
-                      `Sent by ${companyName}`
-                    ) : (
-                      <>
-                        Sent by {companyName} · {poweredByHarlyInline()}
-                      </>
-                    )}
+                    Sent by {companyName}
                   </Text>
                 </Section>
               </Section>

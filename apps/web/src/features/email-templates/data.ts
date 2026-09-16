@@ -102,9 +102,10 @@ export async function renderActiveEmailTemplate(
 ): Promise<{ subject: string; bodyHtml: string } | null> {
   const template = await getActiveEmailTemplate(workspaceId, type);
   if (!template) return null;
+  const resolvedValues = { ...values, sender_name: values.sender_name || `The ${values.company_name || "Talmore"} recruiting team` };
 
   return {
-    subject: interpolateTemplate(template.subject, values),
-    bodyHtml: sanitizeTemplateHtml(interpolateTemplate(template.body, values)),
+    subject: interpolateTemplate(template.subject, resolvedValues),
+    bodyHtml: sanitizeTemplateHtml(interpolateTemplate(template.body, resolvedValues)),
   };
 }

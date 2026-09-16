@@ -93,6 +93,7 @@ export type CandidateActionState = {
 const bulkStatusSchema = z.object({
   applicationIds: z.array(z.string().min(1)).min(1).max(200),
   status: z.enum(["active", "hired", "rejected", "withdrawn"]),
+  sendRejectionEmail: z.boolean().optional().default(false),
 });
 
 const emailLog = createLogger("candidate-email");
@@ -163,7 +164,8 @@ export async function exportCandidateDirectoryAction(input: CandidateDirectoryFi
 export async function bulkUpdateCandidateStatusAction(input: {
   applicationIds: string[];
   status: "active" | "hired" | "rejected" | "withdrawn";
-}): Promise<{ success: boolean; error?: string }> {
+  sendRejectionEmail?: boolean;
+}): Promise<{ success: boolean; error?: string; warning?: string }> {
   const parsed = bulkStatusSchema.safeParse(input);
   if (!parsed.success) {
     return { success: false, error: "Invalid selection." };
@@ -176,6 +178,7 @@ export async function bulkUpdateCandidateStatusAction(input: {
     workspaceId: workspace.id,
     applicationIds: parsed.data.applicationIds,
     status: parsed.data.status,
+    sendRejectionEmail: parsed.data.sendRejectionEmail,
   });
 
   if (result.success) {

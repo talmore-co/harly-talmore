@@ -24,10 +24,6 @@ import {
 } from "@/server/events/emit";
 import { createLogger } from "@/lib/logger";
 import { withConcurrencyRetry } from "@/lib/concurrent";
-import {
-  enqueueEmailOutbox,
-  processEmailOutbox,
-} from "@/lib/email/outbox-processor";
 
 /** Workspace-scoped application service for the REST API. */
 const log = createLogger("applications");
@@ -105,21 +101,8 @@ async function notifyApplicationStatusChange(input: {
     });
   }
 
-  if (input.status === "rejected" && details.email) {
-    const id = await enqueueEmailOutbox(
-      input.workspaceId,
-      "pipeline.rejected",
-      {
-        candidateEmail: details.email,
-        candidateName: `${details.firstName} ${details.lastName}`,
-        applicationId: input.application.id,
-        jobTitle: details.jobTitle,
-        workspaceName: details.workspaceName,
-        type: "rejected",
-      },
-    );
-    await processEmailOutbox({ ids: [id], workspaceId: input.workspaceId });
-  }
+  // Status changes through API/automation paths are silent. Candidate emails
+  // require a separate explicit send action.
 }
 
 function cursorWhere(cursor: Cursor | null) {

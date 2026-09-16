@@ -1,4 +1,5 @@
 "use client";
+import { useRejectionConfirmation } from "./useRejectionConfirmation";
 
 import type { ComponentType, ReactNode } from "react";
 import { useState, useTransition } from "react";
@@ -178,15 +179,18 @@ function RejectButton({
   compact?: boolean;
 }) {
   const router = useRouter();
+  const { confirmRejection, rejectionDialog } = useRejectionConfirmation();
   const [isPending, startTransition] = useTransition();
 
-  function run(status: "rejected" | "withdrawn", pastTense: string) {
+  async function run(status: "rejected" | "withdrawn", pastTense: string) {
     if (!application) {
       toast.error("This candidate has no application to update.");
       return;
     }
+    const sendRejectionEmail = status === "rejected" ? await confirmRejection(1) : false;
+    if (sendRejectionEmail === null) return;
     if (
-      !window.confirm(
+      status !== "rejected" && !window.confirm(
         `${pastTense === "withdrawn" ? "Mark" : "Reject"} ${name}'s application for ${application.jobTitle}?`,
       )
     ) {
@@ -196,9 +200,11 @@ function RejectButton({
       const result = await bulkUpdateCandidateStatusAction({
         applicationIds: [application.applicationId],
         status,
+        sendRejectionEmail,
       });
       if (result.success) {
         toast.success(`${name} ${pastTense}.`);
+        if (result.warning) toast.warning(result.warning);
         (router as { refresh?: () => void }).refresh?.();
       } else {
         toast.error(result.error ?? "Could not update candidate.");
@@ -208,6 +214,7 @@ function RejectButton({
 
   return (
     <div className="flex items-center">
+      {rejectionDialog}
       <Button
         size="sm"
         variant="outline"

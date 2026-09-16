@@ -271,12 +271,12 @@ export function EditInterviewDialog({
                 />
               </Field>
 
-              <Field label="Notes" htmlFor="edit-notes">
+              <Field label="Message to candidate" htmlFor="edit-notes">
                 <Textarea
                   id="edit-notes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Focus areas, panel, prep…"
+                  placeholder="Visible to the candidate in invitations and calendar events. Use candidate notes for internal preparation."
                   className="min-h-20"
                 />
               </Field>

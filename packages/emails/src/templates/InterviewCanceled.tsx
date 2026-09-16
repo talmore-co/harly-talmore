@@ -62,7 +62,7 @@ export function InterviewCanceled({
         <Text className="text-[14px] leading-[1.5] font-inter text-fg-2 m-0 mb-4">{reason}</Text>
       ) : null}
       <Text className="text-[14px] leading-[1.5] font-inter text-fg-2 m-0 mb-4">
-        Reply to this email and we&apos;ll find a new time that works.
+        If you have any questions, please contact your recruiter.
       </Text>
     </WorkspaceLayout>
   );

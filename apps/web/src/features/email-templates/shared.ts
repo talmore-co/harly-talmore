@@ -8,7 +8,6 @@ export type TemplateType =
 
 /** Template types that map 1:1 to a system auto-email trigger (can be "activated"). */
 export const SYSTEM_TEMPLATE_TYPES = [
-  "stage_change",
   "rejection",
   "offer",
   "interview_invite",

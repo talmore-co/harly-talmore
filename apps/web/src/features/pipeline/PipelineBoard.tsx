@@ -1,4 +1,6 @@
 "use client";
+import { useRejectionConfirmation } from "@/features/candidates/useRejectionConfirmation";
+import { toast } from "@/lib/notification-island/toast";
 import { AttributionControls, matchesAttribution } from "./AttributionControls";
 import { PipelineScoreControls, matchesScoreFilters, compareScores, type ScoreSort } from "./PipelineScores";
 
@@ -22,7 +24,6 @@ import {
   bulkMoveApplications,
   moveApplicationInPipeline,
   updateApplicationStatus,
-  updateStageEmailSettings,
 } from "@/features/pipeline/actions";
 import { bulkDecisionConfirmationMessage } from "@/features/pipeline/confirmation";
 import {
@@ -189,7 +190,7 @@ export function PipelineBoard({
   applications,
 }: PipelineBoardProps) {
   const router = useRouter();
-  const [stages, setStages] = useState(initialStages);
+  const stages = initialStages;
   const [columns, setColumns] = useState<Map<string, PipelineApplication[]>>(
     () => buildColumns(initialStages, applications),
   );
@@ -378,6 +379,8 @@ export function PipelineBoard({
     }
   }
 
+  const { confirmRejection, rejectionDialog } = useRejectionConfirmation();
+
   async function handleStatusChange(
     applicationIds: string[],
     status: PipelineApplication["status"],
@@ -392,9 +395,11 @@ export function PipelineBoard({
       return;
     }
 
+    const sendRejectionEmail = status === "rejected" ? await confirmRejection(applicationIds.length) : false;
+    if (sendRejectionEmail === null) return;
     if (
       applicationIds.length > 1 &&
-      (status === "hired" || status === "rejected") &&
+      status === "hired" &&
       !window.confirm(
         bulkDecisionConfirmationMessage(status, applicationIds.length),
       )
@@ -425,7 +430,9 @@ export function PipelineBoard({
         applicationIds,
         workspaceId: firstApplication.workspaceId,
         status,
+        sendRejectionEmail,
       });
+      if (result.warning) toast.warning(result.warning);
 
       if (!result.success) {
         setColumns(previousColumns);
@@ -498,46 +505,9 @@ export function PipelineBoard({
     }
   }
 
-  async function handleToggleStageEmail(stageId: string, enabled: boolean) {
-    if (mutationPending) return;
-    const previousStages = stages;
-    const stage = stages.find((item) => item.id === stageId);
-
-    if (!stage) {
-      return;
-    }
-
-    setStages((current) =>
-      current.map((item) =>
-        item.id === stageId
-          ? {
-              ...item,
-              emailConfig: { candidateUpdatesEnabled: enabled },
-            }
-          : item,
-      ),
-    );
-    setMutationPending(true);
-
-    try {
-      const result = await updateStageEmailSettings({
-        workspaceId: applications[0]?.workspaceId ?? "",
-        jobId: selectedJob.id,
-        stageId,
-        candidateUpdatesEnabled: enabled,
-      });
-
-      if (!result.success) {
-        setStages(previousStages);
-        setError(result.error ?? "Unable to update stage email settings.");
-      }
-    } finally {
-      setMutationPending(false);
-    }
-  }
 
   const filterBar = (
-    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
       <div className="relative">
         <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -548,7 +518,7 @@ export function PipelineBoard({
             setSelectedIds(new Set());
           }}
           placeholder="Search candidates…"
-          className="w-full pl-9 sm:w-48"
+          className="h-10 w-full pl-9 sm:w-48"
         />
       </div>
       <Select
@@ -558,7 +528,7 @@ export function PipelineBoard({
           setSelectedIds(new Set());
         }}
       >
-        <SelectTrigger className="w-full sm:w-36">
+        <SelectTrigger className="h-10 w-full sm:w-36" aria-label="Application status">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -572,7 +542,7 @@ export function PipelineBoard({
       <PipelineScoreControls sort={sort} onSort={setSort} questionnaire={minimumScore} onQuestionnaire={value => { setMinimumScore(value); setSelectedIds(new Set()); }} ai={minimumAi} onAi={value => { setMinimumAi(value); setSelectedIds(new Set()); }} evaluationAction={evaluationAction} />
       <AttributionControls query={attributionQuery} onChange={value => { setAttributionQuery(value); setSelectedIds(new Set()); }} applications={Array.from(filteredColumns.values()).flat()} />
       {scoreSort && <span className="text-xs text-muted-foreground">Turn off score sorting to drag cards.</span>}
-      <label className="hidden items-center gap-2 rounded-md border bg-muted/40 px-3 py-1.5 text-sm font-medium text-muted-foreground sm:flex">
+      <label className="hidden h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-md border bg-muted/40 px-3 text-sm font-medium text-muted-foreground sm:flex">
         <Checkbox
           checked={hideEmptyColumns}
           onCheckedChange={(checked) => setHideEmptyColumns(checked === true)}
@@ -646,7 +616,9 @@ export function PipelineBoard({
 
   return (
     <div className="space-y-3">
+      {rejectionDialog}
       {filterBar}
+      <p className="text-xs text-muted-foreground">Moving candidates between stages does not send emails.</p>
       {bulkBar}
 
       {error ? (
@@ -726,9 +698,6 @@ export function PipelineBoard({
                 index={index}
                 total={visibleStages.length}
                 onSelect={handleSelect}
-                onToggleStageEmail={(stageId, enabled) => {
-                  void handleToggleStageEmail(stageId, enabled);
-                }}
               />
             ))}
           </div>

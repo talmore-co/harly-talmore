@@ -23,3 +23,4 @@ export * from "./templates/VerifyEmail";
 export * from "./templates/WelcomeEmail";
 export * from "./templates/WorkspaceInvitation";
 export * from "./templates/WorkspaceLayout";
+export * from "./templates/calendarLinks";

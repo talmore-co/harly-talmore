@@ -60,6 +60,7 @@ type UpdateApplicationStatusInput = {
   applicationIds: string[];
   workspaceId: string;
   status: ApplicationStatus;
+  sendRejectionEmail?: boolean;
 };
 
 type UpdateStageEmailSettingsInput = {
@@ -119,7 +120,10 @@ async function sendPipelineEmails(
   workspaceId: string,
   emails: PipelineEmail[],
   actorId?: string,
+  sendRejectionEmail = false,
 ) {
+  // Stage moves are silent, regardless of legacy stage settings.
+  emails = sendRejectionEmail === true ? emails.filter(email => email.type === "rejected") : [];
   if (emails.length === 0) return;
 
   const ids: string[] = [];
@@ -136,6 +140,7 @@ async function sendPipelineEmails(
           stageName: email.type === "stage" ? email.stageName : undefined,
           workspaceName: email.workspaceName,
           type: email.type,
+          explicitlyRequested: true,
         },
         undefined,
         actorId,
@@ -143,7 +148,8 @@ async function sendPipelineEmails(
     );
   }
 
-  await processEmailOutbox({ ids, workspaceId });
+  const result = await processEmailOutbox({ ids, workspaceId });
+  if (result.failed > 0) throw new Error("Some rejection emails are pending or failed.");
 }
 
 async function getApplicationsForAction(
@@ -1053,7 +1059,7 @@ export async function bulkMoveApplications(
 
 export async function updateApplicationStatus(
   input: UpdateApplicationStatusInput,
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; warning?: string }> {
   try {
     if (
       !input ||
@@ -1458,7 +1464,12 @@ export async function updateApplicationStatus(
         },
       );
     }
-    void sendPipelineEmails(input.workspaceId, emails, user.id);
+    try {
+      await sendPipelineEmails(input.workspaceId, emails, user.id, input.status === "rejected" && input.sendRejectionEmail === true);
+    } catch (error) {
+      log.error(error, "Application status committed but rejection email delivery was not confirmed");
+      return { success: true, warning: "Status updated, but email delivery could not be confirmed. Check email history before sending again." };
+    }
 
     return { success: true };
   } catch (error) {

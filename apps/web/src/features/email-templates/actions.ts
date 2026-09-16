@@ -9,6 +9,7 @@ import { db, emailTemplates } from "@harly/db";
 import { requirePermission } from "@/features/workspaces/permissions-server";
 import { logAuditEvent } from "@/lib/audit-log";
 import { createLogger } from "@/lib/logger";
+import { SYSTEM_TEMPLATE_TYPES } from "./shared";
 
 const log = createLogger("email-templates");
 
@@ -177,6 +178,7 @@ export async function updateEmailTemplate(input: {
             type: parsed.data.type,
             subject: parsed.data.subject,
             body: parsed.data.body,
+            isActive: template.isActive && SYSTEM_TEMPLATE_TYPES.some(type => type === parsed.data.type),
           })
           .where(
             and(
@@ -261,6 +263,10 @@ export async function setActiveEmailTemplate(input: {
 
         if (!current) return null;
 
+        if (parsed.data.active && !SYSTEM_TEMPLATE_TYPES.some(type => type === current.type)) {
+          throw new Error("Manual-only templates cannot be activated for event emails.");
+        }
+
         if (parsed.data.active) {
           // Clear the previous active template before activating this one. The
           // partial unique index is the final guard against concurrent writes.
@@ -292,6 +298,9 @@ export async function setActiveEmailTemplate(input: {
     );
   } catch (error) {
     log.error(error, "template activation failed");
+    if (error instanceof Error && error.message === "Manual-only templates cannot be activated for event emails.") {
+      return { success: false, error: error.message };
+    }
     return {
       success: false,
       error:

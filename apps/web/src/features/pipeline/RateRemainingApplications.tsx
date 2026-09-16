@@ -59,6 +59,7 @@ export function RateRemainingApplications({
   }
   return (
     <Button
+      className="h-10"
       type="button"
       variant="outline"
       onClick={rate}

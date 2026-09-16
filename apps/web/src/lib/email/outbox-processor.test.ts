@@ -139,6 +139,44 @@ function reset() {
 describe("email_outbox worker", () => {
   beforeEach(reset);
 
+  it.each(["pipeline.stage", "pipeline.rejected"])("suppresses legacy automatic %s emails without retrying", async kind => {
+    mocks.selectQueue.push([{ ...PENDING, kind, payload: { candidateEmail: "c@example.com", type: kind === "pipeline.stage" ? "stage" : "rejected" } }]);
+    const result = await processEmailOutbox();
+    expect(result.sent).toBe(0);
+    expect(mocks.sendWorkspaceEmail).not.toHaveBeenCalled();
+    expect(mocks.updateCalls).toContainEqual({ set: expect.objectContaining({ status: "failed", nextRetryAt: null, lockedBy: null, lastError: expect.stringContaining("not explicitly requested") }) });
+  });
+
+  it("delivers explicitly requested rejection emails using the active template", async () => {
+    mocks.selectQueue.push([{ ...PENDING, kind: "pipeline.rejected", payload: { candidateEmail: "c@example.com", candidateName: "Test Candidate", type: "rejected", explicitlyRequested: true } }], [{ id: "cand-1" }]);
+    mocks.renderActiveEmailTemplate.mockResolvedValue({ subject: "Application update", bodyHtml: "<p>Thank you for applying.</p>" });
+    mocks.sendWorkspaceEmail.mockResolvedValue(true);
+    const result = await processEmailOutbox();
+    expect(result.sent).toBe(1);
+    expect(mocks.renderActiveEmailTemplate).toHaveBeenCalledWith("ws-1", "rejection", expect.any(Object));
+    expect(mocks.sendWorkspaceEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("omits a rejection portal link when the portal is disabled", async () => {
+    mocks.selectQueue.push([{ ...PENDING, kind: "pipeline.rejected", payload: { candidateEmail: "c@example.com", applicationId: "app-1", type: "rejected", explicitlyRequested: true } }], [{ id: "cand-1" }]);
+    mocks.getWorkspaceEmailBranding.mockResolvedValue({ name: "Talmore", portalEnabled: false });
+    mocks.sendWorkspaceEmail.mockResolvedValue(true);
+    await processEmailOutbox();
+    expect(mocks.sendWorkspaceEmail.mock.calls[0][1].react.props.portalUrl).toBeUndefined();
+  });
+
+  it("attaches a calendar file and formats the invitation in the selected timezone", async () => {
+    mocks.selectQueue.push([{ ...PENDING, kind: "interview.scheduled", createdAt: new Date("2026-09-16T00:00:00Z"), payload: { interviewId: "interview-1", candidateEmail: "c@example.com", companyName: "Talmore", jobTitle: "Test role", scheduledAt: "2026-09-17T07:00:00Z", timeZone: "Asia/Manila", durationMins: 30 } }], [{ id: "cand-1" }]);
+    mocks.sendWorkspaceEmail.mockResolvedValue(true);
+    const result = await processEmailOutbox();
+    expect(result.sent).toBe(1);
+    const options = mocks.sendWorkspaceEmail.mock.calls[0][1];
+    expect(options.react.props.when).toMatch(/3:00.*pm.*GMT\+08:00.*Asia\/Manila/i);
+    expect(options.attachments[0].filename).toBe("interview.ics");
+    expect(options.attachments[0].content.toString()).toContain("DTSTART:20260917T070000Z");
+    expect(mocks.renderActiveEmailTemplate).toHaveBeenCalledWith("ws-1", "interview_invite", expect.objectContaining({ interview_date: "Thursday, 17 September 2026", interview_time: expect.not.stringContaining("September") }));
+  });
+
   it("sends the email and flips the offer + outbox to sent on success", async () => {
     mocks.selectQueue.push([PENDING], [OFFER_DRAFT], [APPLICATION_ACTIVE], [RECIPIENT]);
     mocks.sendWorkspaceEmail.mockResolvedValue(true);

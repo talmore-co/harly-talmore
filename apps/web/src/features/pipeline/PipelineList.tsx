@@ -1,4 +1,5 @@
 "use client";
+import { useRejectionConfirmation } from "@/features/candidates/useRejectionConfirmation";
 import { AttributionControls, matchesAttribution } from "./AttributionControls";
 import { PipelineScores, PipelineScoreControls, matchesScoreFilters, compareScores, type ScoreSort } from "./PipelineScores";
 
@@ -122,8 +123,9 @@ export function PipelineList({
     [filtered, selected],
   );
 
-  function afterBulk(result: { success: boolean; error?: string }, label: string) {
+  function afterBulk(result: { success: boolean; error?: string; warning?: string }, label: string) {
     if (result.success) {
+      if (result.warning) toast.warning(result.warning);
       toast.success(`${label} ${selectedIds.length} candidate${selectedIds.length === 1 ? "" : "s"}.`);
       setSelected(new Set());
       router.refresh();
@@ -144,10 +146,14 @@ export function PipelineList({
     });
   }
 
-  function setStatus(status: "hired" | "rejected" | "active") {
+  const { confirmRejection, rejectionDialog } = useRejectionConfirmation();
+
+  async function setStatus(status: "hired" | "rejected" | "active") {
     if (selectedIds.length === 0) return;
+    const sendRejectionEmail = status === "rejected" ? await confirmRejection(selectedIds.length) : false;
+    if (sendRejectionEmail === null) return;
     if (
-      status !== "active" &&
+      status === "hired" &&
       selectedIds.length > 1 &&
       !window.confirm(bulkDecisionConfirmationMessage(status, selectedIds.length))
     ) {
@@ -158,6 +164,7 @@ export function PipelineList({
         applicationIds: selectedIds,
         workspaceId,
         status,
+        sendRejectionEmail,
       });
       afterBulk(result, "Updated");
     });
@@ -165,6 +172,7 @@ export function PipelineList({
 
   return (
     <div className="space-y-4">
+      {rejectionDialog}
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative ml-auto w-full max-w-xs">

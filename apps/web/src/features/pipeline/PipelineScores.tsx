@@ -85,7 +85,7 @@ export function PipelineScoreControls({
           value={sort}
           onValueChange={(value) => onSort(value as ScoreSort)}
         >
-          <SelectTrigger className="w-56" aria-label="Sort applications">
+          <SelectTrigger className="h-10 w-56" aria-label="Sort applications">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -107,7 +107,7 @@ export function PipelineScoreControls({
           <span>{label}</span>
           <Input
             aria-label={label}
-            className="w-36"
+            className="h-10 w-36"
             type="number"
             min={0}
             max={100}

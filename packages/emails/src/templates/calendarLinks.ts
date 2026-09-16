@@ -1,94 +1,60 @@
-/**
- * Generate "Add to Google Calendar" and "Add to Apple Calendar" (.ics data URI)
- * links for interview email templates.
- */
-
-type CalendarLinks = {
-  googleCalendarUrl: string;
-  icsDataUri: string;
-};
-
-function pad2(n: number): string {
-  return n < 10 ? `0${n}` : String(n);
-}
-
-function toGCalDate(d: Date): string {
-  return (
-    d.getUTCFullYear().toString() +
-    pad2(d.getUTCMonth() + 1) +
-    pad2(d.getUTCDate()) +
-    "T" +
-    pad2(d.getUTCHours()) +
-    pad2(d.getUTCMinutes()) +
-    pad2(d.getUTCSeconds())
-  );
-}
-
-function toIcsDate(d: Date): string {
-  return (
-    d.getUTCFullYear().toString() +
-    pad2(d.getUTCMonth() + 1) +
-    pad2(d.getUTCDate()) +
-    "T" +
-    pad2(d.getUTCHours()) +
-    pad2(d.getUTCMinutes()) +
-    pad2(d.getUTCSeconds()) +
-    "Z"
-  );
-}
-
-function generateUid(): string {
-  return `interview-${Date.now()}-${Math.random().toString(36).slice(2, 9)}@harly`;
-}
-
-function escapeIcsText(value: string): string {
-  return value
-    .replace(/\r\n?/g, "\n")
-    .replace(/\\/g, "\\\\")
-    .replace(/\n/g, "\\n")
-    .replace(/;/g, "\\;")
-    .replace(/,/g, "\\,");
-}
-
-export function buildCalendarLinks(opts: {
+type CalendarDetails = {
   summary: string;
   start: Date;
   durationMins: number;
   description?: string;
   location?: string;
-}): CalendarLinks {
-  const end = new Date(opts.start.getTime() + opts.durationMins * 60_000);
-  const description = opts.description ?? "";
+};
 
-  // Google Calendar link
-  const gCalParams = new URLSearchParams({
-    action: "TEMPLATE",
-    text: opts.summary,
-    dates: `${toGCalDate(opts.start)}/${toGCalDate(end)}`,
-  });
-  if (description) gCalParams.set("details", description);
-  if (opts.location) gCalParams.set("location", opts.location);
-  const googleCalendarUrl = `https://calendar.google.com/calendar/render?${gCalParams.toString()}`;
+function calendarDate(value: Date) {
+  return value.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
 
-  // .ics data URI
-  const icsLines = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//Harly//Interview//EN",
-    "BEGIN:VEVENT",
-    `DTSTART:${toIcsDate(opts.start)}`,
-    `DTEND:${toIcsDate(end)}`,
-    `SUMMARY:${escapeIcsText(opts.summary)}`,
-    description ? `DESCRIPTION:${escapeIcsText(description)}` : null,
-    opts.location ? `LOCATION:${escapeIcsText(opts.location)}` : null,
-    `UID:${generateUid()}`,
-    "END:VEVENT",
-    "END:VCALENDAR",
-  ]
-    .filter(Boolean)
-    .join("\r\n");
+function escapeText(value: string) {
+  return value.replace(/\r\n?/g, "\n").replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/;/g, "\\;").replace(/,/g, "\\,");
+}
 
-  const icsDataUri = `data:text/calendar;charset=utf-8,${encodeURIComponent(icsLines)}`;
+function endDate(opts: CalendarDetails) {
+  if (!Number.isFinite(opts.durationMins) || opts.durationMins <= 0) throw new Error("Invalid calendar duration");
+  return new Date(opts.start.getTime() + opts.durationMins * 60_000);
+}
 
-  return { googleCalendarUrl, icsDataUri };
+export function buildCalendarLinks(opts: CalendarDetails) {
+  const params = new URLSearchParams({ action: "TEMPLATE", text: opts.summary,
+    dates: `${calendarDate(opts.start)}/${calendarDate(endDate(opts))}` });
+  if (opts.description) params.set("details", opts.description);
+  if (opts.location) params.set("location", opts.location);
+  return { googleCalendarUrl: `https://calendar.google.com/calendar/render?${params}` };
+}
+
+/** Fold at 75 UTF-8 octets without splitting a character (RFC 5545). */
+function foldLine(line: string) {
+  const encoder = new TextEncoder();
+  let result = "", bytes = 0;
+  for (const character of line) {
+    const size = encoder.encode(character).length;
+    if (bytes + size > 75) { result += "\r\n "; bytes = 1; }
+    result += character;
+    bytes += size;
+  }
+  return result;
+}
+
+/** A real attachment. Stable UID lets compatible clients update an imported event. */
+export function buildInterviewCalendar(opts: CalendarDetails & {
+  uid: string;
+  updatedAt: Date;
+}) {
+  if (!/^[A-Za-z0-9@._-]+$/.test(opts.uid)) throw new Error("Invalid calendar identity");
+  const lines = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Talmore//Interviews//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+    "BEGIN:VEVENT", `UID:${opts.uid}`, `DTSTAMP:${calendarDate(opts.updatedAt)}`,
+    `LAST-MODIFIED:${calendarDate(opts.updatedAt)}`, `SEQUENCE:${Math.floor(opts.updatedAt.getTime() / 1000)}`,
+    `DTSTART:${calendarDate(opts.start)}`, `DTEND:${calendarDate(endDate(opts))}`,
+    "STATUS:CONFIRMED", `SUMMARY:${escapeText(opts.summary)}`,
+    ...(opts.description ? [`DESCRIPTION:${escapeText(opts.description)}`] : []),
+    ...(opts.location ? [`LOCATION:${escapeText(opts.location)}`] : []),
+    "END:VEVENT", "END:VCALENDAR",
+  ];
+  return lines.map(foldLine).join("\r\n") + "\r\n";
 }

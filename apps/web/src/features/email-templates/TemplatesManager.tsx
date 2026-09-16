@@ -26,8 +26,6 @@ import {
   FileTextIcon,
   PlusIcon,
   SearchIcon,
-  StarFillIcon,
-  StarIcon,
   TrashIcon,
 } from "@/components/ui/icons/phosphor";
 import { DrawerLayout } from "@/features/candidates/DrawerLayout";
@@ -37,6 +35,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { TEMPLATE_STARTERS } from "./starters";
 import {
   Select,
   SelectContent,
@@ -73,7 +74,7 @@ const TEMPLATE_TYPE_COLORS: Record<TemplateType, string> = {
 
 /** Types with a matching system auto-email , these can be "activated" to override the default. */
 const ACTIVATABLE_TYPES = new Set<TemplateType>(SYSTEM_TEMPLATE_TYPES);
-const MANUAL_TEMPLATE_TYPES: TemplateType[] = ["general", "screening"];
+const MANUAL_TEMPLATE_TYPES: TemplateType[] = ["general", "screening", "stage_change"];
 
 function isAutomaticTemplateType(type: TemplateType) {
   return ACTIVATABLE_TYPES.has(type);
@@ -81,7 +82,7 @@ function isAutomaticTemplateType(type: TemplateType) {
 
 function templateTypeDescription(type: TemplateType) {
   return isAutomaticTemplateType(type)
-    ? "Automatic: review the preview, then activate it to replace Harly's default event email."
+    ? "Use for this email type: activation chooses the wording, not when an email sends. Rejection emails require an explicit choice."
     : "Manual only: use it when composing an email to a candidate.";
 }
 
@@ -93,45 +94,6 @@ const VARIABLE_GROUPS = Array.from(
     return map;
   }, new Map<string, typeof TEMPLATE_VARIABLES[number][]>()),
 );
-
-// Starter templates shown when the workspace has no templates yet
-const STARTER_TEMPLATES: Array<{
-  name: string;
-  type: TemplateType;
-  subject: string;
-  body: string;
-}> = [
-  {
-    name: "Interview invitation",
-    type: "interview_invite",
-    subject: "Interview invitation, {{job_title}} at {{company_name}}",
-    body: "<p>Hi {{candidate_first_name}},</p><p>We'd love to invite you to an interview for the <strong>{{job_title}}</strong> role at {{company_name}}.</p><p><strong>Date:</strong> {{interview_date}}<br><strong>Time:</strong> {{interview_time}}<br><strong>Location:</strong> {{interview_location}}</p><p>Please let us know if this works for you.</p><p>Best,<br>{{sender_name}}</p>",
-  },
-  {
-    name: "Application rejection",
-    type: "rejection",
-    subject: "Your application for {{job_title}}",
-    body: "<p>Hi {{candidate_first_name}},</p><p>Thank you for your interest in the <strong>{{job_title}}</strong> position at {{company_name}} and for taking the time to apply.</p><p>After careful consideration, we've decided to move forward with other candidates whose experience more closely matches our current needs.</p><p>We'll keep your profile on file and encourage you to apply for future openings that may be a better fit.</p><p>Best of luck,<br>{{sender_name}}</p>",
-  },
-  {
-    name: "Offer extended",
-    type: "offer",
-    subject: "Offer letter, {{job_title}} at {{company_name}}",
-    body: "<p>Hi {{candidate_first_name}},</p><p>We're thrilled to offer you the <strong>{{job_title}}</strong> position at {{company_name}}.</p><p><strong>Compensation:</strong> {{offer_salary}}<br><strong>Offer expires:</strong> {{offer_expiry}}</p><p>Please review the attached offer letter and let us know if you have any questions.</p><p>We're excited to have you on board,<br>{{sender_name}}</p>",
-  },
-  {
-    name: "Screening call",
-    type: "screening",
-    subject: "Quick intro call, {{job_title}}",
-    body: "<p>Hi {{candidate_first_name}},</p><p>We reviewed your application for <strong>{{job_title}}</strong> at {{company_name}} and we're impressed with your background.</p><p>We'd love to schedule a quick 30-minute call to learn more about you and share details about the role.</p><p>Looking forward to connecting,<br>{{sender_name}}</p>",
-  },
-  {
-    name: "Stage update",
-    type: "stage_change",
-    subject: "You're moving to {{stage_name}}, {{job_title}}",
-    body: "<p>Hi {{candidate_first_name}},</p><p>Good news. Your application for <strong>{{job_title}}</strong> at {{company_name}} has moved to the <strong>{{stage_name}}</strong> stage.</p><p>Someone from the team will reach out shortly with next steps.</p><p>Best,<br>{{sender_name}}</p>",
-  },
-];
 
 const PREVIEW_VALUES = {
   candidate_first_name: "Ava",
@@ -176,7 +138,8 @@ export function TemplatesManager({
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<TemplateType | "all">("all");
   const [tab, setTab] = useState<"edit" | "preview">("edit");
-  const [showStarters, setShowStarters] = useState(false);
+  const [chooserOpen, setChooserOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [editorKey] = useState(0);
 
   const [name, setName] = useState(EMPTY_DRAFT.name);
@@ -202,10 +165,9 @@ export function TemplatesManager({
 
   const unknownVariables = findUnknownVariables(`${subject}\n${body}`);
 
-  function openNew(prefill?: typeof STARTER_TEMPLATES[number]) {
-    void prefill;
-    router.push("/dashboard/templates/new" as Route);
-    setShowStarters(false);
+  function openNew(starterType?: TemplateType) {
+    router.push((starterType ? `/dashboard/templates/new?starter=${starterType}` : "/dashboard/templates/new") as Route);
+    setChooserOpen(false);
   }
 
   function openEdit(template: EmailTemplateItem) {
@@ -247,18 +209,18 @@ export function TemplatesManager({
     });
   }
 
-  function toggleActive(template: EmailTemplateItem) {
+  function toggleActive(template: EmailTemplateItem, active: boolean) {
     startTransition(async () => {
       const result = await setActiveEmailTemplate({
         templateId: template.id,
-        active: !template.isActive,
+        active,
       });
       if (!result.success) {
         toast.error(result.error ?? "Could not update the template.");
         return;
       }
       toast.success(
-        template.isActive
+        !active
           ? "Reverted to the default email"
           : `Now used for every ${TEMPLATE_TYPE_LABELS[template.type].toLowerCase()} email`,
       );
@@ -273,29 +235,55 @@ export function TemplatesManager({
 
   return (
     <div className="space-y-4">
+      <Dialog open={chooserOpen} onOpenChange={setChooserOpen}>
+        <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Create template</DialogTitle>
+            <DialogDescription>Choose suggested wording to edit, or start with a blank template. Nothing is saved until you save in the editor.</DialogDescription>
+          </DialogHeader>
+          <div className="divide-y">
+            {TEMPLATE_STARTERS.map(starter => (
+              <div key={starter.type} className="flex items-center justify-between gap-4 py-4">
+                <div className="min-w-0 space-y-1">
+                  <p className="text-sm font-medium">{starter.name}</p>
+                  <p className="text-xs leading-relaxed text-muted-foreground">{starter.description}</p>
+                </div>
+                <Button size="sm" variant="outline" className="shrink-0" onClick={() => openNew(starter.type)} aria-label={`Use ${starter.name.toLowerCase()} template`}>Use template</Button>
+              </div>
+            ))}
+            <div className="flex items-center justify-between gap-4 py-4">
+              <div className="space-y-1"><p className="text-sm font-medium">Blank template</p><p className="text-xs text-muted-foreground">Write your own subject and message.</p></div>
+              <Button size="sm" variant="outline" className="shrink-0" onClick={() => openNew()}>Start blank</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <DialogContent className="max-h-[85dvh] overflow-y-auto">
+          <DialogHeader><DialogTitle>How emails work</DialogTitle><DialogDescription>Templates choose the wording. Recruiting actions determine when messages send.</DialogDescription></DialogHeader>
+          <ul className="list-disc space-y-3 pl-5 text-sm leading-relaxed text-muted-foreground">
+            <li>Moving pipeline stages never sends an email, including moving someone into Rejected or Offer.</li>
+            <li>The Reject action sends an email only when you select Send rejection email. This is off by default.</li>
+            <li>Scheduling sends an invitation when Send invitation email is selected. Rescheduling and cancellation actions send updates. Calendar providers may also send notifications.</li>
+            <li>Sending an offer sends the offer email. Manual outreach sends when you click Send in the email composer.</li>
+            <li>Use this template selects the wording for interview invitations, rejections or offers across the workspace. Only one template per type can be active. Turning it off restores the built-in message.</li>
+            <li>General, screening and stage-update templates are for manual outreach. Application confirmations, rescheduling and cancellation emails use built-in wording.</li>
+          </ul>
+        </DialogContent>
+      </Dialog>
       {/* Header */}
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          {templates.length === 0
-            ? "No templates yet."
-            : `${templates.length} template${templates.length === 1 ? "" : "s"}.`}
-        </p>
-        <div className="flex items-center gap-2">
-          {templates.length > 0 ? (
-            <Button size="sm" variant="outline" onClick={() => setShowStarters((visible) => !visible)}>
-              {showStarters ? "Hide starters" : "Use a starter"}
-            </Button>
-          ) : null}
-          <Button size="sm" onClick={() => openNew()}>
-            <PlusIcon className="size-4" />
-            New template
-          </Button>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="max-w-xl space-y-1">
+          <p className="text-sm text-muted-foreground">Customize email wording and save reusable messages. Templates do not control when emails are sent.</p>
+          <button type="button" onClick={() => setHelpOpen(true)} className="text-xs font-medium underline underline-offset-4 hover:text-primary">How emails work</button>
         </div>
+        {templates.length > 0 ? (
+          <Button size="sm" onClick={() => setChooserOpen(true)}>
+            <PlusIcon className="size-4" />
+            Create template
+          </Button>
+        ) : null}
       </div>
-
-      <p className="text-xs text-muted-foreground">
-        Automatic templates can replace Harly&apos;s event emails when activated. Review the preview before activating; general and screening templates are for manual outreach.
-      </p>
 
       {/* Search + type filter */}
       {templates.length > 0 && (
@@ -323,72 +311,19 @@ export function TemplatesManager({
         </div>
       )}
 
-      {templates.length > 0 && showStarters ? (
-        <div className="rounded-xl border border-dashed p-4">
-          <div className="mb-3">
-            <p className="text-sm font-medium">Start from a template</p>
-            <p className="text-xs text-muted-foreground">Choose a starting point, then customize it for your workspace.</p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {STARTER_TEMPLATES.map((starter) => (
-              <button
-                key={starter.name}
-                type="button"
-                onClick={() => openNew(starter)}
-                className="group rounded-lg border border-dashed p-3 text-left transition hover:border-primary/40 hover:bg-accent/50"
-              >
-                <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                  <span className={cn("rounded-md px-2 py-0.5 text-[11px] font-semibold", TEMPLATE_TYPE_COLORS[starter.type])}>
-                    {TEMPLATE_TYPE_LABELS[starter.type]}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground">
-                    {isAutomaticTemplateType(starter.type) ? "Automatic" : "Manual only"}
-                  </span>
-                </div>
-                <p className="text-sm font-medium group-hover:text-primary">{starter.name}</p>
-                <p className="mt-0.5 truncate text-xs text-muted-foreground">{starter.subject}</p>
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
       {/* Empty state */}
       {templates.length === 0 ? (
-        <div className="space-y-4">
-          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed px-6 py-10 text-center">
+          <div className="flex flex-col items-center gap-3 rounded-xl border px-6 py-16 text-center">
             <span className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
               <FileTextIcon className="size-5" />
             </span>
-            <p className="text-sm font-medium">Write once, send often</p>
-            <p className="max-w-sm text-sm text-muted-foreground">
-              Start from a starter template or create your own with variables like{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">{"{{candidate_first_name}}"}</code>.
+            <h2 className="text-base font-semibold">No custom email templates yet</h2>
+            <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
+              Your team can already send emails using the built-in messages. Create a template to customize the wording or save a message for manual outreach.
             </p>
+            <Button className="mt-2" onClick={() => setChooserOpen(true)}><PlusIcon className="size-4" />Create template</Button>
+            <p className="text-xs text-muted-foreground">Creating a template does not send an email.</p>
           </div>
-          {/* Starter template cards */}
-          <div className="grid gap-3 sm:grid-cols-2">
-            {STARTER_TEMPLATES.map((t) => (
-              <button
-                key={t.name}
-                type="button"
-                onClick={() => openNew(t)}
-                className="group rounded-xl border border-dashed p-4 text-left transition hover:border-primary/40 hover:bg-accent/50"
-              >
-                <div className="mb-2 flex items-center gap-2">
-                  <span className={cn("rounded-md px-2 py-0.5 text-[11px] font-semibold", TEMPLATE_TYPE_COLORS[t.type])}>
-                    {TEMPLATE_TYPE_LABELS[t.type]}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground">
-                    {isAutomaticTemplateType(t.type) ? "Automatic" : "Manual only"}
-                  </span>
-                </div>
-                <p className="text-sm font-medium group-hover:text-primary">{t.name}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">{t.subject}</p>
-              </button>
-            ))}
-          </div>
-        </div>
       ) : filteredTemplates.length === 0 ? (
         <EmptyState
           variant="filtered"
@@ -399,52 +334,21 @@ export function TemplatesManager({
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {filteredTemplates.map((template) => (
-            <Card key={template.id} className={cn(template.isActive && "border-primary/40")}>
-              <CardContent className="space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex min-w-0 flex-col gap-1">
-                    <p className="truncate font-semibold">{template.name}</p>
+            <Card key={template.id} className={cn("gap-0 overflow-hidden py-0", template.isActive && isAutomaticTemplateType(template.type) && "border-primary/40")}>
+              <CardContent className="flex-1 space-y-4 p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-col gap-2">
+                    <h2 className="break-words font-semibold">{template.name}</h2>
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className={cn("w-fit rounded-md px-2 py-0.5 text-[11px] font-semibold", TEMPLATE_TYPE_COLORS[template.type])}>
                         {TEMPLATE_TYPE_LABELS[template.type]}
                       </span>
                       <span className="text-[11px] text-muted-foreground">
-                        {isAutomaticTemplateType(template.type) ? "Automatic" : "Manual only"}
+                        {isAutomaticTemplateType(template.type) ? "Event message" : "Manual only"}
                       </span>
-                      {template.isActive ? (
-                        <span className="inline-flex w-fit items-center gap-1 rounded-md bg-success/10 px-2 py-0.5 text-[11px] font-semibold text-success">
-                          <StarFillIcon className="size-2.5" />
-                          Active
-                        </span>
-                      ) : null}
                     </div>
                   </div>
                   <div className="flex shrink-0 gap-1">
-                    {ACTIVATABLE_TYPES.has(template.type) ? (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className={cn("size-8", template.isActive ? "text-success" : "text-muted-foreground")}
-                        aria-label={
-                          template.isActive
-                            ? `Stop using "${template.name}" for auto-emails`
-                            : `Use "${template.name}" for every ${TEMPLATE_TYPE_LABELS[template.type].toLowerCase()} email`
-                        }
-                        title={
-                          template.isActive
-                            ? "Active. Used for this workspace's auto-emails"
-                            : "Use for this workspace's auto-emails"
-                        }
-                        disabled={isPending}
-                        onClick={() => toggleActive(template)}
-                      >
-                        {template.isActive ? (
-                          <StarFillIcon className="size-4" />
-                        ) : (
-                          <StarIcon className="size-4" />
-                        )}
-                      </Button>
-                    ) : null}
                     <Button
                       size="sm"
                       variant="ghost"
@@ -465,12 +369,43 @@ export function TemplatesManager({
                     </Button>
                   </div>
                 </div>
-                <p className="truncate text-sm font-medium text-foreground/80">{template.subject}</p>
-                <p className="line-clamp-2 text-sm text-muted-foreground">{stripHtml(template.body)}</p>
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Subject</p>
+                  <p className="break-words text-sm font-medium">{template.subject}</p>
+                  <p className="line-clamp-2 break-words text-sm leading-relaxed text-muted-foreground">{stripHtml(template.body)}</p>
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Updated <RelativeTime value={template.updatedAt} />
                 </p>
               </CardContent>
+              <div className="flex items-center justify-between gap-4 border-t bg-muted/30 px-5 py-4">
+                {isAutomaticTemplateType(template.type) ? (
+                  <>
+                    <div className="min-w-0 space-y-1">
+                      <Label htmlFor={`template-active-${template.id}`} className="cursor-pointer text-sm font-medium">Use this template</Label>
+                      <p id={`template-active-hint-${template.id}`} className="text-xs leading-relaxed text-muted-foreground">
+                        {template.isActive
+                          ? "Used for this message type across the workspace. Turning off restores the built-in wording."
+                          : "Turn on to use this wording for this message type. Replaces any other active template."}
+                        {" "}Does not enable email sending.
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2.5">
+                      <span className={cn("text-xs font-medium", template.isActive ? "text-foreground" : "text-muted-foreground")} aria-hidden="true">{template.isActive ? "On" : "Off"}</span>
+                      <Switch
+                        id={`template-active-${template.id}`}
+                        checked={template.isActive}
+                        onCheckedChange={active => toggleActive(template, active)}
+                        disabled={isPending}
+                        aria-label={`Use ${template.name} for ${TEMPLATE_TYPE_LABELS[template.type].toLowerCase()} emails`}
+                        aria-describedby={`template-active-hint-${template.id}`}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Choose this template in the email composer when sending a message.</p>
+                )}
+              </div>
             </Card>
           ))}
         </div>
@@ -524,7 +459,7 @@ export function TemplatesManager({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectLabel>Automatic emails</SelectLabel>
+                      <SelectLabel>Event messages</SelectLabel>
                       {SYSTEM_TEMPLATE_TYPES.map((t) => (
                         <SelectItem key={t} value={t}>{TEMPLATE_TYPE_LABELS[t]}</SelectItem>
                       ))}

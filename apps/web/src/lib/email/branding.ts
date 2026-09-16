@@ -31,6 +31,7 @@ export async function getWorkspaceEmailBranding(
       websiteUrl: workspaceSettings.websiteUrl,
       careerPageConfig: workspaceSettings.careerPageConfig,
       hideBranding: workspaceSettings.hideHarlyBranding,
+      portalEnabled: workspaceSettings.candidatePortalEnabled,
     })
     .from(organization)
     .leftJoin(
@@ -41,7 +42,7 @@ export async function getWorkspaceEmailBranding(
     .limit(1);
 
   if (!row) {
-    return { name: "Harly" };
+    return { name: "Talmore" };
   }
 
   const config = normalizeCareerPageConfig(row.careerPageConfig);
@@ -62,5 +63,6 @@ export async function getWorkspaceEmailBranding(
     websiteUrl: row.websiteUrl ?? null,
     socialLinks: config.footer.socials,
     hideBranding: row.hideBranding ?? false,
+    portalEnabled: row.portalEnabled ?? false,
   };
 }
