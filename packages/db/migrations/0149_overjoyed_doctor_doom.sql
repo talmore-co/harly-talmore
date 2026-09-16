@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN "assistant_persona" text;

@@ -26,6 +26,7 @@ const PROFILE_COLUMNS = {
   websiteUrl: schema.user.websiteUrl,
   username: schema.user.username,
   timezone: schema.user.timezone,
+  assistantPersona: schema.user.assistantPersona,
   specialties: schema.user.specialties,
   languages: schema.user.languages,
   weeklyAvailability: schema.user.weeklyAvailability,

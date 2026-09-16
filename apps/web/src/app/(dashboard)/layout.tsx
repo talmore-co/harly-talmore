@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { HarlyAIProvider } from "@/components/dashboard/HarlyAIWidget";
+import { AssistantPersonaProvider } from "@/features/account/AssistantPersona";
 import { IconRail } from "@/components/dashboard/IconRail";
 import { PageTitleProvider } from "@/components/dashboard/PageTitleContext";
 import { StickyBarProvider } from "@/components/dashboard/StickyBarContext";
@@ -73,6 +74,7 @@ export default async function DashboardLayout({
     <RealtimeProvider>
       <RealtimePageSync />
       <StickyBarProvider>
+        <AssistantPersonaProvider value={ownProfile?.assistantPersona}>
         <HarlyAIProvider
           userName={user.name}
           userId={user.id}
@@ -121,6 +123,7 @@ export default async function DashboardLayout({
             </div>
           </div>
         </HarlyAIProvider>
+        </AssistantPersonaProvider>
       </StickyBarProvider>
     </RealtimeProvider>
   );

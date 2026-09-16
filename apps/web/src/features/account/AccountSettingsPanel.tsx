@@ -1,5 +1,6 @@
 "use client";
 import { TimezonePicker } from "@/components/ui/timezone-picker";
+import { AssistantAppearance } from "./AssistantAppearance";
 
 import Link from "next/link";
 import type { Route } from "next";
@@ -924,6 +925,9 @@ export function AccountSettingsPanel({
             </div>
           </SectionCard>
 
+          <SectionCard title="Assistant appearance" description="Your personal Talmore AI assistant.">
+            <AssistantAppearance />
+          </SectionCard>
           <SectionCard
             title="Operational details"
             description="Specialties, languages, and timezone shown on your internal profile."

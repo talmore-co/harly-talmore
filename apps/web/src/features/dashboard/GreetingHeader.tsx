@@ -1,4 +1,4 @@
-import { UserAvatar } from "@/components/ui/UserAvatar";
+import { AssistantPortrait } from "@/features/account/AssistantPersona";
 import { GreetingSalutation } from "./GreetingSalutation";
 
 /**
@@ -12,20 +12,18 @@ import { GreetingSalutation } from "./GreetingSalutation";
  */
 export function GreetingHeader({
   name,
-  avatarUrl,
   timeZone,
   initialNow,
   subline,
 }: {
   name: string;
-  avatarUrl: string | null;
   timeZone: string | null;
   initialNow: string;
   subline: string;
 }) {
   return (
     <header className="flex items-center gap-3 pt-4">
-      <UserAvatar name={name} src={avatarUrl} size="md" priority />
+      <AssistantPortrait size={48} />
       <div className="min-w-0">
         <h1 className="font-display truncate text-[24px] leading-tight text-near-ink">
           <GreetingSalutation timeZone={timeZone} initialNow={initialNow} />, {name}!

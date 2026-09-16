@@ -12,11 +12,13 @@ import {
 } from "react";
 import { getCandidateContextAction } from "@/features/ai-chat/actions";
 import { HarlyAIPanel } from "./HarlyAIPanel";
+import { MessageCircle, X } from "lucide-react";
+import { AssistantPortrait, useAssistantPersona } from "@/features/account/AssistantPersona";
 
 type HarlyAIContextValue = {
   /** Whether the AI panel is currently open. */
   open: boolean;
-  /** Toggle the panel. Wired to the top bar's signal button. */
+  /** Toggle the panel from the floating chat launcher. */
   toggle: () => void;
   /** False when the workspace has no usable AI config , the trigger hides. */
   enabled: boolean;
@@ -28,7 +30,7 @@ const HarlyAIContext = createContext<HarlyAIContextValue>({
   enabled: false,
 });
 
-/** Read by the top bar so AI lives in chrome you can ignore, not a FAB. */
+/** Shared chat visibility for dashboard controls. */
 export function useHarlyAI() {
   return useContext(HarlyAIContext);
 }
@@ -54,11 +56,7 @@ function surfaceLabelFromPath(pathname: string | null): string {
 /**
  * Hosts the AI panel and publishes its toggle through context.
  *
- * This used to render a permanent floating action button in the bottom-right
- * corner , a second brand identity shouting over the work (DESIGN.md: "AI is
- * optional guidance inside flows, not a permanent noisy FAB"). The panel is
- * unchanged; only its trigger moved into the top bar's signal button, which is
- * also where the command menu sends AI actions.
+ * The selected persona appears in a floating launcher at the bottom right.
  */
 export function HarlyAIProvider({
   userName,
@@ -77,6 +75,7 @@ export function HarlyAIProvider({
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const persona = useAssistantPersona();
   const [storageReady, setStorageReady] = useState(false);
   const [candidateContext, setCandidateContext] = useState<{
     id: string;
@@ -133,6 +132,18 @@ export function HarlyAIProvider({
   return (
     <HarlyAIContext value={value}>
       {children}
+      {aiEnabled && (
+        <button
+          type="button"
+          onClick={() => setOpen(value => !value)}
+          aria-label={open ? `Close ${persona.name}` : `Ask ${persona.name}`}
+          aria-expanded={open}
+          title={open ? `Close ${persona.name}` : `Ask ${persona.name}, your AI assistant`}
+          className="fixed bottom-4 right-4 z-50 flex size-14 items-center justify-center rounded-full border border-border bg-card shadow-lg transition-shadow hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:right-6"
+        >
+          {open ? <X className="size-5" /> : <><AssistantPortrait size={48} /><span className="absolute -bottom-0.5 -right-0.5 flex size-5 items-center justify-center rounded-full border-2 border-card bg-primary text-primary-foreground"><MessageCircle className="size-3" aria-hidden="true" /></span></>}
+        </button>
+      )}
       <HarlyAIPanel
         userName={userName}
         persistenceKey={persistenceKey}

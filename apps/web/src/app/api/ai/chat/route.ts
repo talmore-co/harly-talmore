@@ -9,6 +9,7 @@ import {
 import { z } from "zod";
 
 import { getWorkspaceContextOrNull } from "@/features/workspaces/context";
+import { getOwnProfileAction } from "@/features/people/actions";
 import {
   getRolePolicy,
   requirePermission,
@@ -234,6 +235,7 @@ export async function POST(req: Request) {
   const result = streamText({
     model: getModel(config),
     system: buildHarlySystemPrompt({
+      assistantName: (await getOwnProfileAction())?.assistantPersona === "leo" ? "Leo" : "Maya",
       workspaceName: context.organization.name,
       userName: context.user.name,
       role: context.role,

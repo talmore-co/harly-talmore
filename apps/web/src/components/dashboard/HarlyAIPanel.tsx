@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
 import { useChat } from "@ai-sdk/react";
@@ -22,7 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { HarlyAILogoMark } from "@/components/ui/icons/HarlyAILogoMark";
+import { AssistantPortrait, AssistantName, useAssistantPersona } from "@/features/account/AssistantPersona";
 import { Markdown } from "@/components/ui/markdown";
 import {
   ChatContainerRoot,
@@ -1807,17 +1806,10 @@ function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center gap-5 px-4 py-10 text-center">
-      <Image
-        src="/harly-ai-animado.svg"
-        alt="Harly AI"
-        width={88}
-        height={88}
-        unoptimized
-        priority
-      />
+      <AssistantPortrait size={88} />
       <div className="flex flex-col gap-1">
         <h2 className="text-[18px] font-semibold tracking-[-0.01em]">
-          Hi {firstName} 👋
+          Hi {firstName}
         </h2>
         <p className="text-[13px] text-muted-foreground">
           What can I help you with today?
@@ -1846,17 +1838,10 @@ function EmptyState({
 function NotConfiguredState() {
   return (
     <div className="flex flex-col items-center gap-4 px-6 py-12 text-center">
-      <Image
-        src="/harly-ai-animado.svg"
-        alt="Harly AI"
-        width={72}
-        height={72}
-        unoptimized
-        priority
-      />
+      <AssistantPortrait size={72} />
       <div className="flex flex-col gap-1">
         <h2 className="text-[16px] font-semibold tracking-tight">
-          Harly AI isn&apos;t set up yet
+          Your AI assistant isn&apos;t set up yet
         </h2>
         <p className="text-[13px] leading-relaxed text-muted-foreground">
           Connect an AI provider key to start chatting with your hiring copilot.
@@ -1898,6 +1883,7 @@ function HarlyChat({
   surfaceContext,
   onConversationActivity,
 }: HarlyChatProps) {
+  const persona = useAssistantPersona();
   const [input, setInput] = useState("");
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionCandidates, setMentionCandidates] = useState<
@@ -2260,14 +2246,7 @@ function HarlyChat({
 
               return (
                 <div key={message.id} className="flex items-start gap-2">
-                  <Image
-                    src="/harly-ai-animado.svg"
-                    alt="Harly AI"
-                    width={18}
-                    height={18}
-                    unoptimized
-                    className="mt-1 shrink-0"
-                  />
+                  <AssistantPortrait size={28} className="mt-1" />
                   <div className="flex min-w-0 flex-1 flex-col gap-2">
                     {statusEls.length > 0 && (
                       <div className="flex flex-col gap-1">{statusEls}</div>
@@ -2317,14 +2296,7 @@ function HarlyChat({
 
             {status === "submitted" && (
               <div className="flex items-center gap-2">
-                <Image
-                  src="/harly-ai-animado.svg"
-                  alt="Harly AI"
-                  width={18}
-                  height={18}
-                  unoptimized
-                  className="shrink-0"
-                />
+                <AssistantPortrait size={28} />
                 <ThinkingShimmer />
               </div>
             )}
@@ -2377,7 +2349,7 @@ function HarlyChat({
               className="rounded-3xl border-border/60 bg-muted/30 px-3 py-2 shadow-none"
             >
               <PromptInputTextarea
-                placeholder="Ask Harly AI… Use @ to mention a candidate"
+                placeholder={`Ask ${persona.name}… Use @ to mention a candidate`}
                 className="min-h-[36px] bg-transparent py-1 text-[13px] dark:bg-transparent"
               />
               <PromptInputActions className="justify-between pt-1">
@@ -2671,7 +2643,7 @@ export function HarlyAIPanel({
     >
       <Card
         className="relative flex h-[min(560px,calc(100dvh-7.5rem))] flex-col overflow-hidden border border-border/50 p-0 shadow-[0_1px_2px_rgba(23,23,23,0.04),0_4px_16px_rgba(23,23,23,0.03)] sm:h-[560px]"
-        aria-label="Harly AI assistant"
+        aria-label="Talmore AI assistant"
       >
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-border/60 px-3 py-3">
@@ -2687,10 +2659,11 @@ export function HarlyAIPanel({
                 <PanelLeft className="size-4" />
               </Button>
             )}
-            <HarlyAILogoMark className="size-5 shrink-0" />
-            <span className="text-sm font-semibold tracking-tight">
-              Harly AI
-            </span>
+            <AssistantPortrait size={32} />
+            <div className="ml-1 leading-tight">
+              <span className="text-sm font-semibold tracking-tight"><AssistantName /></span>
+              <p className="text-[10px] text-muted-foreground">Talmore AI assistant</p>
+            </div>
           </div>
           <div className="flex items-center gap-0.5">
             {aiEnabled && (
@@ -2709,7 +2682,7 @@ export function HarlyAIPanel({
               size="icon-sm"
               className="text-muted-foreground"
               onClick={onClose}
-              aria-label="Close Harly AI"
+              aria-label="Close AI assistant"
             >
               <X className="size-4" />
             </Button>

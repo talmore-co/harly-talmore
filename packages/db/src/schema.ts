@@ -211,6 +211,7 @@ export const user = pgTable(
     websiteUrl: text("website_url"),
     username: text("username"),
     timezone: text("timezone"),
+    assistantPersona: text("assistant_persona"),
     specialties: text("specialties").array(),
     languages: text("languages").array(),
     weeklyAvailability: jsonb(

@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { Menu, Moon, Search, Sun, X } from "lucide-react";
+import { Menu, Moon, Search, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 
-import { HarlyAILogoMark } from "@/components/ui/icons/HarlyAILogoMark";
 
 import { CommandMenu } from "@/components/dashboard/CommandMenu";
 import { MobileNav } from "@/components/dashboard/IconRail";
@@ -13,7 +12,6 @@ import { allNavItems, isNavActive } from "@/components/dashboard/nav-items";
 import { NotificationsBell } from "@/components/dashboard/NotificationsBell";
 import { useStickyBar } from "@/components/dashboard/StickyBarContext";
 import { UserMenu } from "@/components/dashboard/UserMenu";
-import { useHarlyAI } from "@/components/dashboard/HarlyAIWidget";
 import { NotificationIsland } from "@/components/dashboard/NotificationIsland";
 import {
   DropdownMenu,
@@ -123,7 +121,6 @@ export function TopBar({
         </div>
 
         <div className="z-10 ml-auto flex items-center gap-1">
-          <AiSignalButton />
           <UserMenu
             user={user}
             role={role}
@@ -192,45 +189,6 @@ function IconButton({
           <kbd className="font-chrome text-[11px] text-quiet-mist">{hint}</kbd>
         ) : null}
       </TooltipContent>
-    </Tooltip>
-  );
-}
-
-/**
- * Wears Harly's own mark, not a generic sparkle. A sparkle is what every product
- * bolted onto its toolbar in 2024; the mark says this assistant belongs to this
- * tool. No fill , the mark alone reads clean against the bar. When open it flips
- * to ink + a close glyph, so the button reads as the panel's toggle rather than
- * a second "ask" affordance. Hidden entirely when AI isn't configured, rather
- * than shown disabled.
- */
-function AiSignalButton() {
-  const { open, toggle, enabled } = useHarlyAI();
-  if (!enabled) return null;
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={toggle}
-          aria-label={open ? "Close Harly AI" : "Ask Harly AI"}
-          aria-pressed={open}
-          className={cn(
-            "mr-1 flex size-9 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-near-ink",
-            open
-              ? "bg-near-ink text-pure-snow"
-              : "text-near-ink hover:bg-row-wash",
-          )}
-        >
-          {open ? (
-            <X className="size-[17px]" strokeWidth={2} />
-          ) : (
-            <HarlyAILogoMark className="size-[22px]" />
-          )}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent>{open ? "Close Harly AI" : "Ask Harly AI"}</TooltipContent>
     </Tooltip>
   );
 }

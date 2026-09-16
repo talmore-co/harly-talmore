@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getWorkspaceContextOrNull: vi.fn(),
+  getOwnProfileAction: vi.fn(),
   getRolePolicy: vi.fn(),
   requirePermission: vi.fn(),
   getWorkspaceAiConfig: vi.fn(),
@@ -25,6 +26,7 @@ vi.mock("ai", () => ({
 vi.mock("@/features/workspaces/context", () => ({
   getWorkspaceContextOrNull: mocks.getWorkspaceContextOrNull,
 }));
+vi.mock("@/features/people/actions", () => ({ getOwnProfileAction: mocks.getOwnProfileAction }));
 vi.mock("@/features/workspaces/permissions-server", () => ({
   getRolePolicy: mocks.getRolePolicy,
   requirePermission: mocks.requirePermission,
@@ -62,6 +64,7 @@ function request(body: unknown, signal?: AbortSignal) {
 describe("POST /api/ai/chat", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.getOwnProfileAction.mockResolvedValue({ assistantPersona: "maya" });
     mocks.getWorkspaceContextOrNull.mockResolvedValue(context);
     mocks.requirePermission.mockResolvedValue(context);
     mocks.getRolePolicy.mockResolvedValue({
@@ -130,6 +133,13 @@ describe("POST /api/ai/chat", () => {
       messages: [message],
       tools: { lookup: { execute: expect.any(Function) } },
     });
+  });
+
+  it.each([["leo", "Leo"], ["maya", "Maya"], [null, "Maya"]])("uses the saved %s persona rather than a client-supplied identity", async (assistantPersona, assistantName) => {
+    mocks.getOwnProfileAction.mockResolvedValue({ assistantPersona });
+    const response = await POST(request({ messages: [message], assistantName: "Impersonated person" }));
+    expect(response.status).toBe(200);
+    expect(mocks.buildHarlySystemPrompt).toHaveBeenCalledWith(expect.objectContaining({ assistantName }));
   });
 
   it("passes the active candidate context to tools and the system prompt", async () => {

@@ -21,7 +21,6 @@ import {
 import { getSetupChecklist } from "@/features/dashboard/setup-checklist";
 import { getWorkspaceContext } from "@/features/workspaces/context";
 import { getOwnProfileAction } from "@/features/people/actions";
-import { accountAvatarUrl } from "@/lib/account-avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -74,7 +73,6 @@ export default async function DashboardPage({
     <div className="mx-auto w-full max-w-[1440px] pb-4">
       <GreetingHeader
         name={firstName}
-        avatarUrl={accountAvatarUrl(profile?.image ?? user.image ?? null) ?? null}
         timeZone={profile?.timezone ?? null}
         initialNow={new Date().toISOString()}
         subline={buildSubline({
