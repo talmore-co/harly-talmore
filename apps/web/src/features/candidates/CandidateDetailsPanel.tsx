@@ -1,5 +1,6 @@
 "use client";
 import { QuestionnaireScoreDetails } from "./QuestionnaireScoreDetails";
+import { ApplicationAttributionDetails } from "./ApplicationAttributionDetails";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -53,6 +54,7 @@ type Application = {
   source: string | null;
   questionnaireScore?: number | null;
   questionnaireScoreSnapshot?: unknown;
+  attribution?: unknown;
   answers: Array<{ id: string; label: string; type: string; answer: string }>;
 };
 
@@ -175,6 +177,7 @@ function ApplicationDisclosure({
   return (
     <div className="group/app space-y-0 py-4 first:pt-0 last:pb-0">
       <QuestionnaireScoreDetails snapshot={application.questionnaireScoreSnapshot} />
+      <ApplicationAttributionDetails value={application.attribution} />
       <div className="flex items-center gap-3">
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/70 text-muted-foreground">

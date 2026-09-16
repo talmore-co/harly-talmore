@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 
 import { getPublicJobDetail } from "@/features/jobs/data";
 import { JobChrome } from "@/features/career-page/job/JobChrome";
-import { JobOverviewBody } from "@/features/career-page/job/JobOverviewBody";
+import { ServerJobOverviewBody as JobOverviewBody } from "@/features/career-page/job/ServerJobOverviewBody";
 import { publicJobMetadata } from "@/features/career-page/seo";
 import { isPortalEnabled } from "@/lib/portal-auth";
 import { getPublicWorkspaceSlug } from "@/lib/public-workspace";

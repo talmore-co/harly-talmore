@@ -14,6 +14,8 @@ const nextConfig: NextConfig = {
     process.env.NODE_ENV === "production"
       ? {
           cpus: 2,
+          // Avoid a render-blocking stylesheet round trip on mobile ad landings.
+          inlineCss: true,
           memoryBasedWorkersCount: false,
           parallelServerBuildTraces: false,
           parallelServerCompiles: false,

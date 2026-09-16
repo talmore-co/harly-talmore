@@ -44,9 +44,9 @@ describe("public asset routes", () => {
     const response = await POST(upload('<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="20" height="20" fill="blue"/></svg>'));
     expect(response.status).toBe(200);
     const [key, bytes, contentType] = mocks.put.mock.calls[0];
-    expect(key).toMatch(/^public-assets\/workspace-1\/[\da-f-]+\.png$/);
-    expect(contentType).toBe("image/png");
-    expect((await sharp(bytes).metadata()).format).toBe("png");
+    expect(key).toMatch(/^public-assets\/workspace-1\/[\da-f-]+\.webp$/);
+    expect(contentType).toBe("image/webp");
+    expect((await sharp(bytes).metadata()).format).toBe("webp");
     expect((await response.json()).fileUrl).toBe(`https://ats.example.com/api/public/assets/${key.slice("public-assets/".length)}`);
   });
 
@@ -88,5 +88,31 @@ describe("public asset routes", () => {
   it("returns 404 for missing objects", async () => {
     mocks.read.mockRejectedValue(new Error("NoSuchKey"));
     expect((await GET(new Request("https://ats.example.com"), { params: Promise.resolve({ key: ["workspace-1", filename] }) })).status).toBe(404);
+  });
+
+  it("resizes existing PNG assets to persistent transparent WebP variants", async () => {
+    const original = await sharp({ create: { width: 800, height: 400, channels: 4, background: { r: 50, g: 100, b: 150, alpha: 0.5 } } }).png().toBuffer();
+    mocks.read.mockRejectedValueOnce(new Error("NoSuchKey")).mockResolvedValueOnce(original);
+    const response = await GET(new Request("https://ats.example.com?w=320&v=1"), { params: Promise.resolve({ key: ["workspace-1", filename] }) });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+    expect(response.headers.get("content-type")).toBe("image/webp");
+    const metadata = await sharp(Buffer.from(await response.arrayBuffer())).metadata();
+    expect(metadata).toMatchObject({ width: 320, height: 160, format: "webp", hasAlpha: true });
+    expect(mocks.put.mock.calls[0][0]).toBe(`public-asset-variants/v1/workspace-1/${filename.replace(".png", "-320.webp")}`);
+  });
+
+  it("reuses a stored variant without reading the original", async () => {
+    mocks.read.mockResolvedValue(Buffer.from("cached variant"));
+    const response = await GET(new Request("https://ats.example.com?w=768"), { params: Promise.resolve({ key: ["workspace-1", filename] }) });
+    expect(await response.text()).toBe("cached variant");
+    expect(mocks.read).toHaveBeenCalledTimes(1);
+    expect(mocks.put).not.toHaveBeenCalled();
+  });
+
+  it.each(["0", "999", "-320", "320.0", "NaN"])("rejects unsupported sizes before storage: %s", async width => {
+    const response = await GET(new Request(`https://ats.example.com?w=${width}`), { params: Promise.resolve({ key: ["workspace-1", filename] }) });
+    expect(response.status).toBe(400);
+    expect(mocks.read).not.toHaveBeenCalled();
   });
 });

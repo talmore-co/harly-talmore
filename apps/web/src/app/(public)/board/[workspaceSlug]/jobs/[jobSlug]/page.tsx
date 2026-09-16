@@ -3,7 +3,7 @@ import { MetaJobTracking } from "@/features/applications/MetaJobTracking";
 import type { Metadata } from "next";
 
 import { JobChrome } from "@/features/career-page/job/JobChrome";
-import { JobOverviewBody } from "@/features/career-page/job/JobOverviewBody";
+import { ServerJobOverviewBody as JobOverviewBody } from "@/features/career-page/job/ServerJobOverviewBody";
 import {
   jobPostingJsonLd,
   publicJobMetadata,

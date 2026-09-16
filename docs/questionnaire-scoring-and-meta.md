@@ -34,11 +34,17 @@ highest-score sort and minimum-score filter to prioritize candidates. Drag
 reordering is disabled while score sorting is active; bulk stage actions remain
 available. Candidate application details show the saved calculation breakdown.
 
-## Meta Pixel
+## Meta Pixel and Conversions API
 
 Under **Settings → Integrations → Meta advertising**, an authorized workspace
-administrator can save a numeric Pixel/Dataset ID. An empty value disconnects
-the integration. No Facebook login or arbitrary script snippet is needed.
+administrator can open the dedicated integration page and save a numeric
+Pixel/Dataset ID. No Facebook login or arbitrary script snippet is needed.
+To add server-side delivery, generate a Conversions API access token in Meta
+Events Manager, paste it into the password field, enable Conversions API and save.
+Tokens are encrypted with the server's existing `AI_ENCRYPTION_KEY` and are
+never returned by settings reads. A blank token field preserves the saved token.
+Changing datasets requires a new token; Disconnect removes it and cancels pending
+deliveries. Pixel-only mode remains available.
 
 On Harly-hosted public job and application pages, the browser integration sends:
 
@@ -65,11 +71,46 @@ Create a custom conversion for `QualifiedApplication` in Meta Events Manager
 and check that it is eligible for the intended employment campaign. No Purchase
 events or fabricated monetary values are sent.
 
-This implementation uses the browser Pixel. Ad blockers can prevent delivery.
-It does not yet configure Conversions API, durable server-side retries or tracking
-inside third-party embed hosts. Embedded submissions still receive their score
-in Harly. Test delivery in Meta Events Manager with the real Pixel before using
-the qualified conversion for campaign optimization.
+With Conversions API enabled, consented hosted form submissions queue
+`SubmitApplication` and, when qualified, `QualifiedApplication` in the same
+transaction as the saved application. The server's authority is the saved
+questionnaire result, never a client-provided score. No network call to Meta
+runs in the application transaction. Browser events and server events use the
+same event names and IDs: the application UUID, with `:qualified` appended for
+the qualified event. Meta uses these for deduplication.
+
+The scheduler calls `/api/cron/meta-conversions` every minute. Workers claim
+events with short row-lock transactions and two-minute leases, then release
+database connections before sending to the pinned Meta Graph API v25.0 endpoint.
+Interrupted workers recover after the lease expires with the original event ID.
+Temporary network errors, rate limits and transient provider errors retry with
+exponential backoff, at most ten attempts and no later than 47 hours after the
+original event. The deadline stays within the browser/server deduplication
+window. Permanent failures appear in Recent server deliveries. Disconnects,
+destination changes, deleted applications and expired events cancel queued delivery.
+Requests already in flight at disconnect cannot be retracted.
+Changing the test code does not change already queued events.
+
+Server matching sends IP address, user agent and available `_fbp` / `_fbc`
+cookies, not names, email addresses, answers or raw questionnaire scores.
+The click identifier from `fbclid` is retained in `_fbc` only after marketing
+consent, even if the Pixel SDK is blocked. URLs sent to Meta are canonical
+application URLs without query parameters. Matching data is encrypted while
+queued and cleared after delivery, cancellation or terminal failure. Delivery
+metadata is removed after 30 days; hard deletion of an application cascades to
+its delivery records. Consent is checked at submission; later browser consent
+changes cannot retract already submitted conversion events.
+
+To test, save the code from Meta Events Manager's Test Events tab, then click
+**Send test event**. This sends a `HarlyConnectionTest` event using the
+administrator's request IP/user agent. It does not create an application.
+Real applications while a test code is saved send server test events; browser
+Pixel behavior remains unchanged. Clear the code and save before live campaigns.
+Check real delivery in Events Manager before campaign optimization.
+
+Page views and application-start events remain browser-only. Embedded/API and
+portal submissions still receive scores but do not enqueue Conversions API events.
+Conversions API requires explicit marketing consent and does not bypass consent.
 
 ## MCP
 
@@ -97,3 +138,9 @@ The migration is additive and compatible with the previous application image.
 If an application rollback is needed, retain the added columns and migration
 tracking record. Do not reverse or edit the applied migration. No new environment
 variables are required; configure the Pixel ID in workspace settings after deploy.
+
+Migration `0150_silly_king_bedlam` adds encrypted Conversions API configuration
+and the delivery outbox. Run migrations before the updated app and scheduler.
+This migration is additive; keep the columns and tracking records on application
+rollback. Existing Pixel IDs remain configured, and Conversions API starts disabled.
+The same `AI_ENCRYPTION_KEY` must be available to app and scheduler deployments.

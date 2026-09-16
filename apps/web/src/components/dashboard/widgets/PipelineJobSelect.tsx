@@ -28,7 +28,7 @@ export function PipelineJobSelect({
         router.push(`/dashboard?job=${id}` as Route, { scroll: false })
       }
     >
-      <SelectTrigger size="sm" className="w-full">
+      <SelectTrigger size="sm" className="w-full min-w-0" aria-label="Pipeline job">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

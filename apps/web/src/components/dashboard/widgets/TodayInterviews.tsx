@@ -24,7 +24,7 @@ export function TodayInterviews({
       <TileHeader
         icon={CalendarClock}
         title="Today's interviews"
-        action={<TileLink href="/dashboard/pipeline">View pipeline</TileLink>}
+        action={<TileLink href="/dashboard/calendars">View calendar</TileLink>}
       />
       <div className="flex flex-1 flex-col px-2 pb-3 pt-1">
         {interviews.length > 0 ? (

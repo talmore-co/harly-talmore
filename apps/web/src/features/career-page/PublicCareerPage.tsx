@@ -3,6 +3,7 @@ import type { WorkspaceBoardBranding } from "@/features/workspaces/board";
 import type { CareerPageConfig } from "./config";
 import type { Job } from "./types";
 import { CareerPageRender } from "./CareerPageRender";
+import { ApplicationAttributionTracker } from "@/features/applications/ApplicationAttributionTracker";
 
 /**
  * The public careers surface. Used by both the workspace homepage (`/`) and the
@@ -25,12 +26,12 @@ export function PublicCareerPage({
   portalEnabled?: boolean;
 }) {
   return (
-    <CareerPageRender
+    <><ApplicationAttributionTracker workspaceId={workspace.id} /><CareerPageRender
       workspace={workspace}
       jobs={jobs}
       config={config}
       boardRoot={boardRoot}
       portalEnabled={portalEnabled}
-    />
+    /></>
   );
 }

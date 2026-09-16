@@ -151,15 +151,6 @@ export function PublicJobFooter({ brand }: { brand: PublicJobBrand }) {
         >
           Help
         </a>
-        <span className="text-xs text-zinc-400">
-          Powered by{" "}
-          <Link
-            href={"/" as Route}
-            className="font-semibold text-zinc-600 transition hover:text-zinc-900"
-          >
-            Harly
-          </Link>
-        </span>
       </div>
     </footer>
   );

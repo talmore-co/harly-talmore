@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PipelineBoard } from "@/features/pipeline/PipelineBoard";
-import { JobCandidateRanking } from "@/features/pipeline/JobCandidateRanking";
+import { RateRemainingApplications } from "@/features/pipeline/RateRemainingApplications";
 import { PipelineJobSelect } from "@/features/pipeline/PipelineJobSelect";
 import { PipelineList } from "@/features/pipeline/PipelineList";
 import { PipelineSummaryCard } from "@/features/pipeline/PipelineSummaryCard";
@@ -22,7 +22,9 @@ type PipelinePageProps = {
   }>;
 };
 
-export default async function PipelinePage({ searchParams }: PipelinePageProps) {
+export default async function PipelinePage({
+  searchParams,
+}: PipelinePageProps) {
   const { job, jobId, view: rawView } = await searchParams;
   const view = rawView === "board" ? "board" : "list";
   const { organization: workspace } = await getWorkspaceContext();
@@ -46,7 +48,10 @@ export default async function PipelinePage({ searchParams }: PipelinePageProps) 
   const toolbar = (
     <div className="flex items-center justify-between gap-3">
       <Suspense>
-        <PipelineJobSelect jobs={data.jobs} selectedJobId={data.selectedJob.id} />
+        <PipelineJobSelect
+          jobs={data.jobs}
+          selectedJobId={data.selectedJob.id}
+        />
       </Suspense>
       {data.stages.length > 0 ? (
         <PipelineViewToggle jobId={data.selectedJob.id} view={view} />
@@ -78,31 +83,37 @@ export default async function PipelinePage({ searchParams }: PipelinePageProps) 
     );
   }
 
+  const evaluationAction = (
+    <RateRemainingApplications
+      key={`evaluate-${data.selectedJob.id}`}
+      jobId={data.selectedJob.id}
+      applications={data.applications}
+      aiConfigured={
+        aiStatus.enabled && aiStatus.hasApiKey && aiStatus.encryptionReady
+      }
+    />
+  );
   return (
     <div className="space-y-4">
       {toolbar}
       <Suspense fallback={null}>
         <PipelineSummaryCard jobId={data.selectedJob.id} />
       </Suspense>
-      <JobCandidateRanking
-        key={`ranking-${data.selectedJob.id}`}
-        jobId={data.selectedJob.id}
-        jobTitle={data.selectedJob.title}
-        applications={data.applications}
-        stages={data.stages}
-        aiConfigured={
-          aiStatus.enabled && aiStatus.hasApiKey && aiStatus.encryptionReady
-        }
-      />
       {view === "list" ? (
         <PipelineList
+          evaluationAction={evaluationAction}
           key={`list-${data.selectedJob.id}`}
           stages={data.stages}
           applications={data.applications}
         />
       ) : (
         <PipelineBoard
-          key={pipelineBoardKey(data.selectedJob.id, data.stages, data.applications)}
+          evaluationAction={evaluationAction}
+          key={pipelineBoardKey(
+            data.selectedJob.id,
+            data.stages,
+            data.applications,
+          )}
           jobs={data.jobs}
           selectedJob={data.selectedJob}
           stages={data.stages}
@@ -119,7 +130,10 @@ function pipelineBoardKey(
   applications: PipelineDataReady["applications"],
 ) {
   const stageVersion = stages
-    .map((stage) => `${stage.id}:${stage.order}:${stage.emailConfig.candidateUpdatesEnabled}`)
+    .map(
+      (stage) =>
+        `${stage.id}:${stage.order}:${stage.emailConfig.candidateUpdatesEnabled}`,
+    )
     .join(",");
   const applicationVersion = applications
     .map(

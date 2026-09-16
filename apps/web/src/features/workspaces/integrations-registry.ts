@@ -13,6 +13,7 @@ import { getWorkspaceSlackStatus } from "@/lib/slack/config";
 import { getWorkspaceCaptchaStatus } from "@/lib/captcha";
 import { getWorkspaceTelegramStatus } from "@/lib/telegram/config";
 import { getZoomConfig } from "@/lib/zoom/config";
+import { getMetaStatus } from "@/lib/meta/conversions";
 
 /**
  * Central registry for connectable integrations (OAuth / persistent
@@ -25,6 +26,7 @@ import { getZoomConfig } from "@/lib/zoom/config";
 
 export type IntegrationCategory =
   | "calendar"
+  | "advertising"
   | "communication"
   | "automation"
   | "signing"
@@ -32,6 +34,7 @@ export type IntegrationCategory =
 
 export type IntegrationSlug =
   | "cal"
+  | "meta"
   | "google-calendar"
   | "google-meet"
   | "outlook-calendar"
@@ -71,6 +74,7 @@ export type IntegrationDefinition = {
 };
 
 export const CATEGORY_LABELS: Record<IntegrationCategory, string> = {
+  advertising: "Advertising",
   calendar: "Calendar & scheduling",
   communication: "Communication",
   automation: "Automation",
@@ -82,11 +86,13 @@ export const CATEGORY_ORDER: IntegrationCategory[] = [
   "calendar",
   "communication",
   "automation",
+  "advertising",
   "signing",
   "security",
 ];
 
 export const INTEGRATIONS: IntegrationDefinition[] = [
+  { slug: "meta", name: "Meta advertising", category: "advertising", description: "Track applications with Meta Pixel and Conversions API.", detail: "Connect browser and server conversion tracking for your recruiting campaigns.", tileClassName: "bg-blue-50 text-blue-600" },
   {
     slug: "cal",
     externalHref: "/account?tab=connections",
@@ -316,6 +322,7 @@ export function getIntegration(
 }
 
 export type IntegrationStatuses = {
+  meta?: Awaited<ReturnType<typeof getMetaStatus>>;
   cal: Awaited<ReturnType<typeof getWorkspaceCalStatus>>;
   gcal: Awaited<ReturnType<typeof getWorkspaceGCalStatus>>;
   slack: Awaited<ReturnType<typeof getWorkspaceSlackStatus>>;
@@ -332,7 +339,7 @@ export type IntegrationStatuses = {
 export async function getIntegrationStatuses(
   workspaceId: string,
 ): Promise<IntegrationStatuses> {
-  const [cal, gcal, slack, outlook, zoom, chat, telegram, jitsi, docuseal, captcha] =
+  const [cal, gcal, slack, outlook, zoom, chat, telegram, jitsi, docuseal, captcha, meta] =
     await Promise.all([
       getMyCalConnection().then((status) => {
         const connection = status.workspaceId === workspaceId ? status.connection : null;
@@ -361,8 +368,9 @@ export async function getIntegrationStatuses(
       getWorkspaceJitsiStatus(workspaceId),
       getWorkspaceEsignStatus(workspaceId),
       getWorkspaceCaptchaStatus(workspaceId),
+      getMetaStatus(workspaceId),
     ]);
-  return { cal, gcal, slack, outlook, zoom, chat, telegram, jitsi, docuseal, captcha };
+  return { cal, gcal, slack, outlook, zoom, chat, telegram, jitsi, docuseal, captcha, meta };
 }
 
 /** Resolve whether a given integration slug is currently connected. */
@@ -371,6 +379,8 @@ export function isConnected(
   statuses: IntegrationStatuses,
 ): boolean {
   switch (slug) {
+    case "meta":
+      return Boolean(statuses.meta?.pixelId);
     case "cal":
       return statuses.cal.enabled;
     case "google-calendar":

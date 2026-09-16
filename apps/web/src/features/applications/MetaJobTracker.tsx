@@ -31,6 +31,12 @@ export function hasMarketingConsent() {
   }
 }
 function initialize(pixelId: string) {
+  // Preserve ad-click attribution after consent even if the Pixel SDK is blocked.
+  const clickId = new URL(window.location.href).searchParams.get("fbclid");
+  if (clickId && /^[A-Za-z0-9_-]{1,500}$/.test(clickId)) {
+    const current = document.cookie.split("; ").find(value => value.startsWith("_fbc="));
+    if (!current?.endsWith(`.${clickId}`)) document.cookie = `_fbc=fb.1.${Date.now()}.${clickId}; Path=/; Max-Age=7776000; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`;
+  }
   if (!window.fbq) {
     const pixel: Pixel = Object.assign(
       (...args: unknown[]) => {
@@ -124,5 +130,5 @@ export function MetaJobTracker({
       window.removeEventListener("harly:application-submitted", submitted);
     };
   }, [pixelId, jobId]);
-  return <button type="button" className="mt-4 text-xs text-muted-foreground underline underline-offset-4" onClick={() => window.dispatchEvent(new Event("harly:open-cookie-preferences"))}>Cookie preferences</button>;
+  return null;
 }

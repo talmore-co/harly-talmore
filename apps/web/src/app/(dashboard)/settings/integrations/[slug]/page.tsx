@@ -25,6 +25,8 @@ import { SlackConnectPanel } from "@/features/workspaces/SlackConnectPanel";
 import { TelegramConnectPanel } from "@/features/workspaces/TelegramConnectPanel";
 import { CaptchaConnectPanel } from "@/features/workspaces/CaptchaConnectPanel";
 import { ZoomConnectPanel } from "@/features/workspaces/ZoomConnectPanel";
+import { MetaPixelPanel } from "@/features/workspaces/MetaPixelPanel";
+import { getMyWorkspaceMetaSettings } from "@/features/workspaces/meta-actions";
 import {
   getIntegration,
   getWorkspaceContext,
@@ -65,6 +67,7 @@ function svgBrand(slug: string, alt: string, variant = "default"): Logo {
 }
 
 const DETAIL_LOGOS: Record<IntegrationSlug, Logo> = {
+  meta: svgBrand("meta", "Meta"),
   cal: svgBrand("caldotcom", "Cal.com", "dark"),
   "google-calendar": svgBrand("google-calendar", "Google Calendar"),
   "google-meet": svgBrand("google-meet", "Google Meet"),
@@ -113,6 +116,7 @@ export default async function IntegrationDetailPage({
   if (integration.externalHref) redirect(integration.externalHref as Route);
 
   const { organization, role } = await getWorkspaceContext();
+  if (slug === "meta") return <div className="space-y-6"><Link href="/settings/integrations" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground"><CaretLeftIcon className="size-4" />Integrations</Link><MetaPixelPanel settings={await getMyWorkspaceMetaSettings()} /></div>;
   const canEdit = role === "owner" || role === "admin";
 
   const eventOptions = WEBHOOK_EVENTS.map((event) => ({

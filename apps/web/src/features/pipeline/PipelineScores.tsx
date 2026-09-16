@@ -67,6 +67,7 @@ export function PipelineScoreControls({
   onQuestionnaire,
   ai,
   onAi,
+  evaluationAction,
 }: {
   sort: ScoreSort;
   onSort: (value: ScoreSort) => void;
@@ -74,6 +75,7 @@ export function PipelineScoreControls({
   onQuestionnaire: (value: string) => void;
   ai: string;
   onAi: (value: string) => void;
+  evaluationAction?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-wrap items-end gap-3">
@@ -87,7 +89,7 @@ export function PipelineScoreControls({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="manual">Pipeline order</SelectItem>
+            <SelectItem value="manual">Manual pipeline order</SelectItem>
             <SelectItem value="questionnaireScore">
               Questionnaire: highest first
             </SelectItem>
@@ -115,6 +117,7 @@ export function PipelineScoreControls({
           />
         </label>
       ))}
+      {evaluationAction}
     </div>
   );
 }

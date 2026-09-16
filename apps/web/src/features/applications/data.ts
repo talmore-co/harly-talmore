@@ -29,6 +29,9 @@ import {
 } from "@/features/jobs/config";
 import { buildQuestionAnswerRows } from "@/features/applications/questions";
 import { scoreQuestionnaire } from "@/features/applications/questionnaire-score";
+import { enqueueMetaConversions } from "@/lib/meta/conversions";
+import type { MetaRequestContext } from "@/lib/meta/request-context";
+import { parseAttribution, type ApplicationAttribution } from "./attribution";
 import { isCurrentJobQuestion } from "@/features/jobs/config";
 import { lockApplicationPipelineOrder } from "@/features/applications/pipeline-order";
 import { verifyResumeUpload } from "@/features/applications/resume-upload";
@@ -197,6 +200,8 @@ export async function createPublicApplication(
   input: { jobSlug: string; workspaceSlug?: string },
   values: ApplicationFormValues,
   options?: {
+    metaContext?: MetaRequestContext | null;
+    attribution?: ApplicationAttribution | null;
     consent?: {
       consentText: string;
       ipAddress: string | null;
@@ -429,6 +434,7 @@ export async function createPublicApplication(
           source: "public_form",
           questionnaireScore: questionnaire?.score ?? null,
           questionnaireScoreSnapshot: questionnaire,
+          attribution: options?.attribution?.workspaceId === workspaceId ? parseAttribution(options.attribution) : null,
           status: "active",
           appliedAt: now,
           coverLetter: values.coverLetter ?? null,
@@ -457,6 +463,7 @@ export async function createPublicApplication(
       if (!application) {
         throw new Error("Application could not be created.");
       }
+      if (options?.metaContext) await enqueueMetaConversions(tx, { workspaceId, workspaceSlug: input.workspaceSlug, applicationId: application.id, jobId: job.id, jobSlug: input.jobSlug, qualified: questionnaire?.qualified === true, context: options.metaContext });
 
       if (verifiedResume) {
         await tx.insert(candidateFiles).values({

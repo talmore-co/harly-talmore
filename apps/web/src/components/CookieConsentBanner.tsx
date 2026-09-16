@@ -20,11 +20,16 @@ function persistConsent(prefs: Prefs) {
   );
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
   document.cookie = `${CONSENT_COOKIE}=${value}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
-  localStorage.setItem("cookie-preferences", JSON.stringify(prefs));
+  try {
+    localStorage.setItem("cookie-preferences", JSON.stringify(prefs));
+  } catch {
+    /* Cookie remains the source of consent. */
+  }
   window.dispatchEvent(new Event("harly:consent-changed"));
 }
 
 interface CookiePanelProps {
+  initialVisible?: boolean;
   title?: string;
   message?: string;
   acceptText?: string;
@@ -126,8 +131,8 @@ const CookiePanel = (props: CookiePanelProps) => {
     termsHref = "/legal/terms-of-service",
   } = props;
 
-  const [visible, setVisible] = useState(false);
-  const [render, setRender] = useState(false);
+  const [visible, setVisible] = useState(props.initialVisible ?? false);
+  const [render, setRender] = useState(props.initialVisible ?? false);
   const [showPrefs, setShowPrefs] = useState(false);
   const [prefs, setPrefs] = useState<Prefs>({
     necessary: true,
@@ -139,30 +144,43 @@ const CookiePanel = (props: CookiePanelProps) => {
   const prefsRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const reopen = () => {
-      try { const saved = localStorage.getItem("cookie-preferences"); if (saved) setPrefs({ ...JSON.parse(saved), necessary: true }); } catch { /* Use current preferences. */ }
+      try {
+        const saved = localStorage.getItem("cookie-preferences");
+        if (saved) setPrefs({ ...JSON.parse(saved), necessary: true });
+      } catch {
+        /* Use current preferences. */
+      }
       setRender(true);
       setVisible(true);
       setShowPrefs(true);
     };
     window.addEventListener("harly:open-cookie-preferences", reopen);
-    return () => window.removeEventListener("harly:open-cookie-preferences", reopen);
+    return () =>
+      window.removeEventListener("harly:open-cookie-preferences", reopen);
   }, []);
   const [prefsHeight, setPrefsHeight] = useState<number>(0);
 
   useEffect(() => {
-    const stored =
-      typeof window !== "undefined"
-        ? localStorage.getItem("cookie-consent")
-        : null;
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem("cookie-consent");
+    } catch {
+      /* Storage may be disabled. */
+    }
 
-    if (!stored) {
+    if (props.initialVisible === undefined && !stored) {
       requestAnimationFrame(() => {
         setRender(true);
         requestAnimationFrame(() => setVisible(true));
       });
     }
 
-    const storedPrefs = localStorage.getItem("cookie-preferences");
+    let storedPrefs: string | null = null;
+    try {
+      storedPrefs = localStorage.getItem("cookie-preferences");
+    } catch {
+      /* Use defaults. */
+    }
     if (storedPrefs) {
       try {
         const parsed = JSON.parse(storedPrefs) as Prefs;
@@ -170,7 +188,7 @@ const CookiePanel = (props: CookiePanelProps) => {
         setPrefs({ ...parsed, necessary: true });
       } catch {}
     }
-  }, []);
+  }, [props.initialVisible]);
 
   useEffect(() => {
     if (showPrefs && prefsRef.current) {
@@ -183,7 +201,11 @@ const CookiePanel = (props: CookiePanelProps) => {
 
   const closeWithExit = (val?: "true" | "false") => {
     if (val) {
-      localStorage.setItem("cookie-consent", val);
+      try {
+        localStorage.setItem("cookie-consent", val);
+      } catch {
+        /* Cookie consent still works. */
+      }
       persistConsent(
         val === "true"
           ? {
@@ -200,8 +222,12 @@ const CookiePanel = (props: CookiePanelProps) => {
   };
 
   const savePreferences = () => {
-    localStorage.setItem("cookie-preferences", JSON.stringify(prefs));
-    localStorage.setItem("cookie-consent", "true");
+    try {
+      localStorage.setItem("cookie-preferences", JSON.stringify(prefs));
+      localStorage.setItem("cookie-consent", "true");
+    } catch {
+      /* Cookie consent still works. */
+    }
     persistConsent(prefs);
     setShowPrefs(false);
 
@@ -247,11 +273,16 @@ const CookiePanel = (props: CookiePanelProps) => {
           <span
             className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl"
             style={{
-              backgroundColor: "color-mix(in srgb, " + ACCENT + " 12%, transparent)",
+              backgroundColor:
+                "color-mix(in srgb, " + ACCENT + " 12%, transparent)",
               color: ACCENT,
             }}
           >
-            <IconEl className="size-[18px]" strokeWidth={2} aria-hidden="true" />
+            <IconEl
+              className="size-[18px]"
+              strokeWidth={2}
+              aria-hidden="true"
+            />
           </span>
 
           <h2 className="text-[16px] font-semibold leading-tight text-zinc-900 dark:text-zinc-100">

@@ -1,4 +1,5 @@
 "use client";
+import { AttributionControls, matchesAttribution } from "./AttributionControls";
 import { PipelineScores, PipelineScoreControls, matchesScoreFilters, compareScores, type ScoreSort } from "./PipelineScores";
 
 import { useMemo, useState, useTransition } from "react";
@@ -39,6 +40,7 @@ import { ShortDate } from "@/lib/date-hydration";
 import { cn } from "@/lib/utils";
 
 type PipelineListProps = {
+  evaluationAction?: React.ReactNode;
   stages: PipelineStage[];
   applications: PipelineApplication[];
 };
@@ -46,6 +48,7 @@ type PipelineListProps = {
 const ALL = "__all__";
 
 export function PipelineList({
+  evaluationAction,
   stages,
   applications,
 }: PipelineListProps) {
@@ -55,6 +58,7 @@ export function PipelineList({
   const [sort, setSort] = useState<ScoreSort>("manual");
   const [minimumQuestionnaire, setMinimumQuestionnaire] = useState("");
   const [minimumAi, setMinimumAi] = useState("");
+  const [attributionQuery, setAttributionQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
 
@@ -81,6 +85,7 @@ export function PipelineList({
     return applications.filter((a) => {
       if (activeStage !== ALL && a.currentStageId !== activeStage) return false;
       if (!matchesScoreFilters(a, minimumQuestionnaire, minimumAi)) return false;
+      if (!matchesAttribution(a.attribution, attributionQuery)) return false;
       if (!q) return true;
       const name = `${a.candidateFirstName} ${a.candidateLastName}`.toLowerCase();
       return (
@@ -89,7 +94,7 @@ export function PipelineList({
         (a.source ?? "").toLowerCase().includes(q)
       );
     }).sort((a, b) => compareScores(a, b, sort));
-  }, [applications, activeStage, query, sort, minimumQuestionnaire, minimumAi]);
+  }, [applications, activeStage, query, sort, minimumQuestionnaire, minimumAi, attributionQuery]);
 
   const allVisibleSelected =
     filtered.length > 0 && filtered.every((a) => selected.has(a.id));
@@ -175,7 +180,8 @@ export function PipelineList({
       </div>
 
       {/* Stage tabs */}
-      <PipelineScoreControls sort={sort} onSort={setSort} questionnaire={minimumQuestionnaire} onQuestionnaire={setMinimumQuestionnaire} ai={minimumAi} onAi={setMinimumAi} />
+      <PipelineScoreControls sort={sort} onSort={setSort} questionnaire={minimumQuestionnaire} onQuestionnaire={setMinimumQuestionnaire} ai={minimumAi} onAi={setMinimumAi} evaluationAction={evaluationAction} />
+      <AttributionControls query={attributionQuery} onChange={setAttributionQuery} applications={filtered} />
       <div className="flex items-center gap-1 overflow-x-auto rounded-xl border border-border/70 bg-card p-1">
         <StageTab
           label="All"

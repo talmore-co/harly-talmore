@@ -1,7 +1,9 @@
-import { GitBranch } from "lucide-react";
+import { ArrowRight, GitBranch } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 import type { PipelineOverview } from "@/features/dashboard/widgets";
-import { Tile, TileHeader, TileLink, EmptyHint } from "./primitives";
+import { Tile, TileHeader, EmptyHint } from "./primitives";
 import { PipelineJobSelect } from "./PipelineJobSelect";
 
 /**
@@ -33,12 +35,23 @@ export function PipelineOverviewCard({
       <TileHeader
         icon={GitBranch}
         title="Pipeline overview"
-        action={<TileLink href="/dashboard/pipeline">View pipeline</TileLink>}
+        action={
+          data.selected ? (
+            <div className="min-w-0 max-w-[50%]">
+              <PipelineJobSelect
+                jobs={data.jobs}
+                selectedId={data.selected.id}
+              />
+            </div>
+          ) : undefined
+        }
       />
       <div className="flex flex-1 flex-col gap-4 px-5 pb-5 pt-3">
         {data.selected ? (
           <>
-            <p className="truncate text-sm font-medium">{data.selected.title}</p>
+            <p className="truncate text-sm font-medium">
+              {data.selected.title}
+            </p>
 
             {/* Segmented funnel bar */}
             <div className="flex h-2.5 w-full gap-1 overflow-hidden">
@@ -61,13 +74,15 @@ export function PipelineOverviewCard({
             </div>
 
             {/* Stage counts */}
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-5">
               {data.stages.map((stage, i) => (
                 <div key={stage.name} className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span
                       className="size-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: LANE_COLORS[i % LANE_COLORS.length] }}
+                      style={{
+                        backgroundColor: LANE_COLORS[i % LANE_COLORS.length],
+                      }}
                     />
                     <span className="truncate text-xs text-muted-foreground">
                       {stage.name}
@@ -80,8 +95,13 @@ export function PipelineOverviewCard({
               ))}
             </div>
 
-            <div className="mt-auto pt-1">
-              <PipelineJobSelect jobs={data.jobs} selectedId={data.selected.id} />
+            <div className="mt-auto border-t border-hairline pt-4">
+              <Button asChild variant="outline" size="sm" className="w-full">
+                <Link href={`/dashboard/pipeline?jobId=${data.selected.id}`}>
+                  View pipeline
+                  <ArrowRight className="size-3.5" />
+                </Link>
+              </Button>
             </div>
           </>
         ) : (

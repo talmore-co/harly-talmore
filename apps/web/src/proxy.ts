@@ -81,6 +81,11 @@ function publicRedirectUrl(request: NextRequest, pathname: string): URL {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const next = () => {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-talmore-pathname", pathname);
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  };
 
   // ── Candidate portal protected routes (cookie-only, no DB) ──────────────
   if (isPortalProtected(pathname)) {
@@ -90,7 +95,7 @@ export async function proxy(request: NextRequest) {
       loginUrl.searchParams.set("next", pathname);
       return NextResponse.redirect(loginUrl);
     }
-    return NextResponse.next();
+    return next();
   }
   // ────────────────────────────────────────────────────────────────────────
 
@@ -99,7 +104,7 @@ export async function proxy(request: NextRequest) {
   );
 
   if (isPublic) {
-    return NextResponse.next();
+    return next();
   }
 
   const sessionCookie = getSessionCookie(request);
@@ -236,7 +241,7 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  return next();
 }
 
 export const config = {

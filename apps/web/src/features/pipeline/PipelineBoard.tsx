@@ -1,4 +1,5 @@
 "use client";
+import { AttributionControls, matchesAttribution } from "./AttributionControls";
 import { PipelineScoreControls, matchesScoreFilters, compareScores, type ScoreSort } from "./PipelineScores";
 
 import { useMemo, useState } from "react";
@@ -59,6 +60,7 @@ import {
 } from "@/components/ui/select";
 
 type PipelineBoardProps = {
+  evaluationAction?: React.ReactNode;
   jobs: PipelineJobOption[];
   selectedJob: PipelineJobOption;
   stages: PipelineStage[];
@@ -181,6 +183,7 @@ function matchesSearch(application: PipelineApplication, query: string) {
 }
 
 export function PipelineBoard({
+  evaluationAction,
   selectedJob,
   stages: initialStages,
   applications,
@@ -200,6 +203,7 @@ export function PipelineBoard({
   const scoreSort = sort !== "manual";
   const [minimumAi, setMinimumAi] = useState("");
   const [minimumScore, setMinimumScore] = useState("");
+  const [attributionQuery, setAttributionQuery] = useState("");
   const [hideEmptyColumns, setHideEmptyColumns] = useState(false);
   const [mutationPending, setMutationPending] = useState(false);
   const [mobileStage, setMobileStage] = useState<string>(
@@ -241,11 +245,12 @@ export function PipelineBoard({
             (application) =>
               (statusFilter === "all" || application.status === statusFilter) &&
               matchesSearch(application, searchQuery) &&
+              matchesAttribution(application.attribution, attributionQuery) &&
               matchesScoreFilters(application, minimumScore, minimumAi),
           ).sort((a, b) => compareScores(a, b, sort)),
         ]),
       ),
-    [columns, searchQuery, statusFilter, sort, minimumScore, minimumAi],
+    [columns, searchQuery, statusFilter, sort, minimumScore, minimumAi, attributionQuery],
   );
   const visibleStages = hideEmptyColumns
     ? stages.filter((stage) => (filteredColumns.get(stage.id)?.length ?? 0) > 0)
@@ -564,7 +569,8 @@ export function PipelineBoard({
           <SelectItem value="withdrawn">Withdrawn</SelectItem>
         </SelectContent>
       </Select>
-      <PipelineScoreControls sort={sort} onSort={setSort} questionnaire={minimumScore} onQuestionnaire={value => { setMinimumScore(value); setSelectedIds(new Set()); }} ai={minimumAi} onAi={value => { setMinimumAi(value); setSelectedIds(new Set()); }} />
+      <PipelineScoreControls sort={sort} onSort={setSort} questionnaire={minimumScore} onQuestionnaire={value => { setMinimumScore(value); setSelectedIds(new Set()); }} ai={minimumAi} onAi={value => { setMinimumAi(value); setSelectedIds(new Set()); }} evaluationAction={evaluationAction} />
+      <AttributionControls query={attributionQuery} onChange={value => { setAttributionQuery(value); setSelectedIds(new Set()); }} applications={Array.from(filteredColumns.values()).flat()} />
       {scoreSort && <span className="text-xs text-muted-foreground">Turn off score sorting to drag cards.</span>}
       <label className="hidden items-center gap-2 rounded-md border bg-muted/40 px-3 py-1.5 text-sm font-medium text-muted-foreground sm:flex">
         <Checkbox

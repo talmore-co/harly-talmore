@@ -1,14 +1,15 @@
 "use client";
 
 import type { WorkspaceBoardBranding } from "@/features/workspaces/board";
+import dynamic from "next/dynamic";
 
 import type { CareerPageConfig } from "./config";
 import type { Job } from "./types";
 import { ThemeWrapper } from "./ThemeWrapper";
-import { PlayfulTemplate } from "./templates/PlayfulTemplate";
-import { MinimalTemplate } from "./templates/MinimalTemplate";
-import { AshbyTemplate } from "./templates/AshbyTemplate";
-import { JoinTemplate } from "./templates/JoinTemplate";
+const PlayfulTemplate = dynamic(() => import("./templates/PlayfulTemplate").then(m => m.PlayfulTemplate));
+const MinimalTemplate = dynamic(() => import("./templates/MinimalTemplate").then(m => m.MinimalTemplate));
+const AshbyTemplate = dynamic(() => import("./templates/AshbyTemplate").then(m => m.AshbyTemplate));
+const JoinTemplate = dynamic(() => import("./templates/JoinTemplate").then(m => m.JoinTemplate));
 
 /**
  * Renders the public career page from live config. Switch picks the template

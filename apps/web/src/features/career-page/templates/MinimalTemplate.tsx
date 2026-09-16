@@ -12,6 +12,7 @@ import { CareerFaq } from "@/features/career-page/CareerFaq";
 import { CareerTestimonials } from "@/features/career-page/CareerTestimonials";
 import { CareerFooter } from "@/features/career-page/CareerFooter";
 import { RichBody } from "@/features/career-page/RichBody";
+import { PublicImage } from "@/components/PublicImage";
 
 export function MinimalTemplate({
   workspace,
@@ -73,16 +74,9 @@ export function MinimalTemplate({
         /* ── Full banner hero ─────────────────────────────────────── */
         <header
           className="relative flex min-h-[40vh] flex-col items-center justify-center overflow-hidden px-6 text-center"
-          style={
-            (config.hero.imageUrl ?? workspace.heroImageUrl)
-              ? {
-                  backgroundImage: `url(${config.hero.imageUrl ?? workspace.heroImageUrl})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                }
-              : { backgroundColor: accent }
-          }
+          style={{ backgroundColor: accent }}
         >
+          {(config.hero.imageUrl ?? workspace.heroImageUrl) && <PublicImage src={(config.hero.imageUrl ?? workspace.heroImageUrl)!} alt="" priority sizes="100vw" className="absolute inset-0 size-full object-cover" />}
           {/* Overlay */}
           <div
             className="absolute inset-0"
@@ -92,8 +86,7 @@ export function MinimalTemplate({
           {/* Content */}
           <div className="relative z-10 flex flex-col items-center gap-5">
             {bannerLogo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <PublicImage priority sizes="240px" maxWidth={768}
                 src={bannerLogo}
                 alt={workspace.name}
                 className="h-10 w-auto max-w-[240px] object-contain drop-shadow"
@@ -136,8 +129,7 @@ export function MinimalTemplate({
               className={`mx-auto flex max-w-3xl items-center px-6 py-5 ${logoAlign}`}
             >
               {displayLogo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <PublicImage priority sizes="200px" maxWidth={480}
                   src={displayLogo}
                   alt={workspace.name}
                   className="h-8 w-auto max-w-[200px] object-contain"
@@ -150,9 +142,9 @@ export function MinimalTemplate({
             </div>
           </header>
 
-          <section className="mx-auto max-w-3xl px-6 py-16 text-center">
+          <section className="mx-auto max-w-3xl px-6 py-10 text-center sm:py-16">
             {config.hero.showHeadline && (
-              <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
+              <h1 className="text-balance text-3xl font-bold tracking-tight sm:text-5xl">
                 {headline}
               </h1>
             )}
@@ -215,19 +207,19 @@ export function MinimalTemplate({
                       <li key={job.id}>
                         <Link
                           href={`${boardRoot}/jobs/${job.slug}` as Route}
-                          className="group flex items-center justify-between gap-6 py-4 transition-colors"
+                          className="group flex min-w-0 flex-col items-start gap-2 py-5 transition-colors sm:flex-row sm:items-center sm:justify-between sm:gap-6"
                         >
                           <span
-                            className="flex items-center gap-1.5 font-medium transition-opacity group-hover:opacity-70"
+                            className="flex min-w-0 items-start gap-1.5 break-words font-medium transition-opacity group-hover:opacity-70"
                             style={{ color: accent }}
                           >
-                            {job.title}
+                            <span className="min-w-0">{job.title}</span>
                             <ArrowUpRight
-                              className="size-3.5 -translate-x-1 opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100"
+                              className="mt-1 size-3.5 shrink-0 transition-all duration-200 sm:-translate-x-1 sm:opacity-0 sm:group-hover:translate-x-0 sm:group-hover:opacity-100"
                               strokeWidth={2}
                             />
                           </span>
-                          <span className="flex shrink-0 items-center gap-3 text-sm text-zinc-500 dark:text-zinc-400">
+                          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-zinc-500 dark:text-zinc-400 sm:max-w-[55%] sm:justify-end sm:text-right">
                             <span>
                               {job.location ??
                                 formatWorkplaceType(job.workplaceType)}

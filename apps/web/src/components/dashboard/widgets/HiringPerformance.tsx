@@ -40,14 +40,20 @@ export function HiringPerformance({
   ];
 
   return (
-    <Tile className={className}>
+    <Tile className={cn("@container", className)}>
       <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-5">
         <h2 className="flex items-center gap-2 text-sm font-semibold">
-          <BarChart3 className="size-4 text-muted-foreground" strokeWidth={1.8} />
+          <BarChart3
+            className="size-4 text-muted-foreground"
+            strokeWidth={1.8}
+          />
           Hiring performance
         </h2>
         <div className="flex items-center gap-2">
-          <Select value={metric} onValueChange={(v) => setMetric(v as ChartMetric)}>
+          <Select
+            value={metric}
+            onValueChange={(v) => setMetric(v as ChartMetric)}
+          >
             <SelectTrigger size="sm" className="w-[140px]">
               <SelectValue />
             </SelectTrigger>
@@ -62,22 +68,24 @@ export function HiringPerformance({
         </div>
       </div>
 
-      <div className="grid gap-5 px-5 pb-5 pt-4 lg:grid-cols-[minmax(260px,0.9fr)_1.3fr]">
+      <div className="grid gap-5 px-5 pb-5 pt-4 @[700px]:grid-cols-[minmax(300px,0.9fr)_1.3fr]">
         <div className="grid grid-cols-2 gap-3">
           {kpis.map((kpi) => {
             const up = kpi.deltaPct >= 0;
             return (
               <div
                 key={kpi.label}
-                className="rounded-xl border border-border/60 bg-background/40 p-4"
+                className="min-w-0 rounded-xl border border-border/60 bg-background/40 p-3 sm:p-4"
               >
-                <p className="truncate text-xs text-muted-foreground">{kpi.label}</p>
+                <p className="min-h-8 text-xs leading-4 text-muted-foreground">
+                  {kpi.label}
+                </p>
                 <p className="mt-1 text-2xl font-semibold tabular-nums">
                   {kpi.isRate ? `${kpi.value}%` : kpi.value}
                 </p>
                 <p
                   className={cn(
-                    "mt-1 flex items-center gap-1 text-xs font-medium",
+                    "mt-2 flex items-center gap-1 text-xs font-medium tabular-nums",
                     up ? "text-primary" : "text-destructive",
                   )}
                 >
@@ -89,9 +97,9 @@ export function HiringPerformance({
                   {up ? "+" : ""}
                   {kpi.deltaPct}
                   {kpi.isRate ? "pp" : "%"}
-                  <span className="font-normal text-muted-foreground">
-                    vs previous 14 days
-                  </span>
+                </p>
+                <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                  vs previous 14 days
                 </p>
               </div>
             );

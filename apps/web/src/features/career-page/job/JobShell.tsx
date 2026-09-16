@@ -11,6 +11,7 @@ import type { WorkspaceBoardBranding } from "@/features/workspaces/board";
 
 import { isLightColor, type CareerPageConfig } from "../config";
 import { CareerFooter } from "../CareerFooter";
+import { PublicImage } from "@/components/PublicImage";
 import { buildJobMeta, formatCompensation, type JobLike } from "./jobMeta";
 
 const reveal =
@@ -144,16 +145,9 @@ export function JobShell({
         <header className="relative">
           <div
             className="relative h-40 w-full overflow-hidden sm:h-44"
-            style={
-              heroImage
-                ? {
-                    backgroundImage: `url(${heroImage})`,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                  }
-                : { backgroundColor: accent }
-            }
+            style={{ backgroundColor: accent }}
           >
+            {heroImage && <PublicImage src={heroImage} alt="" priority sizes="100vw" className="absolute inset-0 size-full object-cover" />}
             {showGradient && (
               <div
                 className="absolute inset-0"
@@ -178,8 +172,7 @@ export function JobShell({
           <div className="mx-auto max-w-5xl px-6">
             <div className="relative -mt-9 flex size-[72px] items-center justify-center overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
               {logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <PublicImage priority sizes="72px" maxWidth={320} width={72} height={72}
                   src={logo}
                   alt={workspace.name}
                   className="size-full object-cover"
@@ -204,8 +197,7 @@ export function JobShell({
             >
               <ArrowLeft className="size-4" strokeWidth={1.8} />
               {logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <PublicImage priority sizes="24px" maxWidth={160} width={24} height={24}
                   src={logo}
                   alt={workspace.name}
                   className="size-6 rounded object-contain"

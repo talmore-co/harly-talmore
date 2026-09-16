@@ -100,7 +100,7 @@ export function PortalFooter({
           )}
         </div>
 
-        {/* Bottom tier: copyright + legal + powered by */}
+        {/* Copyright and legal links */}
         <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-border pt-6 text-xs text-muted-foreground sm:flex-row">
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
             <p>
@@ -117,16 +117,6 @@ export function PortalFooter({
             ))}
           </div>
 
-          {/* Powered by Harly */}
-          <a
-            href="https://github.com/Vytral/harly"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group inline-flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <span className="font-medium">Powered by</span>
-            <span className="font-display font-semibold text-foreground">Harly</span>
-          </a>
         </div>
       </div>
     </footer>

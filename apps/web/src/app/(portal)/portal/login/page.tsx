@@ -191,10 +191,6 @@ export default async function PortalLoginPage() {
             />
           </Suspense>
 
-          <p className="text-center text-xs text-muted-foreground">
-            Powered by{" "}
-            <span className="font-medium text-foreground">Harly</span>
-          </p>
         </div>
       </div>
     </div>

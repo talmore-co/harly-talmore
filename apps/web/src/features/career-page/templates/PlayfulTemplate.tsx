@@ -7,6 +7,7 @@ import { CareerFaq } from "@/features/career-page/CareerFaq";
 import { CareerGallery } from "@/features/career-page/CareerGallery";
 import { CareerFooter } from "@/features/career-page/CareerFooter";
 import { RichBody } from "@/features/career-page/RichBody";
+import { PublicImage } from "@/components/PublicImage";
 import { careerIcon } from "@/features/career-page/icons";
 import type { CareerPageConfig } from "@/features/career-page/config";
 import type { Job } from "@/features/career-page/types";
@@ -51,16 +52,9 @@ export function PlayfulTemplate({
       <header className="relative">
         <div
           className="relative h-56 w-full overflow-hidden sm:h-72"
-          style={
-            heroImage
-              ? {
-                  backgroundImage: `url(${heroImage})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                }
-              : { backgroundColor: accent }
-          }
+          style={{ backgroundColor: accent }}
         >
+          {heroImage && <PublicImage src={heroImage} alt="" priority sizes="100vw" className="absolute inset-0 size-full object-cover" />}
           {config.hero.overlay === "gradient" && (
             <div
               className="absolute inset-0"
@@ -75,14 +69,7 @@ export function PlayfulTemplate({
         <div className="mx-auto max-w-5xl px-6">
           <div className="relative -mt-12 flex size-24 items-center justify-center overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900 sm:size-28">
             {logo ? (
-              <div
-                className="size-full"
-                style={{
-                  backgroundImage: `url(${logo})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                }}
-              />
+              <PublicImage src={logo} alt={workspace.name} priority sizes="112px" maxWidth={320} width={112} height={112} className="size-full object-cover" />
             ) : (
               <span
                 className="text-3xl font-semibold"

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import { GeistMono } from "geist/font/mono";
+import { cookies, headers } from "next/headers";
+import { internalPageTitle } from "@/lib/internal-page-title";
 
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "@/components/ui/sonner";
@@ -10,54 +11,69 @@ import { getHarlyPublicOrigin } from "@/lib/public-origin";
 
 import "./globals.css";
 
-// Onest is the only UI family (DESIGN.md, Tokens , Typography). Two faces, a
-// hard role split: the static instances *speak* (body, buttons, names, nav,
-// greetings , display weight is 600 + tight tracking, not another family), the
-// variable face *labels* (pills, statuses, badges, column heads at 11,13px,
-// where a live weight axis buys density without buying size).
-// Self-hosted (F5-04) so the build never reaches fonts.googleapis.com.
+// One self-hosted variable font covers both body and chrome weights.
 const onest = localFont({
-  src: [
-    { path: "./fonts/onest/onest-latin-400-normal.woff2", weight: "400", style: "normal" },
-    { path: "./fonts/onest/onest-latin-500-normal.woff2", weight: "500", style: "normal" },
-    { path: "./fonts/onest/onest-latin-600-normal.woff2", weight: "600", style: "normal" },
-  ],
+  src: "./fonts/onest/onest-latin-variable.woff2",
+  weight: "100 900",
   variable: "--font-onest",
   display: "swap",
-  fallback: ["ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
+  fallback: [
+    "ui-sans-serif",
+    "system-ui",
+    "-apple-system",
+    "Segoe UI",
+    "Roboto",
+    "sans-serif",
+  ],
 });
 
-const onestVariable = localFont({
-  src: "./fonts/onest/onest-latin-variable.woff2",
-  variable: "--font-onest-var",
+const mono = localFont({
+  src: "../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2",
+  variable: "--font-geist-mono",
   weight: "100 900",
+  preload: false,
+  adjustFontFallback: false,
   display: "swap",
-  fallback: ["ui-sans-serif", "system-ui", "sans-serif"],
+  fallback: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
 });
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
+  const page = internalPageTitle((await headers()).get("x-talmore-pathname"));
   return {
     metadataBase: new URL(getHarlyPublicOrigin()),
-    title: "Harly",
-    description: "Open-source applicant tracking system for modern teams.",
+    title: page ? { default: `Talmore ATS | ${page}`, template: "Talmore ATS | %s" } : "Talmore ATS",
+    description: "Talmore applicant tracking system.",
     icons: {
       icon: "/favicon.svg",
     },
   };
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  let hasConsent = false;
+  try {
+    const saved = JSON.parse(
+      decodeURIComponent(
+        (await cookies()).get("harly_cookie_consent")?.value ?? "null",
+      ),
+    );
+    hasConsent =
+      saved?.necessary === true && typeof saved?.marketing === "boolean";
+  } catch {
+    /* Invalid consent is treated as a new visit. */
+  }
   return (
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${onest.variable} ${onestVariable.variable} ${GeistMono.variable} h-full antialiased`}
+      className={`${onest.variable} ${mono.variable} h-full antialiased`}
+      style={{ "--font-onest-var": "var(--font-onest)" } as React.CSSProperties}
       data-scroll-behavior="smooth"
     >
       <head>
@@ -75,7 +91,7 @@ export default function RootLayout({
         >
           <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
           <Toaster position="bottom-right" richColors closeButton />
-          <CookiePanel />
+          <CookiePanel initialVisible={!hasConsent} />
         </ThemeProvider>
       </body>
     </html>

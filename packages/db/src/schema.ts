@@ -608,7 +608,10 @@ export const invitationRelations = relations(invitation, ({ one }) => ({
 
 // Workspace branding settings (satellite of the Better Auth organization)
 export const workspaceSettings = pgTable("workspace_settings", {
-  metaPixelId: text("meta_pixel_id"),
+    metaPixelId: text("meta_pixel_id"),
+    metaCapiToken: jsonb("meta_capi_token").$type<{ ciphertext: string; iv: string; tag: string }>(),
+    metaCapiEnabled: boolean("meta_capi_enabled").notNull().default(false),
+    metaTestEventCode: text("meta_test_event_code"),
   organizationId: text("organization_id")
     .primaryKey()
     .references(() => organization.id, { onDelete: "cascade" }),
@@ -1550,6 +1553,7 @@ export const applications = pgTable(
   {
     questionnaireScore: doublePrecision("questionnaire_score"),
     questionnaireScoreSnapshot: jsonb("questionnaire_score_snapshot"),
+    attribution: jsonb("attribution"),
     id: uuid("id").defaultRandom().primaryKey(),
     workspaceId: text("workspace_id")
       .notNull()
@@ -1670,6 +1674,27 @@ export const applicationAnswers = pgTable(
     index("application_answers_question_idx").on(table.questionId),
   ],
 );
+
+export const metaConversionEvents = pgTable("meta_conversion_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: text("workspace_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  applicationId: uuid("application_id").notNull().references(() => applications.id, { onDelete: "cascade" }),
+  pixelId: text("pixel_id").notNull(),
+  eventName: text("event_name").notNull(),
+  eventId: text("event_id").notNull(),
+  eventTime: timestamp("event_time", { withTimezone: true }).notNull().defaultNow(),
+  payload: jsonb("payload").$type<{ ciphertext: string; iv: string; tag: string }>(),
+  testEventCode: text("test_event_code"),
+  status: text("status").notNull().default("pending"),
+  attempts: integer("attempts").notNull().default(0),
+  nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+  deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+  lastError: text("last_error"),
+}, table => [
+  uniqueIndex("meta_conversion_events_identity_idx").on(table.workspaceId, table.pixelId, table.eventName, table.eventId),
+  index("meta_conversion_events_due_idx").on(table.status, table.nextAttemptAt),
+  index("meta_conversion_events_application_idx").on(table.applicationId),
+]);
 
 export const applicationStageHistory = pgTable(
   "application_stage_history",

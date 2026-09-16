@@ -3,6 +3,7 @@
 import { useRef } from "react";
 
 import { cn } from "@/lib/utils";
+import { PublicImage } from "@/components/PublicImage";
 
 import type { CareerTestimonial } from "./config";
 import { safeImageUrl } from "./config";
@@ -41,8 +42,7 @@ function Card({ t, i, accent }: { t: CareerTestimonial; i: number; accent: strin
       </blockquote>
       <figcaption className="mt-5 flex items-center gap-3">
         {avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <PublicImage sizes="40px" maxWidth={160} width={40} height={40}
             src={avatarUrl}
             alt={t.name}
             className="size-10 shrink-0 rounded-full object-cover"

@@ -64,6 +64,7 @@ export type PipelineApplication = {
   lastStageMovedAt: string | null;
   aiScore: number | null;
   questionnaireScore?: number | null;
+  attribution?: unknown;
   evaluationSource: "ai" | "rules" | null;
   evaluationEngineVersion: string | null;
   aiRecommendation: "strong_yes" | "yes" | "maybe" | "no" | null;
@@ -261,6 +262,7 @@ export async function getPipelineData(
         lastStageMovedAt: latestStageMove.createdAt,
         aiScore: aiEvaluations.score,
         questionnaireScore: applications.questionnaireScore,
+        attribution: applications.attribution,
         evaluationSource: aiEvaluations.source,
         evaluationEngineVersion: aiEvaluations.engineVersion,
         aiRecommendation: aiEvaluations.recommendation,

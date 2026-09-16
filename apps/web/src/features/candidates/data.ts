@@ -812,6 +812,7 @@ export async function getCandidateProfile(candidateId: string) {
       id: applications.id,
       questionnaireScore: applications.questionnaireScore,
       questionnaireScoreSnapshot: applications.questionnaireScoreSnapshot,
+      attribution: applications.attribution,
       workspaceId: applications.workspaceId,
       jobId: applications.jobId,
       jobTitle: jobs.title,

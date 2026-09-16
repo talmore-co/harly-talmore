@@ -38,6 +38,8 @@ import {
 } from "@/features/applications/resume-autofill";
 import { scheduleAutoScore } from "@/features/applications/auto-score";
 import { scheduleAutoDuplicateCheck } from "@/features/applications/auto-duplicates";
+import { metaRequestContext } from "@/lib/meta/request-context";
+import { parseAttribution } from "./attribution";
 
 const PARSE_LIMIT = 5;
 const PARSE_WINDOW_MS = 60_000;
@@ -394,6 +396,8 @@ export async function submitApplicationAction(
 
   try {
     const result = await createPublicApplication(input, parsed.data, {
+      metaContext: metaRequestContext(new Headers(requestHeaders), remoteIp),
+      attribution: metaRequestContext(new Headers(requestHeaders), remoteIp) ? parseAttribution(formData.get("applicationAttribution")) : null,
       consent: consentGiven
         ? {
             consentText,

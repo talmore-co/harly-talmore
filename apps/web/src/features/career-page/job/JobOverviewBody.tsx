@@ -4,6 +4,7 @@ import {
   parseOfficePhotos,
 } from "@/features/jobs/config";
 import { RichBody } from "@/features/career-page/RichBody";
+import { PublicImage } from "@/components/PublicImage";
 
 type JobLike = {
   description: string;
@@ -15,10 +16,12 @@ type JobLike = {
   keywords?: unknown;
 };
 
-function JobContent({ content }: { content: string }) {
+type RichContentComponent = React.ComponentType<{ html: string; className?: string }>;
+
+function JobContent({ content, RichContent }: { content: string; RichContent: RichContentComponent }) {
   if (content.trimStart().startsWith("<")) {
     return (
-      <RichBody
+      <RichContent
         html={content}
         className="prose-job mt-3 max-w-none dark:prose-invert prose-headings:font-semibold prose-a:text-[--career-accent] prose-a:no-underline hover:prose-a:underline"
       />
@@ -41,7 +44,7 @@ function Heading({ children }: { children: React.ReactNode }) {
  * inside any career template and in dark mode. The surrounding chrome (header,
  * meta column, tabs) is supplied by the per-template shell.
  */
-export function JobOverviewBody({ job }: { job: JobLike }) {
+export function JobOverviewBody({ job, RichContent = RichBody }: { job: JobLike; RichContent?: RichContentComponent }) {
   const sections = parseJobContentSections(job.contentSections);
   const officePhotos = parseOfficePhotos(job.officePhotos);
   const keywords = parseKeywords(job.keywords);
@@ -53,14 +56,14 @@ export function JobOverviewBody({ job }: { job: JobLike }) {
     <article className="space-y-10 text-base leading-7 text-zinc-600 dark:text-zinc-300">
       <section>
         <Heading>About this role</Heading>
-        <JobContent content={job.description} />
+        <JobContent content={job.description} RichContent={RichContent} />
       </section>
 
       {sections.length > 0 ? (
         sections.map((section) => (
           <section key={section.id}>
             {section.title ? <Heading>{section.title}</Heading> : null}
-            <JobContent content={section.body} />
+            <JobContent content={section.body} RichContent={RichContent} />
           </section>
         ))
       ) : (
@@ -68,13 +71,13 @@ export function JobOverviewBody({ job }: { job: JobLike }) {
           {job.requirements ? (
             <section>
               <Heading>Requirements</Heading>
-              <JobContent content={job.requirements} />
+              <JobContent content={job.requirements} RichContent={RichContent} />
             </section>
           ) : null}
           {job.benefits ? (
             <section>
               <Heading>Benefits</Heading>
-              <JobContent content={job.benefits} />
+              <JobContent content={job.benefits} RichContent={RichContent} />
             </section>
           ) : null}
         </>
@@ -97,8 +100,7 @@ export function JobOverviewBody({ job }: { job: JobLike }) {
           {officePhotos.length > 0 ? (
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
               {officePhotos.map((url) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <PublicImage sizes="(max-width: 640px) 50vw, 300px" maxWidth={768} width={768} height={432}
                   key={url}
                   src={url}
                   alt="Office"

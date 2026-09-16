@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     image = await sharp(Buffer.from(await file.arrayBuffer()), { limitInputPixels: 40_000_000 })
       .rotate()
       .resize(2048, 2048, { fit: "inside", withoutEnlargement: true })
-      .png()
+      .webp({ quality: 85, alphaQuality: 100, effort: 4 })
       .toBuffer();
     if (image.length > maxImageFileSize) throw new Error("Converted image must be 5MB or smaller.");
   } catch {
@@ -56,8 +56,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const key = createPublicAssetKey(workspaceId);
-    await getPublicAssetStorage().put(key, image, "image/png");
+    const key = createPublicAssetKey(workspaceId, "webp");
+    await getPublicAssetStorage().put(key, image, "image/webp");
     return NextResponse.json({ fileUrl: publicAssetUrl(key) });
   } catch {
     return NextResponse.json({ error: "Public image storage is unavailable. Check the assets bucket configuration." }, { status: 503 });

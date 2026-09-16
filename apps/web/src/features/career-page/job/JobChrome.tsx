@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { ApplicationAttributionTracker } from "@/features/applications/ApplicationAttributionTracker";
 
 import type { WorkspaceBoardBranding } from "@/features/workspaces/board";
 
@@ -49,6 +50,7 @@ export function JobChrome({
 
   return (
     <ThemeWrapper config={config}>
+      <ApplicationAttributionTracker workspaceId={workspace.id} />
       <div style={vars}>
         <JobShell
           config={config}

@@ -133,18 +133,6 @@ export function LegalPageView({
                 Website
               </a>
             )}
-            <span className="text-hairline">·</span>
-            <span>
-              Powered by{" "}
-              <a
-                href="https://github.com/Vytral/harly"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-foreground transition hover:text-pine"
-              >
-                Harly
-              </a>
-            </span>
           </div>
         </div>
       </footer>
