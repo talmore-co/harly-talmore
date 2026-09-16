@@ -1,4 +1,5 @@
 "use client";
+import { TimezonePicker } from "@/components/ui/timezone-picker";
 
 import Link from "next/link";
 import type { Route } from "next";
@@ -931,15 +932,13 @@ export function AccountSettingsPanel({
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="acc-timezone">Timezone</Label>
-                  <IconInput
-                    icon={Globe}
+                  <TimezonePicker
                     id="acc-timezone"
                     value={timezone}
-                    onChange={(e) => {
-                      setTimezone(e.target.value);
+                    onChange={(value) => {
+                      setTimezone(value);
                       markDirty();
                     }}
-                    placeholder="America/Sao_Paulo"
                   />
                 </div>
                 <div className="space-y-2">

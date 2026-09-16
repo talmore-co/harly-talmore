@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { MetaJobTracking } from "@/features/applications/MetaJobTracking";
 import type { Metadata } from "next";
 
 import { JobChrome } from "@/features/career-page/job/JobChrome";
@@ -45,6 +46,7 @@ export default async function BoardJobPage({ params }: Props) {
       ) : null}
       <JobChrome config={config} workspace={workspace} job={job} boardRoot={boardRoot} activeTab="overview" portalEnabled={portalEnabled}>
         <JobOverviewBody job={job} />
+        <MetaJobTracking workspaceId={workspace.id} jobId={job.id} />
       </JobChrome>
     </>
   );

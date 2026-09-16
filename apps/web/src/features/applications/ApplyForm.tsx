@@ -687,6 +687,9 @@ export function ApplyForm({
 
   const action = submitApplicationAction.bind(null, { jobSlug, workspaceSlug });
   const [state, formAction, isPending] = useActionState(action, initialState);
+  useEffect(() => {
+    if (state.status === "success" && state.conversion) window.dispatchEvent(new CustomEvent("harly:application-submitted", { detail: state.conversion }));
+  }, [state.status, state.conversion]);
   const formRef = useRef<HTMLFormElement>(null);
   const [form, dispatch] = useReducer(formReducer, initialFormState);
   const {
@@ -1773,6 +1776,7 @@ export function ApplyForm({
 
   return (
     <form
+      data-harly-application-form
       ref={formRef}
       action={formAction}
       onSubmit={handleSubmit}

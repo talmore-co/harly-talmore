@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { MetaJobTracking } from "@/features/applications/MetaJobTracking";
 import type { Metadata } from "next";
 
 import { getPublicJobDetail } from "@/features/jobs/data";
@@ -53,6 +54,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
       portalEnabled={portalEnabled}
     >
       <JobOverviewBody job={job} />
+      <MetaJobTracking workspaceId={workspace.id} jobId={job.id} />
     </JobChrome>
   );
 }

@@ -40,6 +40,7 @@ import {
 import { getWorkspaceContext } from "@/features/workspaces/context";
 import { normalizeCareerPageConfig } from "@/features/career-page/config";
 import type { JobFormValues, JobStatus } from "./validation";
+import { publicJobApplicationConfig } from "./config";
 
 // Branding is sourced from the Better Auth `organization` (name/slug/logo) plus
 // the `workspace_settings` satellite (board theming). Left join so a workspace
@@ -134,7 +135,7 @@ const defaultStages = [
   { name: "Rejected", color: "#FEE2E2" },
 ];
 
-async function syncJobApplicationQuestions(
+export async function syncJobApplicationQuestions(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   input: {
     workspaceId: string;
@@ -299,11 +300,12 @@ export async function restoreJob(jobId: string) {
 }
 
 export async function listOpenJobs() {
-  return db
+  const rows = await db
     .select()
     .from(jobs)
     .where(publicJobVisibilityConditions())
     .orderBy(desc(jobs.publishedAt), desc(jobs.createdAt));
+  return rows.map(job => ({ ...job, applicationConfig: publicJobApplicationConfig(job.applicationConfig) }));
 }
 
 export async function listOpenJobsForWorkspaceSlug(workspaceSlug: string) {
@@ -334,7 +336,7 @@ export async function listOpenJobsForWorkspaceSlug(workspaceSlug: string) {
     )
     .orderBy(desc(jobs.publishedAt), desc(jobs.createdAt));
 
-  return { workspace, jobs: workspaceJobs };
+  return { workspace, jobs: workspaceJobs.map(job => ({ ...job, applicationConfig: publicJobApplicationConfig(job.applicationConfig) })) };
 }
 
 export async function getDashboardJob(jobId: string) {
@@ -403,7 +405,7 @@ const getPublicJobDetailCached = cache(async function getPublicJobDetailCached(
   if (!row) return null;
 
   return {
-    job: row.job,
+    job: { ...row.job, applicationConfig: publicJobApplicationConfig(row.job.applicationConfig) },
     workspace: toBoardBranding(row.workspace),
     config: normalizeCareerPageConfig(row.careerConfig),
   };

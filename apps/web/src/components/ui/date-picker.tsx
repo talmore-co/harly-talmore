@@ -14,11 +14,13 @@ export function DatePicker({
   value,
   onChange,
   disabled,
+  className,
 }: {
   id?: string;
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
   const parsed = value ? parseISO(value) : undefined;
@@ -34,6 +36,7 @@ export function DatePicker({
           className={cn(
             "h-10 w-full justify-between px-3 text-left font-normal",
             !selected && "text-muted-foreground",
+            className,
           )}
         >
           <span className="truncate">

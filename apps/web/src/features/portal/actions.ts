@@ -1,4 +1,6 @@
 "use server";
+import { scoreQuestionnaire } from "@/features/applications/questionnaire-score";
+import { isCurrentJobQuestion } from "@/features/jobs/config";
 
 import { cookies, headers } from "next/headers";
 import { createElement } from "react";
@@ -223,9 +225,10 @@ export async function applyToJobAction(
         applicationConfig.sections.profile.resume.visibility === "required",
       resumeKey: input.resumeKey,
       answers: input.answers,
-      questions,
+      questions: questions.filter(question => isCurrentJobQuestion(job.applicationConfig, question.key)),
     });
     if (!validation.ok) return validation;
+    const questionnaire = scoreQuestionnaire(applicationConfig, input.answers);
 
     const verifiedResume = input.resumeKey
       ? await verifyResumeUpload({
@@ -327,6 +330,8 @@ export async function applyToJobAction(
           currentStageId: firstStage.id,
           pipelineOrder: nextPipelineOrder?.value ?? 1,
           source: "portal",
+          questionnaireScore: questionnaire?.score ?? null,
+          questionnaireScoreSnapshot: questionnaire,
           status: "active",
         })
         .returning({ id: applications.id });

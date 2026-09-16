@@ -14,6 +14,7 @@ import {
 import { PORTAL_SESSION_COOKIE, resolvePortalSession } from "@/lib/portal-auth";
 import { PortalShell } from "@/features/portal/PortalShellServer";
 import { JobApplyForm } from "@/features/portal/JobApplyForm";
+import { isCurrentJobQuestion } from "@/features/jobs/config";
 import {
   MapPinIcon,
   CurrencyDollarIcon,
@@ -60,6 +61,7 @@ export default async function JobDetailPage({ params }: PageProps) {
   const [job] = await db
     .select({
       id: jobs.id,
+      applicationConfig: jobs.applicationConfig,
       title: jobs.title,
       description: jobs.description,
       department: jobs.department,
@@ -183,7 +185,7 @@ export default async function JobDetailPage({ params }: PageProps) {
             </Link>
           </div>
         ) : (
-          <JobApplyForm jobId={job.id} questions={questions} />
+          <JobApplyForm jobId={job.id} questions={questions.filter(question => isCurrentJobQuestion(job.applicationConfig, question.key))} />
         )}
       </div>
     </PortalShell>

@@ -72,6 +72,7 @@ function parseJobFormData(formData: FormData) {
       "applicationCoverLetterVisibility",
     ),
     applicationQuestionsJson: formData.get("applicationQuestionsJson"),
+    qualifiedScoreThreshold: formData.get("qualifiedScoreThreshold"),
   });
 }
 

@@ -9,6 +9,7 @@ import {
   fieldBoxSelectTriggerClassName,
 } from "@/components/ui/field-box";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
@@ -77,23 +78,35 @@ export function AdvancedSection({
           />
         </FieldBox>
 
-        <FieldBox label="Experience" htmlFor="experienceLevel">
-          <Input
+        <FieldBox
+          className="sm:col-span-2"
+          label="Experience"
+          htmlFor="experienceLevel"
+          hint="Used in AI candidate evaluation. Describe required experience, transferable skills and what can be learned on the job."
+        >
+          <Textarea
             id="experienceLevel"
             name="experienceLevel"
             defaultValue={job?.experienceLevel ?? ""}
-            placeholder="Mid / Senior · 3-5 years"
-            className={fieldBoxControlClassName}
+            placeholder="For example: Entry-level applicants are welcome; no robot-operation experience is required. Experience following procedures is preferred, and equipment training is provided."
+            rows={4}
+            className={`${fieldBoxControlClassName} min-h-28 resize-y leading-relaxed`}
           />
         </FieldBox>
 
-        <FieldBox label="Education" htmlFor="education">
-          <Input
+        <FieldBox
+          className="sm:col-span-2"
+          label="Education"
+          htmlFor="education"
+          hint="Used in AI candidate evaluation. State which qualifications are mandatory, preferred or optional, and whether equivalent experience is accepted."
+        >
+          <Textarea
             id="education"
             name="education"
             defaultValue={job?.education ?? ""}
-            placeholder="Not required / Bachelor's"
-            className={fieldBoxControlClassName}
+            placeholder="For example: Senior high school graduates and fresh graduates are welcome. A university degree is not required. Relevant practical experience is accepted in place of formal qualifications."
+            rows={4}
+            className={`${fieldBoxControlClassName} min-h-28 resize-y leading-relaxed`}
           />
         </FieldBox>
 

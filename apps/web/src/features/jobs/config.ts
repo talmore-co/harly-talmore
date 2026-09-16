@@ -14,6 +14,7 @@ export type JobApplicationQuestion = {
   minLength?: number;
   placeholder?: string;
   options?: readonly string[];
+  scoring?: { weight: number; answers: { option: string; score: number }[] };
 };
 
 /** Per-platform link setting: show it at all, and whether candidates must fill it. */
@@ -69,6 +70,7 @@ export type JobApplicationConfig = {
   profileLinks: JobProfileLinks;
   sections: JobApplicationSections;
   questions: JobApplicationQuestion[];
+  qualifiedScoreThreshold?: number;
 };
 
 export type JobBoardConfig = {
@@ -237,7 +239,7 @@ const optionalTrimmed = z
   .transform((value) => (value.length > 0 ? value : undefined))
   .optional();
 
-const questionSchema = z
+export const questionSchema = z
   .object({
     id: z.string().trim().optional(),
     label: z.string().trim().min(1).max(160),
@@ -246,6 +248,7 @@ const questionSchema = z
     minLength: z.coerce.number().int().min(0).max(5000).optional(),
     placeholder: optionalTrimmed,
     options: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
+    scoring: z.object({ weight: z.number().int().min(1).max(10), answers: z.array(z.object({ option: z.string().trim().min(1).max(120), score: z.number().int().min(0).max(10) })).min(1).max(20) }).optional(),
   })
   .transform((question): JobApplicationQuestion => {
     const id = slugify(question.id || question.label || "question");
@@ -257,6 +260,7 @@ const questionSchema = z
       required: question.required,
       minLength: question.type === "multiselect" ? undefined : question.minLength,
       placeholder: question.placeholder,
+      scoring: question.scoring,
       options:
         question.type === "select" || question.type === "multiselect"
           ? Array.from(new Set(question.options ?? []))
@@ -268,6 +272,13 @@ const questionSchema = z
       (question.type !== "select" && question.type !== "multiselect") ||
       Boolean(question.options && question.options.length > 0),
     "Select questions require at least one option.",
+  ).refine(question => !question.scoring || (
+    (question.type === "select" || question.type === "multiselect") &&
+    question.scoring.answers.length === question.options?.length &&
+    new Set(question.scoring.answers.map(answer => answer.option)).size === question.scoring.answers.length &&
+    question.scoring.answers.every(answer => question.options?.includes(answer.option)) &&
+    question.scoring.answers.some(answer => answer.score > 0)
+  ), "Scoring requires a score for every choice and at least one positive score."
   );
 
 // Accepts the new {enabled, required} shape or a legacy bare boolean
@@ -358,7 +369,7 @@ function linkSettingToFieldConfig(
   };
 }
 
-const applicationConfigSchema = z
+export const applicationConfigSchema = z
   .object({
     resumeRequired: z
       .boolean()
@@ -369,6 +380,7 @@ const applicationConfigSchema = z
     profileLinksEnabled: z.boolean().optional(),
     sections: sectionsSchema.optional(),
     questions: z.array(questionSchema).max(10).default([]),
+    qualifiedScoreThreshold: z.number().int().min(0).max(100).optional(),
   })
   .transform((config): JobApplicationConfig => {
     const profileLinks: JobProfileLinks =
@@ -413,6 +425,7 @@ const applicationConfigSchema = z
       profileLinks: derivedProfileLinks,
       sections,
       questions: config.questions,
+      qualifiedScoreThreshold: config.qualifiedScoreThreshold,
     };
   });
 
@@ -448,6 +461,18 @@ export function normalizeJobApplicationConfig(
 ): JobApplicationConfig {
   const result = applicationConfigSchema.safeParse(value);
   return result.success ? result.data : defaultJobApplicationConfig;
+}
+
+export function publicJobApplicationConfig(value: unknown): JobApplicationConfig {
+  const config = normalizeJobApplicationConfig(value);
+  return { ...config, qualifiedScoreThreshold: undefined, questions: config.questions.map(question => { const safe = { ...question }; delete safe.scoring; return safe; }) };
+}
+
+/** Legacy jobs may have only table-backed questions. Modern configs define
+ * the active set; retained table rows keep historical answers readable. */
+export function isCurrentJobQuestion(value: unknown, key: string): boolean {
+  if (!value || typeof value !== "object" || !Array.isArray((value as { questions?: unknown }).questions)) return true;
+  return normalizeJobApplicationConfig(value).questions.some(question => question.id === key);
 }
 
 export function normalizeJobBoardConfig(value: unknown): JobBoardConfig {

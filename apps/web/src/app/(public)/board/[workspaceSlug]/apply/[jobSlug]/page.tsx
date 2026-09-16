@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { ApplyForm } from "@/features/applications/ApplyForm";
+import { MetaJobTracking } from "@/features/applications/MetaJobTracking";
 import { JobChrome } from "@/features/career-page/job/JobChrome";
 import { getPublicJobDetail } from "@/features/jobs/data";
 import { normalizeJobApplicationConfig } from "@/features/jobs/config";
@@ -53,6 +54,7 @@ export default async function BoardApplyPage({
       portalEnabled={portalEnabled}
     >
       {form}
+      <MetaJobTracking workspaceId={workspace.id} jobId={job.id} />
     </JobChrome>
   );
 }

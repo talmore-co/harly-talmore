@@ -1,4 +1,5 @@
 import { UserAvatar } from "@/components/ui/UserAvatar";
+import { GreetingSalutation } from "./GreetingSalutation";
 
 /**
  * Home's identity moment (DESIGN.md , Morning Greeting Header).
@@ -12,12 +13,14 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 export function GreetingHeader({
   name,
   avatarUrl,
-  hour,
+  timeZone,
+  initialNow,
   subline,
 }: {
   name: string;
   avatarUrl: string | null;
-  hour: number;
+  timeZone: string | null;
+  initialNow: string;
   subline: string;
 }) {
   return (
@@ -25,18 +28,12 @@ export function GreetingHeader({
       <UserAvatar name={name} src={avatarUrl} size="md" priority />
       <div className="min-w-0">
         <h1 className="font-display truncate text-[24px] leading-tight text-near-ink">
-          {greeting(hour)}, {name}!
+          <GreetingSalutation timeZone={timeZone} initialNow={initialNow} />, {name}!
         </h1>
         <p className="mt-0.5 text-[13px] text-soft-ink">{subline}</p>
       </div>
     </header>
   );
-}
-
-function greeting(hour: number) {
-  if (hour < 12) return "Good morning";
-  if (hour < 18) return "Good afternoon";
-  return "Good evening";
 }
 
 /**

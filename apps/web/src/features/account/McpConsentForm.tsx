@@ -6,7 +6,7 @@ const descriptions: Record<string, string> = {
   "harly:read":
     "Read candidates, applications, jobs, pipelines and interview notes.",
   "harly:write":
-    "Create candidates, add candidates to pipelines, save notes and move application stages.",
+    "Create candidates and draft jobs, configure questionnaires, add candidates to pipelines, save notes and move application stages.",
   offline_access:
     "Stay connected until you revoke access or the connection expires.",
 };

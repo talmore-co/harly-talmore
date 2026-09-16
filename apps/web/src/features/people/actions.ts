@@ -72,6 +72,7 @@ export async function updateOwnProfileAction(data: UpdateProfileInput) {
     .where(eq(schema.user.id, context.user.id));
 
   revalidatePath("/account");
+  revalidatePath("/dashboard");
   revalidatePath("/people");
   return { success: true } as const;
 }

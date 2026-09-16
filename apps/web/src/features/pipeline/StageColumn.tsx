@@ -24,6 +24,7 @@ type StageColumnProps = {
   applications: PipelineApplication[];
   selectedIds: Set<string>;
   disabled?: boolean;
+  dragDisabled?: boolean;
   /** Column position, so the header dot can show funnel progression. */
   index: number;
   total: number;
@@ -49,12 +50,14 @@ export function StageColumn({
   applications,
   selectedIds,
   disabled = false,
+  dragDisabled = false,
   index,
   total,
   onSelect,
   onToggleStageEmail,
 }: StageColumnProps) {
   const { isOver, setNodeRef } = useDroppable({
+    disabled: disabled || dragDisabled,
     id: stage.id,
     data: { type: "stage", stageId: stage.id },
   });
@@ -142,6 +145,7 @@ export function StageColumn({
               application={application}
               selected={selectedIds.has(application.id)}
               disabled={disabled}
+              dragDisabled={dragDisabled}
               onSelect={onSelect}
             />
           ))}

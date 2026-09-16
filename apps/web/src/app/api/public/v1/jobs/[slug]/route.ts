@@ -1,4 +1,5 @@
 import { getPublicJobDetail } from "@/features/jobs/data";
+import { publicJobApplicationConfig } from "@/features/jobs/config";
 import { getPublicJobApplicationContext } from "@/features/applications/data";
 import { serializePublicJob } from "@/features/jobs/service";
 import { ApiError } from "@harly/api";
@@ -41,7 +42,7 @@ export const GET = withApi(async (request, context) => {
   return apiOk(
     {
       job: serializePublicJob(detail.job, workspace.slug),
-      applicationConfig: applicationContext?.applicationConfig ?? null,
+      applicationConfig: applicationContext ? { ...applicationContext.applicationConfig, ...publicJobApplicationConfig(applicationContext.applicationConfig) } : null,
       captchaProvider: captcha?.provider ?? null,
       captchaSiteKey: captcha?.siteKey ?? null,
       turnstileSiteKey: captcha?.provider === "turnstile" ? captcha.siteKey : null,

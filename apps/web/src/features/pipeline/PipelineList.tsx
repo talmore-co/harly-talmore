@@ -1,4 +1,5 @@
 "use client";
+import { PipelineScores, PipelineScoreControls, matchesScoreFilters, compareScores, type ScoreSort } from "./PipelineScores";
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
@@ -51,6 +52,9 @@ export function PipelineList({
   const router = useRouter();
   const [activeStage, setActiveStage] = useState<string>(ALL);
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<ScoreSort>("manual");
+  const [minimumQuestionnaire, setMinimumQuestionnaire] = useState("");
+  const [minimumAi, setMinimumAi] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
 
@@ -76,6 +80,7 @@ export function PipelineList({
     const q = query.trim().toLowerCase();
     return applications.filter((a) => {
       if (activeStage !== ALL && a.currentStageId !== activeStage) return false;
+      if (!matchesScoreFilters(a, minimumQuestionnaire, minimumAi)) return false;
       if (!q) return true;
       const name = `${a.candidateFirstName} ${a.candidateLastName}`.toLowerCase();
       return (
@@ -83,8 +88,8 @@ export function PipelineList({
         a.candidateEmail.toLowerCase().includes(q) ||
         (a.source ?? "").toLowerCase().includes(q)
       );
-    });
-  }, [applications, activeStage, query]);
+    }).sort((a, b) => compareScores(a, b, sort));
+  }, [applications, activeStage, query, sort, minimumQuestionnaire, minimumAi]);
 
   const allVisibleSelected =
     filtered.length > 0 && filtered.every((a) => selected.has(a.id));
@@ -170,6 +175,7 @@ export function PipelineList({
       </div>
 
       {/* Stage tabs */}
+      <PipelineScoreControls sort={sort} onSort={setSort} questionnaire={minimumQuestionnaire} onQuestionnaire={setMinimumQuestionnaire} ai={minimumAi} onAi={setMinimumAi} />
       <div className="flex items-center gap-1 overflow-x-auto rounded-xl border border-border/70 bg-card p-1">
         <StageTab
           label="All"
@@ -242,7 +248,7 @@ export function PipelineList({
             Candidate
           </span>
           <span className="ml-auto hidden text-xs font-medium uppercase tracking-wide text-muted-foreground sm:block">
-            Stage
+            Stage / Scores
           </span>
         </div>
         <div className="divide-y divide-border/60">
@@ -286,9 +292,12 @@ export function PipelineList({
                     size="sm"
                   />
                   <div className="min-w-0">
-                    <p className="truncate font-medium text-foreground group-hover:text-primary">
-                      {fullName}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <p className="truncate font-medium text-foreground group-hover:text-primary">
+                        {fullName}
+                      </p>
+                      <ApplicationStatusBadge status={a.status} />
+                    </div>
                     <p className="truncate text-xs text-muted-foreground">
                       {a.candidateEmail}
                       {a.source ? ` · via ${a.source}` : ""}
@@ -307,7 +316,7 @@ export function PipelineList({
                   </p>
                 </div>
                 <div className="col-start-2 sm:col-auto sm:self-center">
-                  <ApplicationStatusBadge status={a.status} />
+                  <PipelineScores application={a} />
                 </div>
               </div>
             );

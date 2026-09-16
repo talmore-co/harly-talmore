@@ -10,7 +10,11 @@ import { generateScreeningQuestionsAction } from "./actions";
 import { AiButton } from "@/components/ui/AiButton";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FieldBox, fieldBoxControlClassName, fieldBoxSelectTriggerClassName } from "@/components/ui/field-box";
+import {
+  FieldBox,
+  fieldBoxControlClassName,
+  fieldBoxSelectTriggerClassName,
+} from "@/components/ui/field-box";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -19,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { QuestionOptionsEditor } from "./QuestionOptionsEditor";
 import { cn } from "@/lib/utils";
 
 type SuggestedQuestion = {
@@ -30,6 +34,7 @@ type SuggestedQuestion = {
 
 type JobQuestionBuilderProps = {
   initialQuestions: JobApplicationQuestion[];
+  initialThreshold?: number;
   aiContext?: {
     title: string;
     description: string;
@@ -47,7 +52,7 @@ const questionTypes: Array<{ value: JobQuestionType; label: string }> = [
 
 function createQuestion(index: number): JobApplicationQuestion {
   return {
-    id: `question-${index + 1}`,
+    id: `question-${index + 1}-${crypto.randomUUID()}`,
     label: "",
     type: "text",
     required: false,
@@ -55,28 +60,32 @@ function createQuestion(index: number): JobApplicationQuestion {
   };
 }
 
-function optionsToText(options: readonly string[] | undefined) {
-  return options?.join("\n") ?? "";
-}
-
-function textToOptions(value: string) {
-  return value
-    .split("\n")
-    .map((option) => option.trim())
-    .filter(Boolean);
-}
-
-export function JobQuestionBuilder({ initialQuestions, aiContext }: JobQuestionBuilderProps) {
+export function JobQuestionBuilder({
+  initialQuestions,
+  initialThreshold,
+  aiContext,
+}: JobQuestionBuilderProps) {
   const router = useRouter();
-  const [questions, setQuestions] = useState<JobApplicationQuestion[]>(initialQuestions);
+  const [questions, setQuestions] =
+    useState<JobApplicationQuestion[]>(initialQuestions);
   const [suggestions, setSuggestions] = useState<SuggestedQuestion[]>([]);
   const [isGenerating, startGenerate] = useTransition();
   const hiddenValue = useMemo(() => JSON.stringify(questions), [questions]);
 
-  function updateQuestion(index: number, nextQuestion: Partial<JobApplicationQuestion>) {
+  function updateQuestion(
+    index: number,
+    nextQuestion: Partial<JobApplicationQuestion>,
+  ) {
     setQuestions((current) =>
       current.map((question, questionIndex) =>
-        questionIndex === index ? { ...question, ...nextQuestion } : question,
+        questionIndex === index
+          ? (() => {
+              const next = { ...question, ...nextQuestion };
+              if (next.type !== "select" && next.type !== "multiselect")
+                next.scoring = undefined;
+              return next;
+            })()
+          : question,
       ),
     );
   }
@@ -98,7 +107,9 @@ export function JobQuestionBuilder({ initialQuestions, aiContext }: JobQuestionB
         placeholder: suggestion.placeholder,
       },
     ]);
-    setSuggestions((current) => current.filter((s) => s.label !== suggestion.label));
+    setSuggestions((current) =>
+      current.filter((s) => s.label !== suggestion.label),
+    );
   }
 
   function addAllSuggestions() {
@@ -132,7 +143,10 @@ export function JobQuestionBuilder({ initialQuestions, aiContext }: JobQuestionB
       if (!result.ok) {
         if (result.reason === "not_configured") {
           toast.error(result.error, {
-            action: { label: "Set up AI", onClick: () => router.push("/settings/ai") },
+            action: {
+              label: "Set up AI",
+              onClick: () => router.push("/settings/ai"),
+            },
           });
         } else {
           toast.error(result.error);
@@ -143,13 +157,34 @@ export function JobQuestionBuilder({ initialQuestions, aiContext }: JobQuestionB
         (s) => !questions.some((q) => q.label === s.label),
       );
       setSuggestions(fresh);
-      if (fresh.length === 0) toast.message("All suggested questions already added.");
+      if (fresh.length === 0)
+        toast.message("All suggested questions already added.");
     });
   }
 
   return (
     <div className="space-y-3">
-      <input type="hidden" name="applicationQuestionsJson" value={hiddenValue} />
+      <input
+        type="hidden"
+        name="applicationQuestionsJson"
+        value={hiddenValue}
+      />
+      <FieldBox label="Qualified application threshold (0–100)">
+        <Input
+          name="qualifiedScoreThreshold"
+          className={fieldBoxControlClassName}
+          type="number"
+          min={0}
+          max={100}
+          step={1}
+          defaultValue={initialThreshold ?? ""}
+          placeholder="Disabled"
+        />
+        <p className="text-xs text-muted-foreground">
+          Only controls the qualified Meta event. Everyone can apply. Leave
+          blank to disable.
+        </p>
+      </FieldBox>
 
       {/* AI suggestions panel */}
       {suggestions.length > 0 ? (
@@ -186,7 +221,9 @@ export function JobQuestionBuilder({ initialQuestions, aiContext }: JobQuestionB
                 <Plus className="mt-0.5 size-3.5 shrink-0 text-primary opacity-0 transition-opacity group-hover:opacity-100" />
                 <div className="min-w-0">
                   <p className="text-sm font-medium leading-snug">{s.label}</p>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{s.placeholder}</p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {s.placeholder}
+                  </p>
                 </div>
               </button>
             ))}
@@ -196,17 +233,23 @@ export function JobQuestionBuilder({ initialQuestions, aiContext }: JobQuestionB
 
       {questions.length === 0 ? (
         <p className="rounded-lg border border-dashed bg-muted/40 p-4 text-sm text-muted-foreground">
-          No custom questions. Candidates only see the default application fields.
+          No custom questions. Candidates only see the default application
+          fields.
         </p>
       ) : null}
 
       {questions.map((question, index) => (
-        <div key={`${question.id}-${index}`} className="space-y-3 rounded-lg border bg-muted/30 p-4">
+        <div
+          key={`${question.id}-${index}`}
+          className="space-y-3 rounded-lg border bg-muted/30 p-4"
+        >
           <div className="grid gap-3 md:grid-cols-[1fr_180px]">
             <FieldBox label="Question label">
               <Input
                 value={question.label}
-                onChange={(event) => updateQuestion(index, { label: event.target.value })}
+                onChange={(event) =>
+                  updateQuestion(index, { label: event.target.value })
+                }
                 placeholder="What makes you a strong fit?"
                 className={fieldBoxControlClassName}
               />
@@ -236,40 +279,38 @@ export function JobQuestionBuilder({ initialQuestions, aiContext }: JobQuestionB
             <FieldBox label="Placeholder">
               <Input
                 value={question.placeholder ?? ""}
-                onChange={(event) => updateQuestion(index, { placeholder: event.target.value })}
+                onChange={(event) =>
+                  updateQuestion(index, { placeholder: event.target.value })
+                }
                 placeholder="Optional helper text"
                 className={fieldBoxControlClassName}
               />
             </FieldBox>
-            {question.type !== "multiselect" && <FieldBox label="Minimum characters">
-              <Input
-                value={question.minLength ?? ""}
-                onChange={(event) =>
-                  updateQuestion(index, {
-                    minLength: event.target.value ? Number(event.target.value) : undefined,
-                  })
-                }
-                type="number"
-                min="0"
-                className={fieldBoxControlClassName}
-              />
-            </FieldBox>}
+            {question.type !== "multiselect" && question.type !== "select" && (
+              <FieldBox label="Minimum characters">
+                <Input
+                  value={question.minLength ?? ""}
+                  onChange={(event) =>
+                    updateQuestion(index, {
+                      minLength: event.target.value
+                        ? Number(event.target.value)
+                        : undefined,
+                    })
+                  }
+                  type="number"
+                  min="0"
+                  className={fieldBoxControlClassName}
+                />
+              </FieldBox>
+            )}
           </div>
 
-          {question.type === "select" || question.type === "multiselect" ? (
-            <FieldBox label="Options">
-              <Textarea
-                value={optionsToText(question.options)}
-                onChange={(event) =>
-                  updateQuestion(index, { options: textToOptions(event.target.value) })
-                }
-                rows={4}
-                placeholder={"One option per line\nRemote\nHybrid\nOn-site"}
-                className={fieldBoxControlClassName}
-              />
-            </FieldBox>
-          ) : null}
-
+          {(question.type === "select" || question.type === "multiselect") && (
+            <QuestionOptionsEditor
+              question={question}
+              onChange={(value) => updateQuestion(index, value)}
+            />
+          )}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <label className="inline-flex items-center gap-2 text-sm font-medium">
               <Checkbox
@@ -300,7 +341,10 @@ export function JobQuestionBuilder({ initialQuestions, aiContext }: JobQuestionB
           variant="outline"
           size="sm"
           onClick={() =>
-            setQuestions((current) => [...current, createQuestion(current.length)])
+            setQuestions((current) => [
+              ...current,
+              createQuestion(current.length),
+            ])
           }
         >
           <Plus className="size-4" />

@@ -20,6 +20,8 @@ function persistConsent(prefs: Prefs) {
   );
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
   document.cookie = `${CONSENT_COOKIE}=${value}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
+  localStorage.setItem("cookie-preferences", JSON.stringify(prefs));
+  window.dispatchEvent(new Event("harly:consent-changed"));
 }
 
 interface CookiePanelProps {
@@ -135,6 +137,16 @@ const CookiePanel = (props: CookiePanelProps) => {
   });
 
   const prefsRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const reopen = () => {
+      try { const saved = localStorage.getItem("cookie-preferences"); if (saved) setPrefs({ ...JSON.parse(saved), necessary: true }); } catch { /* Use current preferences. */ }
+      setRender(true);
+      setVisible(true);
+      setShowPrefs(true);
+    };
+    window.addEventListener("harly:open-cookie-preferences", reopen);
+    return () => window.removeEventListener("harly:open-cookie-preferences", reopen);
+  }, []);
   const [prefsHeight, setPrefsHeight] = useState<number>(0);
 
   useEffect(() => {

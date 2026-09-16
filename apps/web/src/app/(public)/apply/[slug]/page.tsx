@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
 import { ApplyForm } from "@/features/applications/ApplyForm";
+import { MetaJobTracking } from "@/features/applications/MetaJobTracking";
 import { getPublicJobDetail } from "@/features/jobs/data";
 import { normalizeJobApplicationConfig } from "@/features/jobs/config";
 import { JobChrome } from "@/features/career-page/job/JobChrome";
@@ -58,6 +59,7 @@ export default async function ApplyPage({ params }: ApplyPageProps) {
         consentCheckboxText={workspace.consentCheckboxText}
         legalPages={workspace.legalPages}
       />
+      <MetaJobTracking workspaceId={workspace.id} jobId={job.id} />
     </JobChrome>
   );
 }

@@ -373,6 +373,7 @@ export function JobForm({
         "applicationCoverLetterVisibility",
       ),
       applicationQuestionsJson: fd.get("applicationQuestionsJson"),
+      qualifiedScoreThreshold: fd.get("qualifiedScoreThreshold"),
     });
 
     if (result.success) return;

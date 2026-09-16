@@ -1,4 +1,5 @@
 import "server-only";
+import { ApiError } from "@harly/api";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { and, asc, eq, ilike, isNull, or } from "drizzle-orm";
@@ -36,6 +37,12 @@ import {
 import { candidateCreateSchema } from "@/server/api/schemas";
 import { logAuditEvent } from "@/lib/audit-log";
 import type { McpActor } from "./auth";
+import { createJobForApi, serializeJob } from "@/features/jobs/service";
+import {
+  normalizeJobApplicationConfig,
+  questionSchema,
+} from "@/features/jobs/config";
+import { saveJobQuestionnaire } from "@/features/jobs/questionnaire-service";
 
 const id = z.string().uuid();
 const result = (value: unknown) => ({
@@ -69,11 +76,10 @@ export function createMcpServer(actor: McpActor) {
       async (input) => {
         try {
           return result(await handler(z.object(shape).parse(input)));
-        } catch {
+        } catch (error) {
           return {
             ...result({
-              error:
-                "The operation could not be completed. Check your permissions, the selected records and whether the candidate or application already exists.",
+              error: error instanceof ApiError && error.status < 500 ? error.message : "The operation could not be completed. Check your permissions, inputs and selected records, then try again.",
             }),
             isError: true,
           };
@@ -146,18 +152,18 @@ export function createMcpServer(actor: McpActor) {
   );
   register(
     "list_jobs",
-    "List accessible open jobs for pipeline assignment.",
-    { offset: z.number().int().min(0).max(10000).default(0) },
+    "List accessible jobs. Defaults to open jobs; choose draft to find questionnaires still being prepared.",
+    { offset: z.number().int().min(0).max(10000).default(0), status: z.enum(["open", "draft", "closed", "all"]).default("open") },
     false,
-    async ({ offset }) => {
-      await requirePermission("candidates:view", context);
+    async ({ offset, status }) => {
+      await requirePermission("jobs:view", context);
       const rows = await db
-        .select({ id: jobs.id, title: jobs.title })
+        .select({ id: jobs.id, title: jobs.title, status: jobs.status })
         .from(jobs)
         .where(
           and(
             eq(jobs.workspaceId, workspaceId),
-            eq(jobs.status, "open"),
+            status === "all" ? undefined : eq(jobs.status, status),
             isNull(jobs.deletedAt),
           ),
         )
@@ -167,7 +173,7 @@ export function createMcpServer(actor: McpActor) {
       const visible = [];
       for (const row of rows) {
         try {
-          await requireJobPermission("candidates:view", row.id, context);
+          await requireJobPermission("jobs:view", row.id, context);
           visible.push(row);
         } catch {
           /* Omit inaccessible jobs. */
@@ -417,6 +423,102 @@ export function createMcpServer(actor: McpActor) {
             ? transcriptOffset + 100
             : null,
       }));
+    },
+  );
+  register(
+    "create_draft_job",
+    "Create a job as a draft with its default pipeline and you as its recruiter. Never publishes the job. Use set_job_questionnaire to add screening questions afterward.",
+    {
+      title: z.string().trim().min(1).max(160),
+      description: z.string().trim().min(10).max(50000),
+      employmentType: z.enum([
+        "full_time",
+        "part_time",
+        "contract",
+        "internship",
+      ]),
+      workplaceType: z.enum(["onsite", "remote", "hybrid"]),
+      department: z.string().max(120).optional(),
+      location: z.string().max(200).optional(),
+    },
+    true,
+    async (values) => {
+      await requirePermission("jobs:create", context);
+      const job = await createJobForApi({
+        workspaceId,
+        actorUserId: context.user.id,
+        values: { ...values, status: "draft" },
+      });
+      await logAuditEvent({
+        workspaceId,
+        actorId: context.user.id,
+        action: "job.created",
+        resourceType: "job",
+        resourceId: job.id,
+        metadata: { via: "mcp", clientId: actor.clientId },
+      });
+      return { ...serializeJob(job), updatedAt: job.updatedAt.toISOString() };
+    },
+  );
+  register(
+    "get_job_questionnaire",
+    "Read a job's screening questions, scoring rules and update version. Works for drafts and published jobs you can access.",
+    { jobId: id },
+    false,
+    async ({ jobId }) => {
+      await requireJobPermission("jobs:view", jobId, context);
+      const [job] = await db
+        .select()
+        .from(jobs)
+        .where(
+          and(
+            eq(jobs.id, jobId),
+            eq(jobs.workspaceId, workspaceId),
+            isNull(jobs.deletedAt),
+          ),
+        );
+      const config = normalizeJobApplicationConfig(job!.applicationConfig);
+      return {
+        jobId,
+        status: job!.status,
+        updatedAt: job!.updatedAt.toISOString(),
+        questions: config.questions,
+        qualifiedScoreThreshold: config.qualifiedScoreThreshold ?? null,
+      };
+    },
+  );
+  register(
+    "set_job_questionnaire",
+    "Replace a job's questionnaire without publishing it. Read get_job_questionnaire first and preserve any questions you want to keep. Weights are 1–10; answer scores 0–10. Multi-select averages selected scores. All applicants can submit; the threshold controls only the qualified Meta event. Existing application scores are unchanged.",
+    {
+      jobId: id,
+      expectedUpdatedAt: z.string().datetime(),
+      questions: z.array(questionSchema).max(10),
+      qualifiedScoreThreshold: z.number().int().min(0).max(100).optional(),
+    },
+    true,
+    async ({
+      jobId,
+      expectedUpdatedAt,
+      questions,
+      qualifiedScoreThreshold,
+    }) => {
+      await requireJobPermission("jobs:edit", jobId, context);
+      const result = await saveJobQuestionnaire({
+        workspaceId,
+        jobId,
+        expectedUpdatedAt,
+        questionnaire: { questions, qualifiedScoreThreshold },
+      });
+      await logAuditEvent({
+        workspaceId,
+        actorId: context.user.id,
+        action: "job.questionnaire.updated",
+        resourceType: "job",
+        resourceId: jobId,
+        metadata: { via: "mcp", clientId: actor.clientId },
+      });
+      return result;
     },
   );
   return server;

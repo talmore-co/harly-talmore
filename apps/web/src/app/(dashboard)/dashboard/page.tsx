@@ -20,6 +20,8 @@ import {
 } from "@/features/dashboard/widgets";
 import { getSetupChecklist } from "@/features/dashboard/setup-checklist";
 import { getWorkspaceContext } from "@/features/workspaces/context";
+import { getOwnProfileAction } from "@/features/people/actions";
+import { accountAvatarUrl } from "@/lib/account-avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +50,7 @@ export default async function DashboardPage({
 }) {
   const { job } = await searchParams;
   const { user } = await getWorkspaceContext();
+  const profile = await getOwnProfileAction();
   const firstName = (user.name ?? "").trim().split(/\s+/)[0] || "there";
 
   const [inbox, interviews, pipeline, review, myTasks, performance, setup] =
@@ -71,8 +74,9 @@ export default async function DashboardPage({
     <div className="mx-auto w-full max-w-[1440px] pb-4">
       <GreetingHeader
         name={firstName}
-        avatarUrl={user.image ?? null}
-        hour={new Date().getHours()}
+        avatarUrl={accountAvatarUrl(profile?.image ?? user.image ?? null) ?? null}
+        timeZone={profile?.timezone ?? null}
+        initialNow={new Date().toISOString()}
         subline={buildSubline({
           waiting: review.length,
           overdue,

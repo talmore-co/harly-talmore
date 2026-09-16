@@ -48,7 +48,7 @@ function scoreTone(score: number) {
   return "text-destructive";
 }
 
-function ScoreRing({ score, compact = false }: { score: number; compact?: boolean }) {
+export function ScoreRing({ score, compact = false }: { score: number; compact?: boolean }) {
   const radius = compact ? 19 : 26;
   const circumference = 2 * Math.PI * radius;
   const box = compact ? 48 : 64;

@@ -69,7 +69,7 @@ export default async function DashboardJobPage({
       previewWorkspace={careerPageData?.workspace ?? null}
       previewConfig={careerPageData?.config ?? null}
       headerActions={
-        <JobActionsMenu jobId={job.id} slug={job.slug} redirectAfterTrash />
+        <JobActionsMenu key="job-actions" jobId={job.id} slug={job.slug} redirectAfterTrash />
       }
       railActions={
         <>

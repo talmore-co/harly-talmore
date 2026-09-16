@@ -28,6 +28,8 @@ import {
   type JobApplicationConfig,
 } from "@/features/jobs/config";
 import { buildQuestionAnswerRows } from "@/features/applications/questions";
+import { scoreQuestionnaire } from "@/features/applications/questionnaire-score";
+import { isCurrentJobQuestion } from "@/features/jobs/config";
 import { lockApplicationPipelineOrder } from "@/features/applications/pipeline-order";
 import { verifyResumeUpload } from "@/features/applications/resume-upload";
 import { emitWebhookEvent } from "@/server/webhooks/emit";
@@ -42,6 +44,7 @@ import { publicJobVisibilityConditions } from "@/features/jobs/data";
 export type PublicApplicationResult =
   | {
       ok: true;
+      questionnaireQualified?: boolean;
       applicationId: string;
       candidateId: string;
       email: {
@@ -402,6 +405,7 @@ export async function createPublicApplication(
       }
 
       const now = new Date();
+      const questionnaire = scoreQuestionnaire(applicationConfig, values.questionAnswers);
       await lockApplicationPipelineOrder(tx, workspaceId, firstStage.id);
       const [nextPipelineOrder] = await tx
         .select({
@@ -423,6 +427,8 @@ export async function createPublicApplication(
           currentStageId: firstStage.id,
           pipelineOrder: nextPipelineOrder?.value ?? 1,
           source: "public_form",
+          questionnaireScore: questionnaire?.score ?? null,
+          questionnaireScoreSnapshot: questionnaire,
           status: "active",
           appliedAt: now,
           coverLetter: values.coverLetter ?? null,
@@ -491,7 +497,7 @@ export async function createPublicApplication(
       const answersToInsert = buildQuestionAnswerRows({
         workspaceId,
         applicationId: application.id,
-        questions: persistedQuestions,
+        questions: persistedQuestions.filter(question => isCurrentJobQuestion(job.applicationConfig, question.id)),
         answers: values.questionAnswers,
       }).filter((row) => row.answer.length > 0);
 
@@ -562,6 +568,7 @@ export async function createPublicApplication(
 
       return {
         ok: true,
+        questionnaireQualified: questionnaire?.qualified ?? false,
         applicationId: application.id,
         candidateId: candidate.id,
         email: {

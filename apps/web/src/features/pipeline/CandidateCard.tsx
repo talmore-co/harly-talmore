@@ -1,4 +1,5 @@
 "use client";
+import { PipelineScores } from "./PipelineScores";
 
 import { useRef } from "react";
 import Link from "next/link";
@@ -24,6 +25,7 @@ type CandidateCardProps = {
   application: PipelineApplication;
   selected: boolean;
   disabled?: boolean;
+  dragDisabled?: boolean;
   onSelect: (applicationId: string, selected: boolean) => void;
 };
 
@@ -108,6 +110,7 @@ export function CandidateCard({
   application,
   selected,
   disabled = false,
+  dragDisabled = false,
   onSelect,
 }: CandidateCardProps) {
   const router = useRouter();
@@ -120,6 +123,7 @@ export function CandidateCard({
     transition,
     isDragging,
   } = useSortable({
+    disabled: disabled || dragDisabled,
     id: application.id,
     data: { type: "application", stageId: application.currentStageId },
   });
@@ -200,32 +204,6 @@ export function CandidateCard({
             <p className="truncate text-[14px] font-medium leading-tight text-near-ink">
               {fullName}
             </p>
-            <div className="mt-1 flex min-w-0 items-center gap-2 overflow-hidden">
-              {application.aiScore != null ? (
-                <AiFitNote
-                  score={application.aiScore}
-                  recommendation={application.aiRecommendation}
-                  source={application.evaluationSource}
-                />
-              ) : null}
-              <StageAge value={stageStartedAt} />
-              {application.isFeaturedReferral ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span
-                      aria-label="Featured referral"
-                      className="inline-flex shrink-0 items-center text-amber-600"
-                    >
-                      <Star className="size-3 fill-current" />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>Featured referral</TooltipContent>
-                </Tooltip>
-              ) : null}
-              {application.status !== "active" ? (
-                <ApplicationStatusBadge status={application.status} />
-              ) : null}
-            </div>
           </div>
         </Link>
         {/*
@@ -240,13 +218,37 @@ export function CandidateCard({
           type="button"
           {...attributes}
           {...listeners}
-          disabled={disabled}
+          disabled={disabled || dragDisabled}
           onClick={(event) => event.stopPropagation()}
           className="shrink-0 touch-none cursor-grab rounded-md p-1 text-quiet-mist opacity-0 transition hover:text-near-ink group-hover:opacity-100 active:cursor-grabbing"
           aria-label={`Drag ${fullName} to another stage`}
         >
           <DotsSixVerticalIcon className="size-3.5" />
         </button>
+      </div>
+      <div className="my-3 flex justify-center">
+        <PipelineScores application={application} />
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline pt-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {application.aiScore != null ? (
+            <AiFitNote score={application.aiScore} recommendation={application.aiRecommendation} source={application.evaluationSource} />
+          ) : null}
+          {application.isFeaturedReferral ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span aria-label="Featured referral" className="inline-flex shrink-0 items-center text-amber-600">
+                  <Star className="size-3 fill-current" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>Featured referral</TooltipContent>
+            </Tooltip>
+          ) : null}
+          {application.status !== "active" ? <ApplicationStatusBadge status={application.status} /> : null}
+        </div>
+        <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+          <StageAge value={stageStartedAt} /> in stage
+        </span>
       </div>
     </article>
   );

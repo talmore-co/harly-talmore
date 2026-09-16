@@ -51,8 +51,10 @@ vi.mock("@/lib/portal-auth", () => ({
   PORTAL_SESSION_COOKIE: "portal-session",
   resolvePortalSession: mocks.resolvePortalSession,
 }));
-vi.mock("@/features/jobs/config", () => ({
+vi.mock("@/features/jobs/config", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/features/jobs/config")>(),
   normalizeJobApplicationConfig: () => ({
+    questions: [],
     sections: { profile: { resume: { visibility: "optional" } } },
   }),
 }));

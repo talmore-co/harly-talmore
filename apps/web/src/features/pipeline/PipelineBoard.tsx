@@ -1,4 +1,5 @@
 "use client";
+import { PipelineScoreControls, matchesScoreFilters, compareScores, type ScoreSort } from "./PipelineScores";
 
 import { useMemo, useState } from "react";
 import {
@@ -195,6 +196,10 @@ export function PipelineBoard({
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [sort, setSort] = useState<ScoreSort>("manual");
+  const scoreSort = sort !== "manual";
+  const [minimumAi, setMinimumAi] = useState("");
+  const [minimumScore, setMinimumScore] = useState("");
   const [hideEmptyColumns, setHideEmptyColumns] = useState(false);
   const [mutationPending, setMutationPending] = useState(false);
   const [mobileStage, setMobileStage] = useState<string>(
@@ -235,11 +240,12 @@ export function PipelineBoard({
           stageApplications.filter(
             (application) =>
               (statusFilter === "all" || application.status === statusFilter) &&
-              matchesSearch(application, searchQuery),
-          ),
+              matchesSearch(application, searchQuery) &&
+              matchesScoreFilters(application, minimumScore, minimumAi),
+          ).sort((a, b) => compareScores(a, b, sort)),
         ]),
       ),
-    [columns, searchQuery, statusFilter],
+    [columns, searchQuery, statusFilter, sort, minimumScore, minimumAi],
   );
   const visibleStages = hideEmptyColumns
     ? stages.filter((stage) => (filteredColumns.get(stage.id)?.length ?? 0) > 0)
@@ -301,7 +307,7 @@ export function PipelineBoard({
   }
 
   async function handleDragEnd(event: DragEndEvent) {
-    if (mutationPending) return;
+    if (mutationPending || scoreSort) return;
     const applicationId = String(event.active.id);
     const overId = event.over ? String(event.over.id) : null;
 
@@ -558,6 +564,8 @@ export function PipelineBoard({
           <SelectItem value="withdrawn">Withdrawn</SelectItem>
         </SelectContent>
       </Select>
+      <PipelineScoreControls sort={sort} onSort={setSort} questionnaire={minimumScore} onQuestionnaire={value => { setMinimumScore(value); setSelectedIds(new Set()); }} ai={minimumAi} onAi={value => { setMinimumAi(value); setSelectedIds(new Set()); }} />
+      {scoreSort && <span className="text-xs text-muted-foreground">Turn off score sorting to drag cards.</span>}
       <label className="hidden items-center gap-2 rounded-md border bg-muted/40 px-3 py-1.5 text-sm font-medium text-muted-foreground sm:flex">
         <Checkbox
           checked={hideEmptyColumns}
@@ -675,6 +683,7 @@ export function PipelineBoard({
               application={application}
               selected={selectedIds.has(application.id)}
               disabled={mutationPending}
+              dragDisabled={scoreSort}
               onSelect={handleSelect}
             />
           ))}
@@ -707,6 +716,7 @@ export function PipelineBoard({
                 applications={filteredColumns.get(stage.id) ?? []}
                 selectedIds={selectedIds}
                 disabled={mutationPending}
+                dragDisabled={scoreSort}
                 index={index}
                 total={visibleStages.length}
                 onSelect={handleSelect}

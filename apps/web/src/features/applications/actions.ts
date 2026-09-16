@@ -159,6 +159,7 @@ export async function parseResumeAction(input: {
 
 export type ApplyJobActionState = {
   status: "idle" | "success" | "error";
+  conversion?: { eventId: string; qualified: boolean };
   message?: string;
   fieldErrors?: Partial<Record<keyof ApplicationFormValues, string[]>>;
   questionErrors?: Record<string, string[]>;
@@ -425,6 +426,7 @@ export async function submitApplicationAction(
     revalidatePath("/dashboard/candidates");
     return {
       status: "success",
+      conversion: { eventId: result.applicationId, qualified: result.questionnaireQualified === true },
       message:
         "Application received. The hiring team will review it and follow up if there is a fit.",
     };

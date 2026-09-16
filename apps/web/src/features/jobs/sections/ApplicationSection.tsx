@@ -201,6 +201,7 @@ export function ApplicationSection({
           <h3 className="mb-3 text-sm font-semibold">Custom questions</h3>
           <JobQuestionBuilder
             initialQuestions={applicationConfig.questions}
+            initialThreshold={applicationConfig.qualifiedScoreThreshold}
             aiContext={aiContext}
           />
         </div>

@@ -810,6 +810,8 @@ export async function getCandidateProfile(candidateId: string) {
   const candidateApplications = await db
     .select({
       id: applications.id,
+      questionnaireScore: applications.questionnaireScore,
+      questionnaireScoreSnapshot: applications.questionnaireScoreSnapshot,
       workspaceId: applications.workspaceId,
       jobId: applications.jobId,
       jobTitle: jobs.title,

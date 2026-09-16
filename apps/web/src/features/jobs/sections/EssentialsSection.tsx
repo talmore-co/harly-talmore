@@ -1,4 +1,8 @@
+"use client";
+
+import { useState } from "react";
 import type { Job } from "@harly/db";
+import { DatePicker } from "@/components/ui/date-picker";
 
 import { DepartmentCombobox } from "../DepartmentCombobox";
 import { FieldBox, fieldBoxControlClassName, fieldBoxSelectTriggerClassName } from "@/components/ui/field-box";
@@ -43,6 +47,9 @@ export function EssentialsSection({
   workplace: string;
   setWorkplace: (value: string) => void;
 }) {
+  const [validThrough, setValidThrough] = useState(
+    job?.validThrough ? job.validThrough.toISOString().slice(0, 10) : "",
+  );
   return (
     <section data-section="essentials" className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
@@ -155,11 +162,11 @@ export function EssentialsSection({
       ) : null}
 
       <FieldBox label="Posting expires" htmlFor="validThrough">
-        <Input
+        <input type="hidden" name="validThrough" value={validThrough} />
+        <DatePicker
           id="validThrough"
-          name="validThrough"
-          type="date"
-          defaultValue={job?.validThrough ? job.validThrough.toISOString().slice(0, 10) : ""}
+          value={validThrough}
+          onChange={setValidThrough}
           className={fieldBoxControlClassName}
         />
       </FieldBox>

@@ -330,6 +330,151 @@ integration("MCP OAuth and recruiting tools", () => {
         ),
     ).toHaveLength(1);
   });
+  it("creates only draft jobs and configures weighted questionnaires through MCP", async () => {
+    const discovery = await POST(
+      new Request(`${origin}/api/mcp`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          Accept: "application/json, text/event-stream",
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
+      }),
+    );
+    const tools = await discovery.json();
+    expect(tools.error).toBeUndefined();
+    expect(
+      tools.result.tools.some(
+        (entry: { name: string }) => entry.name === "set_job_questionnaire",
+      ),
+    ).toBe(true);
+    const created = await tool("create_draft_job", {
+      title: "Fictional questionnaire role",
+      description: "A fictional role for local questionnaire tests.",
+      employmentType: "full_time",
+      workplaceType: "remote",
+    });
+    expect(created.error).toBeFalsy();
+    expect(created.value.status).toBe("draft");
+    const jobId = created.value.id;
+    const current = await tool("get_job_questionnaire", { jobId });
+    const questions = [
+      {
+        id: "shift",
+        label: "Available for this shift?",
+        type: "select",
+        required: true,
+        options: ["Yes", "No"],
+        scoring: {
+          weight: 10,
+          answers: [
+            { option: "Yes", score: 10 },
+            { option: "No", score: 0 },
+          ],
+        },
+      },
+    ];
+    const saved = await tool("set_job_questionnaire", {
+      jobId,
+      expectedUpdatedAt: current.value.updatedAt,
+      questions,
+      qualifiedScoreThreshold: 70,
+    });
+    expect(saved.error).toBeFalsy();
+    const reread = await tool("get_job_questionnaire", { jobId });
+    expect(reread.value.status).toBe("draft");
+    expect(reread.value.questions[0].scoring.weight).toBe(10);
+    expect(reread.value.qualifiedScoreThreshold).toBe(70);
+    expect(
+      (
+        await tool("set_job_questionnaire", {
+          jobId,
+          expectedUpdatedAt: current.value.updatedAt,
+          questions: [],
+        })
+      ).error,
+    ).toBe(true);
+  });
+  it("persists authoritative scores and accepts applications below the Meta threshold", async () => {
+    const { createPublicApplication } =
+      await import("@/features/applications/data");
+    await db
+      .update(jobs)
+      .set({ applicationConfig: { resumeRequired: false, questions: [] } })
+      .where(eq(jobs.id, jobId));
+    const current = await tool("get_job_questionnaire", { jobId });
+    const questions = [
+      {
+        id: "shift",
+        label: "Available for this shift?",
+        type: "select",
+        required: true,
+        options: ["Yes", "No"],
+        scoring: {
+          weight: 10,
+          answers: [
+            { option: "Yes", score: 10 },
+            { option: "No", score: 0 },
+          ],
+        },
+      },
+    ];
+    expect(
+      (
+        await tool("set_job_questionnaire", {
+          jobId,
+          expectedUpdatedAt: current.value.updatedAt,
+          questions,
+          qualifiedScoreThreshold: 70,
+        })
+      ).error,
+    ).toBeFalsy();
+    for (const choice of ["Yes", "No"]) {
+      const result = await createPublicApplication(
+        { workspaceSlug: workspaceId, jobSlug: jobId },
+        {
+          firstName: "Fictional",
+          lastName: "Scored",
+          email: `${randomUUID()}@example.test`,
+          educationEntries: [],
+          experienceEntries: [],
+          questionAnswers: { shift: choice },
+        },
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error("Application rejected");
+      expect(result.questionnaireQualified).toBe(choice === "Yes");
+      const [saved] = await db
+        .select()
+        .from(applications)
+        .where(eq(applications.id, result.applicationId));
+      expect(saved!.questionnaireScore).toBe(choice === "Yes" ? 100 : 0);
+      expect(saved!.questionnaireScoreSnapshot).toMatchObject({
+        version: 1,
+        threshold: 70,
+        maximum: 100,
+      });
+      const beforeEdit = await tool("get_job_questionnaire", { jobId });
+      const edited = await tool("set_job_questionnaire", {
+        jobId,
+        expectedUpdatedAt: beforeEdit.value.updatedAt,
+        questions: questions.map(question => ({ ...question, scoring: { weight: 1, answers: [{ option: "Yes", score: 0 }, { option: "No", score: 10 }] } })),
+        qualifiedScoreThreshold: 90,
+      });
+      expect(edited.error).toBeFalsy();
+      const [unchanged] = await db
+        .select()
+        .from(applications)
+        .where(eq(applications.id, result.applicationId));
+      expect(unchanged!.questionnaireScoreSnapshot).toEqual(
+        saved!.questionnaireScoreSnapshot,
+      );
+      expect(unchanged!.questionnaireScore).toBe(saved!.questionnaireScore);
+      const afterEdit = await tool("get_job_questionnaire", { jobId });
+      expect((await tool("set_job_questionnaire", { jobId, expectedUpdatedAt: afterEdit.value.updatedAt, questions, qualifiedScoreThreshold: 70 })).error).toBeFalsy();
+    }
+  });
   it("does not expose another workspace's candidates", async () => {
     expect(
       (await tool("get_candidate", { candidateId: otherCandidateId })).error,

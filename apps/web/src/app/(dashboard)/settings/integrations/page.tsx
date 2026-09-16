@@ -1,4 +1,6 @@
 import { FileSpreadsheet } from "lucide-react";
+import { MetaPixelPanel } from "@/features/workspaces/MetaPixelPanel";
+import { getMyWorkspaceMetaPixel } from "@/features/workspaces/meta-actions";
 import type { ComponentType } from "react";
 
 import {
@@ -162,6 +164,7 @@ const JOIN_MARKETPLACE_INTEGRATION: MarketplaceIntegration = {
 
 export default async function IntegrationsSettingsPage() {
   await requirePagePermission("integrations:manage");
+  const metaPixelId = await getMyWorkspaceMetaPixel();
   const { organization } = await getWorkspaceContext();
   const statuses = await getIntegrationStatuses(organization.id);
 
@@ -237,6 +240,7 @@ export default async function IntegrationsSettingsPage() {
       </div>
 
       <IntegrationMarketplace groups={marketplaceGroupsWithSources} />
+      <MetaPixelPanel initialPixelId={metaPixelId} />
 
       <section className="space-y-4 border-t border-border/70 pt-8">
         <div className="space-y-1">

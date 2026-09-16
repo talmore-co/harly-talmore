@@ -9,6 +9,7 @@ import {
 import {
   defaultJobApplicationConfig,
   parseJobApplicationQuestions,
+  questionSchema,
   parseJobContentSections,
   parseKeywords,
   parseOfficePhotos,
@@ -123,8 +124,13 @@ export const jobFormSchema = z
       defaultJobApplicationConfig.sections.details.coverLetter.visibility,
     ),
     applicationQuestionsJson: z.string().optional(),
+    qualifiedScoreThreshold: z.preprocess(value => value === "" || value === null || value === undefined ? undefined : Number(value), z.number().int().min(0).max(100).optional()),
   })
   .superRefine((values, ctx) => {
+    try {
+      const raw: unknown = JSON.parse(values.applicationQuestionsJson || "[]");
+      if (!Array.isArray(raw) || raw.some(question => !questionSchema.safeParse(question).success)) ctx.addIssue({ code: "custom", path: ["applicationQuestionsJson"], message: "Check each question and its answer options. Scored questions need 0–10 points per choice, at least one positive score, and a weight of 1–10." });
+    } catch { ctx.addIssue({ code: "custom", path: ["applicationQuestionsJson"], message: "Invalid questionnaire." }); }
     const hasDescription =
       (values.description ?? "").replace(/<[^>]*>/g, "").trim().length >= 10;
     const hasSections =
@@ -175,6 +181,7 @@ export const jobFormSchema = z
         },
       },
       questions: parseJobApplicationQuestions(values.applicationQuestionsJson),
+      qualifiedScoreThreshold: values.qualifiedScoreThreshold,
     };
 
     const boardConfig: JobBoardConfig = {};

@@ -607,6 +607,7 @@ export const invitationRelations = relations(invitation, ({ one }) => ({
 
 // Workspace branding settings (satellite of the Better Auth organization)
 export const workspaceSettings = pgTable("workspace_settings", {
+  metaPixelId: text("meta_pixel_id"),
   organizationId: text("organization_id")
     .primaryKey()
     .references(() => organization.id, { onDelete: "cascade" }),
@@ -1546,6 +1547,8 @@ export type NewCandidateDeletionJob = typeof candidateDeletionJobs.$inferInsert;
 export const applications = pgTable(
   "applications",
   {
+    questionnaireScore: doublePrecision("questionnaire_score"),
+    questionnaireScoreSnapshot: jsonb("questionnaire_score_snapshot"),
     id: uuid("id").defaultRandom().primaryKey(),
     workspaceId: text("workspace_id")
       .notNull()

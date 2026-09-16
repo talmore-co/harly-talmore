@@ -24,6 +24,7 @@ needs no separate service, workspace API key, or Google credential sharing.
 - `get_candidate_notes`, `add_candidate_note`
 - `move_application_stage`
 - `list_candidate_interviews`, `get_interview_recordings`
+- `create_draft_job`, `get_job_questionnaire`, `set_job_questionnaire`
 
 For example: "Find Jordan Example by email. If they aren't already in Harly,
 create their candidate profile, then add them to the open Support Specialist
