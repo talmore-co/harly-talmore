@@ -809,7 +809,9 @@ export function ApplyForm({
 
   function focusField(field: string) {
     const form = formRef.current;
-    const element = form?.elements.namedItem(field);
+    const element = form?.elements.namedItem(
+      field === "phone" ? "phone-display" : field,
+    );
 
     if (element instanceof HTMLElement) {
       // Smooth-scroll the offending field into view before focusing, so the
@@ -817,6 +819,13 @@ export function ApplyForm({
       element.scrollIntoView({ behavior: "smooth", block: "center" });
       element.focus({ preventScroll: true });
     }
+  }
+
+  function handleInvalidPhone() {
+    dispatch({
+      type: "SET_FIELD_ERRORS",
+      errors: { ...clientFieldErrors, phone: ["Please enter your phone number."] },
+    });
   }
 
   function validateClientFields() {
@@ -829,7 +838,7 @@ export function ApplyForm({
     const profileFields = applicationConfig.sections.profile;
 
     if (isFieldRequired(personalFields.phone) && !fields.phone.trim()) {
-      nextErrors.phone = ["This field is required."];
+      nextErrors.phone = ["Please enter your phone number."];
     }
 
     if (isFieldRequired(personalFields.address) && !fields.address.trim()) {
@@ -2079,19 +2088,35 @@ export function ApplyForm({
             ) : null}
 
             {showPhone ? (
-              <label className="block">
-                <FieldLabel ashby>Phone</FieldLabel>
+              <label className="block" htmlFor="application-phone">
+                <FieldLabel
+                  ashby
+                  required={isFieldRequired(applicationConfig.sections.personal.phone)}
+                >
+                  Phone
+                </FieldLabel>
                 <PhoneInput
+                  id="application-phone"
                   name="phone"
+                  required={isFieldRequired(applicationConfig.sections.personal.phone)}
+                  invalid={Boolean(
+                    mergeErrors(fieldErrorsFor(state, "phone"), clientFieldErrors.phone)?.length,
+                  )}
+                  describedBy="application-phone-hint application-phone-error"
+                  onInvalid={handleInvalidPhone}
                   value={fields.phone}
                   onChange={(v) => updateField("phone", v)}
                   className="mt-1.5"
                 />
-                <p className={hintClass}>
+                <p id="application-phone-hint" className={hintClass}>
                   The hiring team may use this number to contact you about this
                   job.
                 </p>
-                <FieldError errors={fieldErrorsFor(state, "phone")} />
+                <div id="application-phone-error" aria-live="polite">
+                  <FieldError
+                    errors={mergeErrors(fieldErrorsFor(state, "phone"), clientFieldErrors.phone)}
+                  />
+                </div>
               </label>
             ) : null}
 
@@ -2737,19 +2762,34 @@ export function ApplyForm({
             ) : null}
 
             {showPhone ? (
-              <label className="mt-4 block">
-                <FieldLabel>Phone</FieldLabel>
+              <label className="mt-4 block" htmlFor="application-phone">
+                <FieldLabel
+                  required={isFieldRequired(applicationConfig.sections.personal.phone)}
+                >
+                  Phone
+                </FieldLabel>
                 <PhoneInput
+                  id="application-phone"
                   name="phone"
+                  required={isFieldRequired(applicationConfig.sections.personal.phone)}
+                  invalid={Boolean(
+                    mergeErrors(fieldErrorsFor(state, "phone"), clientFieldErrors.phone)?.length,
+                  )}
+                  describedBy="application-phone-hint application-phone-error"
+                  onInvalid={handleInvalidPhone}
                   value={fields.phone}
                   onChange={(v) => updateField("phone", v)}
                   className="mt-1.5"
                 />
-                <p className={hintClass}>
+                <p id="application-phone-hint" className={hintClass}>
                   The hiring team may use this number to contact you about this
                   job.
                 </p>
-                <FieldError errors={fieldErrorsFor(state, "phone")} />
+                <div id="application-phone-error" aria-live="polite">
+                  <FieldError
+                    errors={mergeErrors(fieldErrorsFor(state, "phone"), clientFieldErrors.phone)}
+                  />
+                </div>
               </label>
             ) : null}
 

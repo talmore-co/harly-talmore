@@ -91,6 +91,11 @@ export function PhoneInput({
   value,
   onChange,
   name,
+  id,
+  required,
+  invalid,
+  describedBy,
+  onInvalid,
   disabled,
   className,
   inputClassName,
@@ -98,6 +103,11 @@ export function PhoneInput({
   value: string;
   onChange: (value: string) => void;
   name?: string;
+  id?: string;
+  required?: boolean;
+  invalid?: boolean;
+  describedBy?: string;
+  onInvalid?: () => void;
   disabled?: boolean;
   className?: string;
   inputClassName?: string;
@@ -173,6 +183,7 @@ export function PhoneInput({
           "flex h-10 items-stretch overflow-hidden rounded-md border border-zinc-200 bg-white text-sm transition focus-within:border-zinc-900 focus-within:ring-2 focus-within:ring-zinc-900/10",
           disabled && "opacity-60",
           inputClassName,
+          invalid && "border-red-500 focus-within:border-red-500 focus-within:ring-red-500/10",
         )}
       >
         <button
@@ -192,8 +203,15 @@ export function PhoneInput({
           />
         </button>
         <input
+          id={id}
+          name={name ? `${name}-display` : undefined}
           type="tel"
           inputMode="tel"
+          autoComplete="tel-national"
+          required={required}
+          onInvalid={onInvalid}
+          aria-invalid={invalid || undefined}
+          aria-describedby={describedBy}
           value={national}
           disabled={disabled}
           onChange={(e) => onNationalChange(e.target.value)}
