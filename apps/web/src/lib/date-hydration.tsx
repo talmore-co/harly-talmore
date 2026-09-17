@@ -28,6 +28,20 @@ export function ShortDate({ value }: { value: Date | string }): ReactNode {
   return useClientValue(() => formatShort(value), "");
 }
 
+/** Local recruiter time, with the full date and named timezone available on hover. */
+export function ShortDateTime({ value }: { value: Date | string }): ReactNode {
+  const short = useClientValue(() => new Intl.DateTimeFormat("en-US", {
+    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).format(new Date(value)), "");
+  const full = useClientValue(() => {
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return `${new Intl.DateTimeFormat("en-US", {
+      dateStyle: "full", timeStyle: "long", timeZone: zone,
+    }).format(new Date(value))} · ${zone}`;
+  }, "");
+  return <time dateTime={new Date(value).toISOString()} title={full} aria-label={full || undefined}>{short}</time>;
+}
+
 /** Hydration-safe relative time wrapper. Use in client components instead of formatRelative(). */
 export function RelativeTime({ value }: { value: Date | string }): ReactNode {
   return useClientValue(() => formatRelative(value), "");

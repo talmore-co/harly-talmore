@@ -54,3 +54,15 @@ Portal, embedded and API submissions do not collect this hosted-form attribution
 Run additive migration `0151_nervous_mulholland_black` before starting the new app.
 It adds nullable `applications.attribution` JSONB. No additional secrets or
 environment variables are required. Keep the column if rolling back the app.
+# Pipeline display
+
+The pipeline list shows application date and time in the recruiter's browser
+timezone. Hovering the timestamp shows the full date and named timezone.
+
+A Meta icon beside the submission source appears when either saved visit has a
+recognized Meta source and a paid medium or ad ID. Organic Meta visits, other ad
+networks, and conversion delivery alone do not trigger the icon. Hovering or
+keyboard-focusing it shows the captured ad label, source, campaign, IDs, landing
+path and visit time. Distinct first/latest visits are shown separately. The
+tooltip uses historical snapshots without applying browser-storage expiry;
+attribution remains visitor-provided rather than independently Meta-verified.

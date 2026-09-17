@@ -37,7 +37,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { ShortDate } from "@/lib/date-hydration";
+import { ShortDateTime } from "@/lib/date-hydration";
+import { MetaAttributionBadge } from "./MetaAttributionBadge";
 import { cn } from "@/lib/utils";
 
 type PipelineListProps = {
@@ -312,9 +313,12 @@ export function PipelineList({
                       </p>
                       <ApplicationStatusBadge status={a.status} />
                     </div>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {a.candidateEmail}
-                      {a.source ? ` · via ${a.source}` : ""}
+                    <p className="flex items-center text-xs text-muted-foreground">
+                      <span className="truncate">
+                        {a.candidateEmail}
+                        {a.source ? ` · via ${a.source}` : ""}
+                      </span>
+                      <MetaAttributionBadge value={a.attribution} />
                     </p>
                   </div>
                 </Link>
@@ -326,7 +330,7 @@ export function PipelineList({
                     className="mt-1.5 max-w-40"
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Applied <ShortDate value={a.appliedAt} />
+                    Applied <ShortDateTime value={a.appliedAt} />
                   </p>
                 </div>
                 <div className="col-start-2 sm:col-auto sm:self-center">
