@@ -2,12 +2,20 @@ import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 import { ApplicationReceivedCandidate, CandidateRejected, InterviewCanceled, InterviewScheduled, InterviewRescheduled, OfferExtended, OfferWithdrawn, PortalMagicLinkEmail, buildCalendarLinks, buildInterviewCalendar } from "@harly/emails";
 import { interviewEmailDetails } from "./interview-details";
+import { renderEmailText } from "@harly/emails";
 
 const localRequire = createRequire(import.meta.url);
 const { render } = createRequire(localRequire.resolve("@harly/emails"))("@react-email/render") as { render: (element: React.ReactElement) => Promise<string> };
 const common = { candidateName: "Ava", companyName: "Talmore", jobTitle: "Test role" };
 
 describe("candidate email defaults", () => {
+  it("keeps the delivered receipt wording and links in the inbox text copy", async () => {
+    const text = await renderEmailText(<ApplicationReceivedCandidate {...common} portalUrl="https://example.test/portal/application" />);
+    expect(text).toContain("Hi Ava,");
+    expect(text).toContain("our recruiting team will contact you with the next steps");
+    expect(text).toContain("https://example.test/portal/application");
+    expect(text).not.toContain("<table");
+  });
   it("uses the selected timezone and separates date from time", () => {
     const details = interviewEmailDetails(new Date("2026-09-17T07:00:00Z"), "Asia/Manila");
     expect(details.date).toBe("Thursday, 17 September 2026");

@@ -16,8 +16,12 @@ import {
 } from "@harly/db";
 
 import { getWorkspaceContext } from "@/features/workspaces/context";
-import { getWorkspaceInboundEmailStatus } from "@/lib/email/config";
+import { getWorkspaceInboundEmailStatus, getWorkspaceEmailConfig } from "@/lib/email/config";
 import { getWorkspaceEmailSender } from "@/lib/email";
+import { resolveSenderFromOverride } from "@/lib/email/sender-identity";
+import { listEmailTemplates } from "@/features/email-templates/data";
+import { preferredThread } from "./reading";
+import { isMailUnificationEnabled } from "@/lib/mail/feature-flag";
 
 export type InboxSource = "mailbox";
 export type InboxTransport = "imap" | "legacy-webhook" | "provider" | "smtp";
@@ -56,6 +60,7 @@ export type InboxThread = {
   needsReply?: boolean;
   preview: string | null;
   searchText?: string | null;
+  lastActivity?: "received" | "sent" | "automated";
 };
 
 export type InboxMessage = {
@@ -85,6 +90,10 @@ export type InboxMailboxStatus = {
   lastHealthyAt: string | null;
   lastError: string | null;
   canReply: boolean;
+  senderAddress?: string | null;
+  templates?: Array<{ id: string; name: string; subject: string; body: string }>;
+  companyName?: string;
+  senderName?: string;
 };
 
 const PAGE_SIZE = 40;
@@ -189,6 +198,15 @@ export async function getInboxData(input: {
           where mm.thread_id = ${mailThreads.id}
           order by mm.received_at desc limit 1
         )`,
+        lastActivity: sql<"received" | "sent" | "automated">`(
+          select case when mm.direction = 'inbound' then 'received'
+            when exists (select 1 from email_outbox eo where eo.workspace_id = mm.workspace_id
+              and mm.message_id = '<' || eo.id::text || '@harly.local>'
+              and eo.kind = 'application.received.candidate') then 'automated'
+            else 'sent' end
+          from mail_messages mm where mm.thread_id = ${mailThreads.id}
+          order by mm.received_at desc limit 1
+        )`,
         searchText: sql<string | null>`(
           select string_agg(mm.text_body, ' ' order by mm.received_at desc)
           from mail_messages mm
@@ -272,10 +290,11 @@ export async function getInboxData(input: {
     hasInboundReply: Boolean(row.hasInboundReply),
     needsReply: Boolean(row.needsReply),
     preview: row.preview,
+    lastActivity: row.lastActivity,
     searchText: row.searchText,
   }));
 
-  const selectedThread = input.threadId ? threads.find((thread) => thread.id === input.threadId) : undefined;
+  const selectedThread = input.threadId ? threads.find((thread) => thread.id === input.threadId) : preferredThread(threads);
   const selectedMessages = selectedThread
     ? await db
         .select()
@@ -324,9 +343,20 @@ export async function getInboxData(input: {
   }
 
   const mailbox = mailboxRows[0];
+  const unifiedSending = await isMailUnificationEnabled(organization.id);
+  const senderConfig = await resolveSenderFromOverride(organization.id, currentUser.id, await getWorkspaceEmailConfig(organization.id));
+  const composeContext = {
+    companyName: organization.name,
+    senderName: currentUser.name,
+    senderAddress: mailbox?.enabled && !unifiedSending ? mailbox.address : senderConfig?.from ?? process.env.EMAIL_FROM ?? null,
+    templates: (await listEmailTemplates()).filter((template) => template.type === "general").map((template) => ({
+      id: template.id, name: template.name, subject: template.subject,
+      body: template.body,
+    })),
+  };
   const mailboxEnabled = Boolean(mailbox?.enabled);
   const hasOutboundSender = sender !== null;
-  const canReply = mailboxEnabled || hasOutboundSender;
+  const canReply = unifiedSending ? hasOutboundSender : mailboxEnabled || hasOutboundSender;
   const webhookConfigured = Boolean(
     inboundStatus.provider &&
       inboundStatus.replyDomain &&
@@ -361,6 +391,7 @@ export async function getInboxData(input: {
     applications: applicationRows,
     mailboxStatus: mailbox
       ? {
+          ...composeContext,
           configured: true,
           enabled: route === "mailbox"
             ? mailboxEnabled
@@ -377,6 +408,7 @@ export async function getInboxData(input: {
           canReply,
         }
       : {
+          ...composeContext,
           configured: webhookConfigured,
           enabled: webhookEnabled,
           route,

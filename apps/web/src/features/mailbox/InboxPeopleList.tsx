@@ -15,6 +15,10 @@ export type InboxPerson = {
   threadCount: number;
   unreadCount: number;
   lastMessageAt: string;
+  preview?: string | null;
+  jobTitle?: string | null;
+  needsReply?: boolean;
+  lastActivity?: "received" | "sent" | "automated";
 };
 
 export function InboxPeopleList({
@@ -64,8 +68,14 @@ export function InboxPeopleList({
                       </time>
                     </span>
                     <span className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                      <span className="truncate">{person.email ?? "No email address"}</span>
+                      <span className="truncate">{person.preview || person.email || "No message preview"}</span>
                       {person.threadCount > 1 ? <span className="shrink-0 tabular-nums">{person.threadCount} threads</span> : null}
+                    </span>
+                    <span className="mt-1 flex items-center gap-1.5 truncate text-[11px] text-muted-foreground">
+                      <EnvelopeSimpleDuotoneIcon className="size-3 shrink-0" />
+                      {person.needsReply ? "Awaiting reply" : person.lastActivity === "automated" ? "Automated email" : person.lastActivity === "sent" ? "Sent email" : "Email"}
+                      {person.unreadCount > 0 ? <span className="font-semibold text-foreground">· {person.unreadCount} unread</span> : null}
+                      {person.jobTitle ? <span className="truncate">· {person.jobTitle}</span> : null}
                     </span>
                   </span>
                 </button>

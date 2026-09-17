@@ -10,11 +10,13 @@ export function InboxNewThreadSheet({
   open,
   onOpenChange,
   onSent,
+  senderAddress,
 }: {
   person?: InboxPerson;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSent: (threadId: string) => void;
+  senderAddress?: string | null;
 }) {
   if (!person?.email) return null;
 
@@ -22,10 +24,11 @@ export function InboxNewThreadSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="mx-auto max-h-[90vh] w-full overflow-y-auto sm:max-w-2xl sm:rounded-t-xl">
         <SheetHeader>
-          <SheetTitle>New thread with {person.name}</SheetTitle>
+          <SheetTitle>New email to {person.name}</SheetTitle>
         </SheetHeader>
         <div className="px-4 pb-6">
           <MailComposer
+            from={senderAddress}
             to={person.email}
             placeholder={`Write to ${person.name}…`}
             sendLabel="Send email"

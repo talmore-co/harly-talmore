@@ -3,6 +3,8 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { preferredThread } from "./reading";
+import type { ComposerDraft } from "./MailComposer";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -27,6 +29,7 @@ import {
   linkMailboxThreadToApplicationAction,
   linkMailboxThreadToCandidateAction,
   markInboxThreadReadAction,
+  markMailboxThreadUnreadAction,
   replyMailboxThreadAction,
   retryMailboxSyncAction,
   summarizeMailboxThreadAction,
@@ -129,7 +132,7 @@ function InboxCommandBar({
 
   return (
     <header className="flex h-12 items-center gap-3 border-b border-border/70 pl-3 pr-4">
-      <label className="relative flex w-full shrink-0 items-center lg:w-[328px]">
+      <label className="relative flex min-w-0 flex-1 items-center sm:w-56 sm:flex-none lg:w-[328px]">
         <span className="sr-only">Search conversations</span>
         <SearchIcon className="pointer-events-none absolute left-2.5 size-4 text-muted-foreground" />
         <input
@@ -141,7 +144,8 @@ function InboxCommandBar({
         />
       </label>
 
-      <nav role="tablist" aria-label="Inbox filters" className="ml-auto hidden min-w-0 items-center gap-1 overflow-x-auto sm:flex [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <select className="max-w-28 rounded-md border bg-background p-1 text-xs sm:hidden" aria-label="Inbox filter" value={filter} onChange={(event) => onFilterChange(event.target.value as InboxFilter)}>{inboxFilters.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+      <nav role="tablist" aria-label="Inbox filters, counts are people in loaded conversations" className="ml-auto hidden min-w-0 items-center gap-1 overflow-x-auto sm:flex [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {PRIMARY_FILTERS.map((value) => <FilterButton key={value} value={value} />)}
         <Popover>
           <PopoverTrigger asChild>
@@ -322,7 +326,7 @@ export function RecruitingInbox({
 
   const counts = useMemo(() => {
     const record = {} as Record<InboxFilter, number>;
-    for (const [value] of inboxFilters) record[value] = threads.filter((item) => matchesInboxFilter(item, value, currentUserId)).length;
+    for (const [value] of inboxFilters) record[value] = new Set(threads.filter((item) => matchesInboxFilter(item, value, currentUserId)).map(personKey)).size;
     return record;
   }, [threads, currentUserId]);
 
@@ -345,7 +349,13 @@ export function RecruitingInbox({
       if (current) {
         current.threadCount += 1;
         current.unreadCount += item.unreadCount;
-        if (new Date(item.lastMessageAt).getTime() > new Date(current.lastMessageAt).getTime()) current.lastMessageAt = item.lastMessageAt;
+        if (new Date(item.lastMessageAt).getTime() > new Date(current.lastMessageAt).getTime()) {
+          current.lastMessageAt = item.lastMessageAt;
+          current.preview = item.preview;
+          current.jobTitle = item.jobTitle;
+          current.needsReply = item.needsReply;
+          current.lastActivity = item.lastActivity;
+        }
         continue;
       }
       grouped.set(key, {
@@ -357,6 +367,10 @@ export function RecruitingInbox({
         threadCount: 1,
         unreadCount: item.unreadCount,
         lastMessageAt: item.lastMessageAt,
+        preview: item.preview,
+        jobTitle: item.jobTitle,
+        needsReply: item.needsReply,
+        lastActivity: item.lastActivity,
       });
     }
     return [...grouped.values()].sort((left, right) => {
@@ -365,10 +379,14 @@ export function RecruitingInbox({
     });
   }, [searched]);
 
-  const thread = activeThreadId ? threads.find((item) => item.id === activeThreadId) : undefined;
+  const effectiveThreadId = activeThreadId ?? Object.keys(messages)[0];
+  const thread = effectiveThreadId ? threads.find((item) => item.id === effectiveThreadId) : undefined;
   const activePersonKey = thread ? personKey(thread) : people.some((item) => item.key === selectedPersonKey) ? selectedPersonKey : people[0]?.key;
   const personThreads = activePersonKey ? searched.filter((item) => personKey(item) === activePersonKey) : [];
   const threadMessages = thread ? (messages[thread.id] ?? []) : [];
+  const rememberedThreads = useRef(new Map<string, string>());
+  const drafts = useRef(new Map<string, ComposerDraft>());
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   async function runAction<T extends { ok: boolean; error?: string }>(fn: () => Promise<T>, success: string) {
     try {
@@ -390,31 +408,17 @@ export function RecruitingInbox({
   }
 
   function handleSelectPerson(person: InboxPerson) {
-    setSelectedPersonKey(person.key);
-    setActiveThreadId(undefined);
-    setMobileView("conversations");
-    const params = new URLSearchParams(window.location.search);
-    params.delete("thread");
-    router.push(`/dashboard/inbox?${params.toString()}`);
+    const target = preferredThread(searched.filter((item) => personKey(item) === person.key), rememberedThreads.current.get(person.key));
+    if (target) handleSelectThread(target);
   }
 
   function handleSelectThread(target: InboxThread) {
+    rememberedThreads.current.set(personKey(target), target.id);
     setSelectedPersonKey(personKey(target));
     setActiveThreadId(target.id);
     setMobileView("thread");
     const params = new URLSearchParams(window.location.search);
     params.set("thread", target.id);
-    router.push(`/dashboard/inbox?${params.toString()}`);
-    if (target.unreadCount) {
-      startTransition(() => { void runAction(() => markInboxThreadReadAction({ threadId: target.id, source: target.source }), `Marked “${target.subject}” as read.`); });
-    }
-  }
-
-  function handleBackToThreads() {
-    setActiveThreadId(undefined);
-    setMobileView("conversations");
-    const params = new URLSearchParams(window.location.search);
-    params.delete("thread");
     router.push(`/dashboard/inbox?${params.toString()}`);
   }
 
@@ -453,6 +457,7 @@ export function RecruitingInbox({
   const actionsPanel = contextThread ? (
     <InboxActionsPanel
       thread={contextThread}
+      key={contextThread.id}
       members={members}
       candidates={candidates}
       applications={applications}
@@ -470,7 +475,7 @@ export function RecruitingInbox({
 
   return (
     <div className="-mx-4 -mb-6 -mt-2 flex h-[calc(100%+2rem)] min-h-0 flex-col overflow-hidden border-t border-border/70 duration-300 animate-in fade-in md:-mx-6 lg:-mx-8 lg:-mb-8 lg:-mt-3 lg:h-[calc(100%+2.75rem)]">
-      <div aria-live="polite" className="sr-only">{announcement}</div>
+      {announcement ? <div role="status" className="flex items-center justify-between gap-3 border-b bg-muted/40 px-4 py-2 text-xs"><span>{announcement}</span><button type="button" onClick={() => setAnnouncement("")} className="underline underline-offset-2">Dismiss</button></div> : null}
       <InboxCommandBar
         filter={filter}
         counts={counts}
@@ -487,7 +492,7 @@ export function RecruitingInbox({
         <InboxEmptyState status={mailboxStatus} filter={filter} />
       ) : (
         <div className="relative flex min-h-0 flex-1 overflow-hidden">
-          <div className={cn("min-h-0 shrink-0 border-r border-border/70 bg-card", mobileView === "people" ? "block w-full lg:w-[280px]" : "hidden lg:block lg:w-[280px]")}>
+          <div className={cn("min-h-0 shrink-0 border-r border-border/70 bg-card", mobileView === "people" ? "block w-full lg:w-[340px]" : "hidden lg:block lg:w-[340px]")}>
             <InboxPeopleList people={people} selectedKey={activePersonKey} query={query} onSelect={handleSelectPerson} />
           </div>
 
@@ -495,13 +500,28 @@ export function RecruitingInbox({
             {thread ? (
               <InboxThreadReader
                 key={`${thread.id}-${suggestedReply?.threadId === thread.id ? suggestedReply.body : ""}`}
-                thread={thread}
+                 thread={thread}
+                 loading={!Object.hasOwn(messages, thread.id)}
+                 conversations={personThreads}
+                 onSelectThread={handleSelectThread}
+                 onNewThread={() => setNewThreadOpen(true)}
+                 onToggleDetails={() => setDetailsOpen((open) => !open)}
+                 detailsOpen={detailsOpen}
+                 draft={drafts.current.get(thread.id)}
+                 onDraftChange={(draft) => { if (draft) drafts.current.set(thread.id, draft); else drafts.current.delete(thread.id); }}
+                 senderAddress={mailboxStatus.senderAddress}
+                 templates={mailboxStatus.templates}
+                 companyName={mailboxStatus.companyName}
+                 senderName={mailboxStatus.senderName}
+                 markReadOnOpen={mobileView === "thread"}
+                 onArchive={() => { startTransition(() => { void runAction(() => updateMailboxThreadAction({ threadId: thread.id, status: "archived" }), "Thread archived.").then((result) => { if (result.ok) handleFilterChange(filter); }); }); }}
                 messages={threadMessages}
                 isPending={pending}
                 canReply={mailboxStatus.canReply}
                 suggestedReply={suggestedReply?.threadId === thread.id ? suggestedReply.body : null}
-                onBack={handleBackToThreads}
-                onMarkRead={handleMarkRead}
+                 onBack={() => setMobileView("people")}
+                 onMarkRead={handleMarkRead}
+                 onMarkUnread={() => { startTransition(() => { void runAction(() => markMailboxThreadUnreadAction({ threadId: thread.id }), "Marked unread."); }); }}
                 onSendReply={(payload) => replyMailboxThreadAction({ threadId: thread.id, body: payload.body, html: payload.html, subject: payload.subject, idempotencyKey: payload.idempotencyKey, attachments: payload.attachments.map((file) => ({ filename: file.filename, contentType: file.contentType, base64: file.base64 })) }).then((result) => { if (result.ok) { setAnnouncement(result.sentCopySaved === false ? "Reply sent, but the copy could not be saved in Sent." : "Reply sent."); router.refresh(); } return result; })}
                 actionsSlot={actionsPanel}
               />
@@ -516,7 +536,7 @@ export function RecruitingInbox({
             )}
           </div>
 
-          <aside className="hidden min-h-0 shrink-0 border-l border-border/70 bg-muted/15 lg:block lg:w-[300px] xl:w-[320px]" aria-label="Candidate details and actions">
+          <aside className={cn("hidden min-h-0 shrink-0 border-l border-border/70 bg-muted/15 lg:w-[300px] xl:w-[320px]", detailsOpen && "lg:block")} aria-label="Candidate details and actions">
             {actionsPanel}
           </aside>
         </div>
@@ -527,14 +547,14 @@ export function RecruitingInbox({
           <button
             type="button"
             className="rounded-md border border-border bg-card px-4 py-1.5 text-sm font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-            onClick={() => { const params = new URLSearchParams(window.location.search); params.set("page", String((page ?? 0) + 1)); params.delete("thread"); router.push(`/dashboard/inbox?${params.toString()}`); }}
+            onClick={() => { const params = new URLSearchParams(window.location.search); params.set("page", String((page ?? 0) + 1)); router.push(`/dashboard/inbox?${params.toString()}`); }}
           >
             Load more conversations
           </button>
         </div>
       ) : null}
 
-      <InboxNewThreadSheet person={contextPerson} open={newThreadOpen} onOpenChange={setNewThreadOpen} onSent={handleNewThreadSent} />
+      <InboxNewThreadSheet person={contextPerson} open={newThreadOpen} onOpenChange={setNewThreadOpen} onSent={handleNewThreadSent} senderAddress={mailboxStatus.senderAddress} />
     </div>
   );
 }

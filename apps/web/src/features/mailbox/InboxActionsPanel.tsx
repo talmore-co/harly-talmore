@@ -109,8 +109,13 @@ export function InboxActionsPanel({
           )}
         </section>
 
-        <section className="space-y-4" aria-labelledby={`${idPrefix}-context-heading`}>
-          <h3 id={`${idPrefix}-context-heading`} className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">Routing</h3>
+        <section className="space-y-2 text-sm">
+          <p className="text-xs text-muted-foreground">Application</p>
+          <p className="font-medium">{thread.jobTitle ?? "No application linked"}</p>
+          <p className="text-xs text-muted-foreground">Owner: {thread.ownerName ?? "Unassigned"}</p>
+        </section>
+        <details className="space-y-4">
+          <summary className="cursor-pointer text-xs font-medium">Edit assignment and links</summary>
 
           <div className="space-y-1.5">
             <label htmlFor={`${idPrefix}-owner`} className="text-[13px] font-medium text-foreground">Owner</label>
@@ -145,7 +150,7 @@ export function InboxActionsPanel({
               </SelectContent>
             </Select>
           </div>
-        </section>
+        </details>
 
         <section className="border-t border-border/70 pt-4" aria-labelledby={`${idPrefix}-ai-heading`}>
           <div className="mb-3 flex items-center justify-between gap-2">

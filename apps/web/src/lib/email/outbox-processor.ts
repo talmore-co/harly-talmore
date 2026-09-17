@@ -38,6 +38,7 @@ import {
 import { interviewEmailDetails } from "./interview-details";
 
 import { renderActiveEmailTemplate } from "@/features/email-templates/data";
+import { renderEmailText } from "@harly/emails";
 import { sendWorkspaceEmail } from "@/lib/email";
 import { getWorkspaceEmailBranding } from "@/lib/email/branding";
 import { getWorkspaceEmailConfig } from "@/lib/email/config";
@@ -790,6 +791,7 @@ async function deliverApplicationReceived(
   const branding = await getWorkspaceEmailBranding(row.workspaceId);
   let delivered: Awaited<ReturnType<typeof sendWorkspaceEmail>> = false;
   let candidateSubject: string | null = null;
+  let candidateText = "";
 
   if (variant === "candidate") {
     if (!p?.candidateEmail) {
@@ -809,10 +811,7 @@ async function deliverApplicationReceived(
       jobTitle: p.jobTitle ?? "",
       companyName: p.workspaceName ?? "",
     });
-    delivered = await sendWorkspaceEmail(row.workspaceId, {
-      to: p.candidateEmail,
-      subject: candidateSubject,
-      react: createElement(ApplicationReceivedCandidate, {
+    const receipt = createElement(ApplicationReceivedCandidate, {
         candidateName: p.candidateFirstName ?? "",
         jobTitle: p.jobTitle ?? "",
         companyName: p.workspaceName ?? "",
@@ -823,7 +822,12 @@ async function deliverApplicationReceived(
         jobBoardUrl,
         portalUrl,
         profileUrl,
-      }),
+      });
+    candidateText = await renderEmailText(receipt);
+    delivered = await sendWorkspaceEmail(row.workspaceId, {
+      to: p.candidateEmail,
+      subject: candidateSubject,
+      react: receipt,
       ...deliveryOptions(row),
     });
     if (!delivered) {
@@ -874,7 +878,8 @@ async function deliverApplicationReceived(
       toEmail: p.candidateEmail,
       subject: candidateSubject,
       outboxRowId: row.id,
-      textBody: `Application received for ${p.jobTitle ?? "the role"} at ${p.workspaceName ?? "the company"}.`,
+      textBody: candidateText,
+      applicationId: p.applicationId,
     });
   }
   return true;

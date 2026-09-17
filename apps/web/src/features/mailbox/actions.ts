@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { composerAttachmentsSchema, decodeComposerAttachments, richBodyReact } from "@/features/mailbox/compose-shared";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { applications, candidates, db, jobs, mailMessages, mailThreads, member } from "@harly/db";
 import { getWorkspaceContext } from "@/features/workspaces/context";
@@ -198,13 +198,39 @@ export async function markMailboxThreadReadAction(input: { threadId: string }) {
   const parsed = threadId.safeParse(input.threadId); if (!parsed.success) return { ok: false };
   await requirePermission("collab:write");
   const { organization } = await getWorkspaceContext();
-  const [updated] = await db.update(mailThreads)
-    .set({ unreadCount: 0 })
-    .where(and(eq(mailThreads.id, parsed.data), eq(mailThreads.workspaceId, organization.id)))
-    .returning({ id: mailThreads.id });
-  if (!updated) return { ok: false, error: "Thread not found." };
-  await db.update(mailMessages).set({ readAt: new Date() }).where(and(eq(mailMessages.threadId, parsed.data), eq(mailMessages.workspaceId, organization.id)));
-  revalidatePath("/dashboard/inbox"); return { ok: true };
+  const result = await db.transaction(async (tx) => {
+    const [thread] = await tx.select({ id: mailThreads.id }).from(mailThreads)
+      .where(and(eq(mailThreads.id, parsed.data), eq(mailThreads.workspaceId, organization.id))).for("update");
+    if (!thread) return { ok: false, error: "Thread not found." };
+    await tx.update(mailMessages).set({ readAt: new Date() })
+      .where(and(eq(mailMessages.threadId, thread.id), eq(mailMessages.workspaceId, organization.id)));
+    await tx.update(mailThreads).set({ unreadCount: sql`(select count(*)::int from mail_messages where thread_id = ${thread.id} and workspace_id = ${organization.id} and read_at is null)` })
+      .where(and(eq(mailThreads.id, thread.id), eq(mailThreads.workspaceId, organization.id)));
+    return { ok: true };
+  });
+  revalidatePath("/dashboard/inbox"); return result;
+}
+
+export async function markMailboxThreadUnreadAction(input: { threadId: string }) {
+  const parsed = threadId.safeParse(input.threadId);
+  if (!parsed.success) return { ok: false, error: "Invalid thread." };
+  await requirePermission("collab:write");
+  const { organization } = await getWorkspaceContext();
+  const result = await db.transaction(async (tx) => {
+    const [thread] = await tx.select({ id: mailThreads.id }).from(mailThreads)
+      .where(and(eq(mailThreads.id, parsed.data), eq(mailThreads.workspaceId, organization.id))).for("update");
+    if (!thread) return { ok: false, error: "Thread not found." };
+    const [latest] = await tx.select({ id: mailMessages.id }).from(mailMessages)
+      .where(and(eq(mailMessages.threadId, thread.id), eq(mailMessages.workspaceId, organization.id)))
+      .orderBy(desc(mailMessages.receivedAt)).limit(1);
+    if (!latest) return { ok: false, error: "This thread has no messages." };
+    await tx.update(mailMessages).set({ readAt: null }).where(and(eq(mailMessages.id, latest.id), eq(mailMessages.workspaceId, organization.id)));
+    await tx.update(mailThreads).set({ unreadCount: sql`(select count(*)::int from mail_messages where thread_id = ${thread.id} and workspace_id = ${organization.id} and read_at is null)` })
+      .where(and(eq(mailThreads.id, thread.id), eq(mailThreads.workspaceId, organization.id)));
+    return { ok: true };
+  });
+  revalidatePath("/dashboard/inbox");
+  return result;
 }
 
 /** Marks a message read from the single Inbox surface, including legacy webhooks. */

@@ -18,6 +18,7 @@ describe("canonical inbox replies", () => {
       candidateAvatarUrl: null,
       ownerName: null,
       preview: "Hello",
+      hasInboundReply: true,
     }, "replies")).toBe(true);
   });
 });

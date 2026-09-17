@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Paperclip, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ export type ComposerPayload = {
 };
 
 export type ComposerTemplate = { id: string; name: string; subject: string; body: string };
+export type ComposerDraft = { subject: string; html: string; attachments: ComposerAttachment[]; idempotencyKey: string };
 
 function htmlToPlainText(html: string) {
   return html
@@ -93,6 +94,9 @@ export function MailComposer({
   disabled = false,
   footerNote,
   onCancel,
+  draft,
+  onDraftChange,
+  from,
 }: {
   to: string;
   defaultSubject?: string;
@@ -109,18 +113,24 @@ export function MailComposer({
   disabled?: boolean;
   footerNote?: string;
   onCancel?: () => void;
+  draft?: ComposerDraft;
+  onDraftChange?: (draft: ComposerDraft | undefined) => void;
+  from?: string | null;
 }) {
-  const [subject, setSubject] = useState(defaultSubject);
-  const [html, setHtml] = useState(() => normalizeBody(defaultBody));
-  const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
+  const [subject, setSubject] = useState(draft?.subject ?? defaultSubject);
+  const [html, setHtml] = useState(() => draft?.html ?? normalizeBody(defaultBody));
+  const [attachments, setAttachments] = useState<ComposerAttachment[]>(draft?.attachments ?? []);
   const [editorKey, setEditorKey] = useState(0);
-  const [editorInitial, setEditorInitial] = useState(() => normalizeBody(defaultBody));
+  const [editorInitial, setEditorInitial] = useState(() => draft?.html ?? normalizeBody(defaultBody));
   const [sending, setSending] = useState(false);
   const [drafting, setDrafting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const idempotencyKeyRef = useRef(crypto.randomUUID());
+  const idempotencyKeyRef = useRef(draft?.idempotencyKey ?? crypto.randomUUID());
+  useEffect(() => {
+    onDraftChange?.({ subject, html, attachments, idempotencyKey: idempotencyKeyRef.current });
+  }, [subject, html, attachments, onDraftChange]);
 
   function loadBody(next: string) {
     setEditorInitial(next);
@@ -204,6 +214,8 @@ export function MailComposer({
       } else {
         setError(result.error ?? "Could not send.");
       }
+    } catch {
+      setError("Could not confirm sending. Your draft is retained; retry to check the same send.");
     } finally {
       setSending(false);
     }
@@ -211,6 +223,7 @@ export function MailComposer({
 
   return (
     <div className="flex flex-col gap-2.5">
+      {from ? <p className="text-xs text-muted-foreground">From <span className="text-foreground">{from}</span></p> : null}
       <div className="flex items-center gap-1.5 text-[13px]">
         <span className="w-8 shrink-0 text-muted-foreground">To</span>
         <span className="min-w-0 flex-1 truncate font-medium text-foreground">{to}</span>
@@ -277,7 +290,7 @@ export function MailComposer({
         <div className="ml-auto flex items-center gap-2">
           {footerNote ? <span className="text-[11px] text-muted-foreground">{footerNote}</span> : null}
           {onCancel ? (
-            <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={sending}>Cancel</Button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => { onDraftChange?.(undefined); onCancel(); }} disabled={sending}>Discard draft</Button>
           ) : null}
           <Button type="button" onClick={handleSend} disabled={!canSend} className="active:scale-[0.97] motion-reduce:active:scale-100">
             <PaperPlaneDuotoneIcon className="size-4" />

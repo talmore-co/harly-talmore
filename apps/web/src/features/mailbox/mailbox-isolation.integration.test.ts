@@ -38,6 +38,8 @@ import {
 import {
   linkMailboxThreadToApplicationAction,
   replyMailboxThreadAction,
+  markMailboxThreadReadAction,
+  markMailboxThreadUnreadAction,
 } from "./actions";
 import { getInboxData } from "./data";
 import { getWorkspaceMailboxAttachment } from "@/lib/mailbox/attachment-access";
@@ -315,6 +317,22 @@ integration("Inbox tenant and active-job isolation", () => {
         applicationId: deletedApplicationId,
       }),
     ).resolves.toMatchObject({ ok: false, error: expect.stringMatching(/application/i) });
+  });
+
+  it("marks the latest message unread without inflating the count on retries", async () => {
+    await markMailboxThreadReadAction({ threadId: activeThreadId });
+    expect(await markMailboxThreadUnreadAction({ threadId: activeThreadId })).toEqual({ ok: true });
+    expect(await markMailboxThreadUnreadAction({ threadId: activeThreadId })).toEqual({ ok: true });
+    const [thread] = await db.select({ unreadCount: mailThreads.unreadCount }).from(mailThreads).where(eq(mailThreads.id, activeThreadId));
+    expect(thread?.unreadCount).toBe(1);
+    await Promise.all([
+      markMailboxThreadUnreadAction({ threadId: activeThreadId }),
+      markMailboxThreadReadAction({ threadId: activeThreadId }),
+    ]);
+    const [after] = await db.select({ unreadCount: mailThreads.unreadCount }).from(mailThreads).where(eq(mailThreads.id, activeThreadId));
+    const messages = await db.select({ readAt: mailMessages.readAt }).from(mailMessages).where(eq(mailMessages.threadId, activeThreadId));
+    expect(after?.unreadCount).toBe(messages.filter((message) => message.readAt === null).length);
+    expect(await markMailboxThreadUnreadAction({ threadId: randomUUID() })).toMatchObject({ ok: false });
   });
 
   it("clears stale application links before a legacy reply can reuse them", async () => {

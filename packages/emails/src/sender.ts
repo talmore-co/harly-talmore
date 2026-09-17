@@ -1,5 +1,10 @@
 import type React from "react";
 
+export async function renderEmailText(element: React.ReactElement): Promise<string> {
+  const { render, toPlainText } = await import("@react-email/render");
+  return toPlainText(await render(element));
+}
+
 export type SendEmailOptions = {
   to: string;
   subject: string;
