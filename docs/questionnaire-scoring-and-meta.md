@@ -63,13 +63,20 @@ percentage; the displayed score is rounded to two decimal places.
 
 Tracking waits for marketing-cookie consent. Revoking consent pauses tracking.
 Automatic event detection is disabled, and Harly does not supply applicant names,
-email addresses, questionnaire answers or raw scores as event parameters. Event
+plain-text email addresses, questionnaire answers or raw scores as event parameters. Event
 parameters include the job identifier. Stable application event IDs prevent
 duplicate dispatches when React rerenders the success state.
 
 Create a custom conversion for `QualifiedApplication` in Meta Events Manager
 and check that it is eligible for the intended employment campaign. No Purchase
 events or fabricated monetary values are sent.
+
+Job-specific URL rules must include the application route (`/apply/<slug>`),
+including a `/board/<workspace>` prefix where applicable. Filtering only on
+`/jobs/<slug>` excludes server conversions and browser conversions on the
+application page. Verify the saved rule and the ad set's selected conversion
+after changes. Accepted event delivery does not prove custom-conversion matching
+or ad attribution, and raw received-event totals do not prove deduplication.
 
 With Conversions API enabled, consented hosted form submissions queue
 `SubmitApplication` and, when qualified, `QualifiedApplication` in the same
@@ -92,7 +99,12 @@ Requests already in flight at disconnect cannot be retracted.
 Changing the test code does not change already queued events.
 
 Server matching sends IP address, user agent and available `_fbp` / `_fbc`
-cookies, not names, email addresses, answers or raw questionnaire scores.
+cookies plus SHA-256-hashed email and international phone numbers from the
+consented submission. Emails are trimmed and lowercased; phone punctuation is
+removed, retaining the country code. Numbers without an explicit `+` country
+code are omitted rather than guessed. Hashes remain personal matching data,
+not anonymous data. Names, plain-text contact details, answers and raw scores
+are not sent. Hashing happens before the encrypted outbox payload is stored.
 The click identifier from `fbclid` is retained in `_fbc` only after marketing
 consent, even if the Pixel SDK is blocked. URLs sent to Meta are canonical
 application URLs without query parameters. Matching data is encrypted while

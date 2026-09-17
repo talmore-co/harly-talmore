@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   beforeAll,
   beforeEach,
@@ -170,6 +170,7 @@ integration("Meta transactional conversion delivery", () => {
         firstName: "Fictional",
         lastName: "Applicant",
         email: `${randomUUID()}@example.test`,
+        phone: "+639171234567",
         educationEntries: [],
         experienceEntries: [],
         questionAnswers: { shift: choice },
@@ -210,7 +211,9 @@ integration("Meta transactional conversion delivery", () => {
     );
     const payload = JSON.parse(decryptSecret(rows[0]!.payload!));
     expect(payload.custom_data).toEqual({ content_ids: [jobId] });
-    expect(payload.user_data).toEqual(context);
+    expect(payload.user_data).toEqual({ ...context, em: [expect.stringMatching(/^[a-f0-9]{64}$/)], ph: [createHash("sha256").update("639171234567").digest("hex")] });
+    expect(JSON.stringify(payload)).not.toContain("@example.test");
+    expect(JSON.stringify(payload)).not.toContain("639171234567");
     expect(JSON.stringify(payload)).not.toMatch(
       /email|firstName|questionnaire|score|answer/,
     );

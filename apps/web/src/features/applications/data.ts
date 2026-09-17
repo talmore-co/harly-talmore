@@ -463,7 +463,7 @@ export async function createPublicApplication(
       if (!application) {
         throw new Error("Application could not be created.");
       }
-      if (options?.metaContext) await enqueueMetaConversions(tx, { workspaceId, workspaceSlug: input.workspaceSlug, applicationId: application.id, jobId: job.id, jobSlug: input.jobSlug, qualified: questionnaire?.qualified === true, context: options.metaContext });
+      if (options?.metaContext) await enqueueMetaConversions(tx, { workspaceId, workspaceSlug: input.workspaceSlug, applicationId: application.id, jobId: job.id, jobSlug: input.jobSlug, qualified: questionnaire?.qualified === true, context: options.metaContext, contact: { email: values.email, phone: values.phone } });
 
       if (verifiedResume) {
         await tx.insert(candidateFiles).values({

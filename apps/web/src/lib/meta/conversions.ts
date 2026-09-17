@@ -15,6 +15,7 @@ import {
 } from "@/lib/crypto";
 import { getHarlyPublicOrigin } from "@/lib/public-origin";
 import type { MetaRequestContext } from "./request-context";
+import { hashedMetaContact } from "./matching";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export const META_GRAPH_VERSION = "v25.0";
@@ -70,6 +71,7 @@ export async function enqueueMetaConversions(
     workspaceSlug?: string;
     qualified: boolean;
     context: MetaRequestContext;
+    contact?: { email?: string | null; phone?: string | null };
   },
 ) {
   if (!isEncryptionConfigured()) return;
@@ -113,7 +115,7 @@ export async function enqueueMetaConversions(
               event_time: Math.floor(eventTime.getTime() / 1000),
               action_source: "website",
               event_source_url: `${origin}${input.workspaceSlug ? `/board/${encodeURIComponent(input.workspaceSlug)}` : ""}/apply/${encodeURIComponent(input.jobSlug)}`,
-              user_data: input.context,
+              user_data: { ...input.context, ...hashedMetaContact(input.contact ?? {}) },
               custom_data: { content_ids: [input.jobId] },
             }),
           ),

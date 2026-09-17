@@ -183,8 +183,11 @@ export function MetaPixelPanel({
         </p>
         <p className="text-muted-foreground">
           Server matching uses the visitor&apos;s IP address, browser user agent
-          and Meta attribution cookies when available. Names, emails,
-          questionnaire answers and raw scores are not sent. Each job&apos;s
+          and Meta attribution cookies when available. With marketing consent,
+          normalized email and international phone numbers are SHA-256 hashed
+          for server matching. Hashing does not make these identifiers anonymous.
+          Plain-text contact details, names, questionnaire answers and raw scores
+          are not sent. Each job&apos;s
           questionnaire threshold controls qualification; everyone can still
           apply.
         </p>
