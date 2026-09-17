@@ -305,7 +305,6 @@ export function JobForm({
     location: extraFields.location,
     employmentType: extraFields.employmentType,
     workplaceType: workplace,
-    experienceLevel: extraFields.experienceLevel || undefined,
     salaryMin: extraFields.salaryMin,
     salaryMax: extraFields.salaryMax,
     currency: extraFields.currency,
@@ -457,7 +456,7 @@ export function JobForm({
 
         <div
           ref={scrollRef}
-          className="flex w-full min-w-0 max-w-2xl shrink-0 flex-col overflow-y-auto"
+          className="flex min-h-0 w-full min-w-0 max-w-2xl shrink-0 flex-col overflow-y-auto overscroll-y-contain"
         >
           {/*
             No `min-h-full` here on purpose , percentage min-height on a flex

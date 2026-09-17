@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import type { CareerPageConfig } from "./config";
 import type { WorkspaceBoardBranding } from "@/features/workspaces/board";
 import type { Job } from "@harly/db";
+import type { PublicJob } from "@/features/jobs/public-job";
 
 function origin() {
   const configured =
@@ -61,7 +62,7 @@ export function publicBoardMetadata(
 export function publicJobMetadata(
   workspace: WorkspaceBoardBranding,
   config: CareerPageConfig,
-  job: Job,
+  job: PublicJob,
   options?: { path?: string },
 ): Metadata {
   const base = options?.path !== undefined ? pathUrl(options.path) : boardUrl(workspace.slug);
@@ -81,7 +82,7 @@ export function publicJobMetadata(
   };
 }
 
-export function jobPostingJsonLd(workspace: WorkspaceBoardBranding, job: Job) {
+export function jobPostingJsonLd(workspace: WorkspaceBoardBranding, job: PublicJob) {
   const employmentType: Record<Job["employmentType"], string> = {
     full_time: "FULL_TIME", part_time: "PART_TIME", contract: "CONTRACTOR", internship: "INTERN",
   };

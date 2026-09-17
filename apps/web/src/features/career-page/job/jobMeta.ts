@@ -9,7 +9,6 @@ export type JobLike = {
   location: string | null;
   employmentType: string;
   workplaceType: string;
-  experienceLevel?: string | null;
   salaryMin?: number | null;
   salaryMax?: number | null;
   currency?: string | null;
@@ -48,8 +47,6 @@ export function buildJobMeta(job: JobLike): JobMetaItem[] {
   items.push({ label: "Workplace", value: formatWorkplaceType(job.workplaceType) });
   items.push({ label: "Employment", value: formatEmploymentType(job.employmentType) });
   if (job.department) items.push({ label: "Department", value: job.department });
-  if (job.experienceLevel)
-    items.push({ label: "Experience", value: job.experienceLevel });
   const comp = formatCompensation(job);
   if (comp) items.push({ label: "Compensation", value: comp });
   return items;

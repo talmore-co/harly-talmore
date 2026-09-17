@@ -16,6 +16,6 @@ export default function FullscreenLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="h-dvh w-full overflow-hidden bg-paper">{children}</div>
+    <div className="fixed inset-0 h-dvh w-full overflow-hidden bg-paper">{children}</div>
   );
 }

@@ -39,7 +39,7 @@ export function PreviewFrame({
   }, [designWidth]);
 
   return (
-    <div ref={containerRef} className="h-full overflow-y-auto overflow-x-hidden">
+    <div ref={containerRef} className="h-full overflow-y-auto overflow-x-hidden overscroll-y-contain">
       {/* Reserve the scaled footprint so the scroll area matches what's shown. */}
       <div
         className="mx-auto"

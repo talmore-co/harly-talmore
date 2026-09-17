@@ -80,9 +80,9 @@ export function AdvancedSection({
 
         <FieldBox
           className="sm:col-span-2"
-          label="Experience"
+          label="Experience · internal"
           htmlFor="experienceLevel"
-          hint="Used in AI candidate evaluation. Describe required experience, transferable skills and what can be learned on the job."
+          hint="Internal guidance for AI candidate evaluation; not shown on the public listing. Describe required experience, transferable skills and what can be learned on the job. Put candidate-facing requirements in the job description."
         >
           <Textarea
             id="experienceLevel"
@@ -96,9 +96,9 @@ export function AdvancedSection({
 
         <FieldBox
           className="sm:col-span-2"
-          label="Education"
+          label="Education · internal"
           htmlFor="education"
-          hint="Used in AI candidate evaluation. State which qualifications are mandatory, preferred or optional, and whether equivalent experience is accepted."
+          hint="Internal guidance for AI candidate evaluation; not shown on the public listing. State which qualifications are mandatory, preferred or optional, and whether equivalent experience is accepted. Put candidate-facing requirements in the job description."
         >
           <Textarea
             id="education"

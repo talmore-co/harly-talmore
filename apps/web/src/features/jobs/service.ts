@@ -14,6 +14,7 @@ import {
 
 import { generateUniqueJobSlug } from "./data";
 import type { JobStatus } from "./validation";
+import type { PublicJob } from "./public-job";
 
 /**
  * Workspace-scoped job service consumed by the REST API. Session-free: every
@@ -78,7 +79,7 @@ function appBaseUrl(): string {
 }
 
 /** Public (unauthenticated) job shape for the embed widget / board API. */
-export function serializePublicJob(job: Job, workspaceSlug: string) {
+export function serializePublicJob(job: PublicJob, workspaceSlug: string) {
   const base = appBaseUrl();
   return {
     id: job.id,

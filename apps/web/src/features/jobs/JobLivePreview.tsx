@@ -18,7 +18,6 @@ export type PreviewJobDraft = {
   location: string;
   employmentType: string;
   workplaceType: string;
-  experienceLevel?: string;
   salaryMin?: number;
   salaryMax?: number;
   currency?: string;
@@ -48,7 +47,7 @@ export function JobLivePreview({
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
 
   return (
-    <div className="hidden min-h-0 flex-1 flex-col bg-kraft/40 lg:flex">
+    <div className="hidden min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-kraft/40 lg:flex">
       <div className="flex items-center justify-between border-b border-border bg-paper-raised px-4 py-2.5">
         <div className="flex items-center gap-1.5">
           <span className="size-2.5 rounded-full bg-rust/70" />
@@ -78,7 +77,7 @@ export function JobLivePreview({
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden p-6">
+      <div className="min-h-0 flex-1 overflow-hidden p-6">
         {workspace && config ? (
           <PreviewFrame device={device} background={config.theme.background}>
             <div
