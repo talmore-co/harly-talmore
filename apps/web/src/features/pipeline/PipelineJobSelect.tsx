@@ -27,7 +27,8 @@ export function PipelineJobSelect({
 }: PipelineJobSelectProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const selected = jobs.find((job) => job.id === selectedJobId) ?? jobs[0];
+  const options: PipelineJobOption[] = [{ id: "all", title: "All open jobs", status: "open" }, ...jobs];
+  const selected = options.find((job) => job.id === selectedJobId) ?? jobs[0];
 
   return (
     <DropdownMenu>
@@ -43,7 +44,7 @@ export function PipelineJobSelect({
             <span className="truncate font-medium">{selected?.title}</span>
           </span>
           <span className="flex shrink-0 items-center gap-2">
-            {selected ? <JobStatusBadge status={selected.status} /> : null}
+            {selected && selected.id !== "all" ? <JobStatusBadge status={selected.status} /> : null}
             <ChevronsUpDown className="size-4 opacity-60" />
           </span>
         </Button>
@@ -55,15 +56,16 @@ export function PipelineJobSelect({
         <DropdownMenuLabel className="text-xs text-muted-foreground">
           Switch job
         </DropdownMenuLabel>
-        {jobs.map((job) => (
+        {options.map((job) => (
           <DropdownMenuItem
             key={job.id}
             onClick={() => {
-              const currentView = searchParams.get("view");
-              const url = currentView
-                ? `/dashboard/pipeline?jobId=${job.id}&view=${currentView}`
-                : `/dashboard/pipeline?jobId=${job.id}`;
-              router.push(url as Route);
+              const next = new URLSearchParams(searchParams.toString());
+              next.delete("scope"); next.delete("job"); next.delete("page"); next.delete("queue");
+              next.set("jobId", job.id);
+              if (job.id !== "all") next.delete("clientId");
+              if (job.id === "all") next.set("view", "list");
+              router.push(`/dashboard/pipeline?${next}` as Route);
             }}
             className="gap-2"
           >
@@ -74,7 +76,7 @@ export function PipelineJobSelect({
               )}
             />
             <span className="min-w-0 flex-1 truncate">{job.title}</span>
-            <JobStatusBadge status={job.status} />
+            {job.id !== "all" ? <JobStatusBadge status={job.status} /> : null}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

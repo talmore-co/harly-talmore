@@ -94,6 +94,7 @@ const bulkStatusSchema = z.object({
   applicationIds: z.array(z.string().min(1)).min(1).max(200),
   status: z.enum(["active", "hired", "rejected", "withdrawn"]),
   sendRejectionEmail: z.boolean().optional().default(false),
+  rejectionSource: z.enum(["agency", "client"]).optional(),
 });
 
 const emailLog = createLogger("candidate-email");
@@ -165,6 +166,7 @@ export async function bulkUpdateCandidateStatusAction(input: {
   applicationIds: string[];
   status: "active" | "hired" | "rejected" | "withdrawn";
   sendRejectionEmail?: boolean;
+  rejectionSource?: "agency" | "client";
 }): Promise<{ success: boolean; error?: string; warning?: string }> {
   const parsed = bulkStatusSchema.safeParse(input);
   if (!parsed.success) {
@@ -179,6 +181,7 @@ export async function bulkUpdateCandidateStatusAction(input: {
     applicationIds: parsed.data.applicationIds,
     status: parsed.data.status,
     sendRejectionEmail: parsed.data.sendRejectionEmail,
+    rejectionSource: parsed.data.rejectionSource,
   });
 
   if (result.success) {

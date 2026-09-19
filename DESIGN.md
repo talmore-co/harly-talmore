@@ -238,25 +238,26 @@ Large rounded white/ light container on warm paper (or edge-to-edge paper with i
 
 **Role:** Primary navigation
 
-Vertical strip of **exactly 5 primary icons** (see the set below), plus overflow/More. Collapsed by default. Active state: soft kraft/sage wash behind icon — not a loud green brick. Labels on expand only. **No 12-item labeled warehouse.**
+Talmore uses a 224px labeled sidebar, expanded by default, with a remembered 60px collapsed mode. Active destinations use a soft row wash. This agency navigation replaces the original five-icon rail and More menu wherever older sections of this guide describe them. See `docs/navigation.md`.
 
-Primary set (**full , this is the cap**):
+Direct destinations:
 
 1. Home
 2. Inbox
 3. Pipeline
 4. **Candidates** (the directory)
 5. Jobs
+6. Clients (agency company directory)
 
-Then `More →` (Talent Pool, Team, Tasks, Calendar, Reports, Career Page,
-Templates, Documents) as an **overflow**, plus Settings pinned as rail chrome.
-More and Settings are not destinations and do not count against the five.
+Work groups Inbox, Tasks and Calendar. Recruiting groups Pipeline, Candidates,
+Jobs and Clients. Documents and Reports follow. Settings and Your account stay
+pinned below the scrollable links. Talent pool lives under Candidates; Career
+page, Templates, Team & access and document configuration live in Settings.
 
 **Why Candidates is primary:** Home is a triage cockpit , it answers "who needs a
 decision today", which is deliberately not "everyone we have ever talked to".
 Looking a person up by name is a daily motion, so the directory cannot live three
-clicks deep. Adding a sixth primary means demoting one of these five and editing
-this list first.
+clicks deep. Clients is the agency-specific exception to the original five-item limit.
 
 ### Top Bar (Quiet Chrome)
 

@@ -7,24 +7,26 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import type { TodayInterview } from "@/features/dashboard/widgets";
 import { Tile, TileHeader, TileLink, EmptyHint } from "./primitives";
 
-const timeFmt = new Intl.DateTimeFormat("en", {
-  hour: "numeric",
-  minute: "2-digit",
-});
-
 export function TodayInterviews({
   interviews,
   className,
+  timeZone = "UTC",
+  title = "Today's interviews",
+  calendarMonth,
 }: {
   interviews: TodayInterview[];
   className?: string;
+  timeZone?: string;
+  title?: string;
+  calendarMonth?: string;
 }) {
+  const timeFmt = new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit", timeZone });
   return (
     <Tile className={className}>
       <TileHeader
         icon={CalendarClock}
-        title="Today's interviews"
-        action={<TileLink href="/dashboard/calendars">View calendar</TileLink>}
+        title={title}
+        action={<TileLink href={calendarMonth ? `/dashboard/calendars?month=${calendarMonth}` : "/dashboard/calendars"}>View calendar</TileLink>}
       />
       <div className="flex flex-1 flex-col px-2 pb-3 pt-1">
         {interviews.length > 0 ? (
@@ -70,7 +72,7 @@ export function TodayInterviews({
             ))}
           </ul>
         ) : (
-          <EmptyHint icon={CalendarClock} text="No interviews today. Enjoy the calm." />
+          <EmptyHint icon={CalendarClock} text="No interviews scheduled for this day." />
         )}
         <Button asChild variant="outline" size="sm" className="mt-2 w-full">
           <Link href="/dashboard/pipeline">

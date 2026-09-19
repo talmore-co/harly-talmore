@@ -15,7 +15,7 @@ import {
   workspaceSettings,
   type Application,
 } from "@harly/db";
-import { statusForStageName } from "@/features/pipeline/state";
+import { statusForStageName, rejectionSourceForStageName } from "@/features/pipeline/state";
 
 import { emitWebhookEvent } from "@/server/webhooks/emit";
 import {
@@ -94,7 +94,7 @@ async function notifyApplicationStatusChange(input: {
           : `Application for ${details.jobTitle} not selected`,
       body:
         input.status === "hired"
-          ? "We're excited to have you on the team!"
+          ? "Congratulations on your new role!"
           : "We appreciate your interest and encourage you to apply for other roles.",
       href: `/portal/applications/${input.application.id}`,
       metadata: { applicationId: input.application.id, status: input.status },
@@ -468,6 +468,7 @@ export async function moveApplicationStageForApi(input: {
           currentStageId: input.toStageId,
           pipelineOrder: next?.value ?? 1,
           status: nextStatus,
+          rejectionSource: rejectionSourceForStageName(stage.name),
           updatedAt: new Date(),
         })
         .where(
@@ -489,6 +490,7 @@ export async function moveApplicationStageForApi(input: {
         fromStageId,
         toStageId: input.toStageId,
         movedById: input.actorId ?? null,
+        rejectionSource: rejectionSourceForStageName(stage.name),
       });
 
       const updatedApplication = result[0];
@@ -603,6 +605,7 @@ async function setApplicationStatus(
         .update(applications)
         .set({
           status,
+          rejectionSource: status === "rejected" ? "agency" : null,
           ...(terminalStage ? { currentStageId: terminalStage.id } : {}),
           updatedAt: new Date(),
         })
@@ -623,6 +626,7 @@ async function setApplicationStatus(
           fromStageId: application.currentStageId,
           toStageId: terminalStage.id,
           movedById: input.actorId ?? null,
+          rejectionSource: status === "rejected" ? "agency" : null,
         });
       }
       return {

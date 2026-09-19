@@ -3,6 +3,7 @@ import {
   BarChart3,
   Bookmark,
   Briefcase,
+  Building2,
   CalendarDays,
   FileText,
   Globe,
@@ -16,138 +17,112 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-
-import type { Permission } from "@/features/workspaces/permissions";
+import {
+  SETTINGS_SECTION_PERMISSION,
+  type Permission,
+} from "@/features/workspaces/permissions";
 
 export type NavBadge = "inbox" | "tasks";
-
 export type NavItem = {
   label: string;
   href: Route;
   icon: LucideIcon;
   exact?: boolean;
+  aliases?: string[];
   badge?: NavBadge;
-  /** When set, the item is hidden unless the viewer holds this permission. */
   requiredPermission?: Permission | Permission[];
-  /** One short line shown in the More menu. Rail items don't need it. */
-  hint?: string;
 };
-
-/**
- * PRIMARY NAV , the icon rail. Hard cap: 5 destinations (DESIGN.md).
- *
- * A recruiter does not think in modules. They ask: who came in today, who needs
- * me to move or answer them, which role is stuck, and where is that one person
- * whose name I remember. These five answer those. Everything else is a place you
- * *visit*, not a place you live, so it belongs in `moreNav`.
- *
- * Candidates earns a slot because Home does not do its job. Home is a triage
- * cockpit , it shows who needs a decision *today*, which is deliberately not the
- * same as "everyone we have ever talked to". Looking someone up is a daily
- * motion, and burying the directory behind More made it a three-click errand.
- *
- * This is now full. Adding a sixth requires updating DESIGN.md first, and
- * demoting one of these , it is a hard ban, not a guideline.
- */
-export const primaryNav: NavItem[] = [
-  { label: "Home", href: "/dashboard", icon: Home, exact: true },
-  { label: "Inbox", href: "/dashboard/inbox", icon: Inbox, badge: "inbox" },
-  { label: "Pipeline", href: "/dashboard/pipeline", icon: KanbanSquare },
-  { label: "Candidates", href: "/dashboard/candidates", icon: Users },
-  { label: "Jobs", href: "/dashboard/jobs", icon: Briefcase },
-];
-
-export type MoreGroup = { label: string; items: NavItem[] };
-
-/**
- * Everything behind More , the 5th rail slot. Grouped so the popover reads as
- * a short index instead of the 14-item warehouse the rail used to be.
- */
-export const moreNav: MoreGroup[] = [
+export const navigationGroups: { label: string | null; items: NavItem[] }[] = [
   {
-    label: "People",
-    items: [
-      // Candidates was promoted to the rail; only the two surfaces that are
-      // genuinely occasional stay here.
-      {
-        label: "Talent Pool",
-        href: "/dashboard/talent-pool",
-        icon: Bookmark,
-        hint: "Saved for later",
-      },
-      {
-        label: "Team",
-        href: "/people" as Route,
-        icon: UserRound,
-        hint: "Your colleagues",
-      },
-    ],
+    label: null,
+    items: [{ label: "Home", href: "/dashboard", icon: Home, exact: true }],
   },
   {
     label: "Work",
     items: [
+      { label: "Inbox", href: "/dashboard/inbox", icon: Inbox, badge: "inbox" },
       {
         label: "Tasks",
         href: "/dashboard/tasks",
         icon: ListTodo,
         badge: "tasks",
-        hint: "Assigned to you",
+        requiredPermission: "tasks:read",
+      },
+      { label: "Calendar", href: "/dashboard/calendars", icon: CalendarDays },
+    ],
+  },
+  {
+    label: "Recruiting",
+    items: [
+      {
+        label: "Pipeline",
+        href: "/dashboard/pipeline",
+        icon: KanbanSquare,
+        requiredPermission: "jobs:view",
       },
       {
-        label: "Calendar",
-        href: "/dashboard/calendars",
-        icon: CalendarDays,
-        hint: "Interviews and availability",
+        label: "Candidates",
+        href: "/dashboard/candidates",
+        aliases: ["/dashboard/talent-pool"],
+        icon: Users,
+        requiredPermission: "candidates:view",
       },
       {
-        label: "Reports",
-        href: "/dashboard/reports",
-        icon: BarChart3,
-        hint: "Funnel, sources, time to hire",
+        label: "Jobs",
+        href: "/dashboard/jobs",
+        icon: Briefcase,
+        requiredPermission: "jobs:view",
+      },
+      {
+        label: "Clients",
+        href: "/dashboard/clients",
+        icon: Building2,
+        requiredPermission: "clients:view",
       },
     ],
   },
   {
-    label: "Set up",
+    label: null,
     items: [
-      {
-        label: "Career Page",
-        href: "/dashboard/career-page",
-        icon: Globe,
-        requiredPermission: "settings:edit",
-        hint: "Your public job board",
-      },
-      {
-        label: "Templates",
-        href: "/dashboard/templates",
-        icon: FileText,
-        requiredPermission: "templates:manage",
-        hint: "Emails and scorecards",
-      },
       {
         label: "Documents",
         href: "/dashboard/documents" as Route,
         icon: NotebookTabs,
         requiredPermission: "documents:read",
-        hint: "Requests, signatures, retention",
+      },
+      {
+        label: "Reports",
+        href: "/dashboard/reports",
+        icon: BarChart3,
+        requiredPermission: "reports:read",
       },
     ],
   },
 ];
 
-/** Settings is rail chrome pinned to the bottom, not a primary destination. */
 export const settingsNav: NavItem = {
   label: "Settings",
   href: "/settings",
   icon: Settings,
-  requiredPermission: ["settings:edit", "dsar:manage"],
+  aliases: ["/dashboard/career-page", "/dashboard/templates", "/people"],
+  requiredPermission: [
+    ...new Set(Object.values(SETTINGS_SECTION_PERMISSION).flat()),
+  ],
+};
+export const accountNav: NavItem = {
+  label: "Your account",
+  href: "/account",
+  icon: UserRound,
 };
 
 export function isNavActive(pathname: string, item: NavItem) {
-  if (item.exact) return pathname === item.href;
-  return pathname === item.href || pathname.startsWith(`${item.href}/`);
+  const matches = (href: string) =>
+    pathname === href || pathname.startsWith(`${href}/`);
+  return (
+    (item.exact ? pathname === item.href : matches(item.href)) ||
+    (item.aliases?.some(matches) ?? false)
+  );
 }
-
 export function hasNavPermission(item: NavItem, permissions: Permission[]) {
   if (!item.requiredPermission) return true;
   return Array.isArray(item.requiredPermission)
@@ -156,12 +131,51 @@ export function hasNavPermission(item: NavItem, permissions: Permission[]) {
       )
     : permissions.includes(item.requiredPermission);
 }
-
-/** Flat list for lookups (command menu, active-section resolution). */
+export function visibleNavigation(permissions: Permission[]) {
+  return navigationGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => hasNavPermission(item, permissions)),
+    }))
+    .filter((group) => group.items.length > 0);
+}
+/** Includes secondary destinations for command search and section titles. */
 export function allNavItems(): NavItem[] {
   return [
-    ...primaryNav,
-    ...moreNav.flatMap((group) => group.items),
+    {
+      label: "Colleague directory",
+      href: "/people" as Route,
+      icon: UserRound,
+      exact: true,
+    },
+    {
+      label: "Team & access",
+      href: "/settings/members" as Route,
+      icon: Users,
+      requiredPermission: "members:read",
+    },
+    {
+      label: "Talent pool",
+      href: "/dashboard/talent-pool",
+      icon: Bookmark,
+      requiredPermission: "candidates:view",
+    },
+    {
+      label: "Templates",
+      href: "/settings/templates" as Route,
+      aliases: ["/dashboard/templates"],
+      icon: FileText,
+      requiredPermission: "templates:manage",
+    },
+    {
+      label: "Career page",
+      href: "/settings/career-page" as Route,
+      aliases: ["/dashboard/career-page"],
+      icon: Globe,
+      requiredPermission: "settings:edit",
+    },
+    ...navigationGroups.flatMap((group) => group.items),
     settingsNav,
+    accountNav,
   ];
 }

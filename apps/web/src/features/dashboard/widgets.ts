@@ -19,8 +19,10 @@ import { getWorkspaceContext } from "@/features/workspaces/context";
 import { daysSince, formatShort } from "@/lib/date";
 import { candidateAvatarFallbackSrcs } from "@/lib/candidate-avatar";
 import { getHiringEvents } from "@/features/reports/data";
+import { getOfferDecisions } from "@/features/reports/offer-decisions";
 import { can } from "@/features/workspaces/permissions-server";
 import { taskDueState } from "@/features/tasks/shared";
+import { dashboardDay, dashboardTimeZone, validDashboardDay } from "./day";
 
 const DAY_MS = 86_400_000;
 const PERF_DAYS = 14;
@@ -76,6 +78,7 @@ export const getPipelineOverview = cache(async (jobId?: string) => {
     const [busiest] = await db
       .select({ jobId: applications.jobId, value: count() })
       .from(applications)
+      .innerJoin(jobs, and(eq(jobs.id, applications.jobId), eq(jobs.workspaceId, workspace.id), eq(jobs.status, "open"), isNull(jobs.deletedAt)))
       .where(
         and(
           eq(applications.workspaceId, workspace.id),
@@ -115,7 +118,7 @@ export const getPipelineOverview = cache(async (jobId?: string) => {
       and(
         eq(applications.workspaceId, workspace.id),
         eq(applications.currentStageId, jobStages.id),
-        eq(applications.status, "active"),
+        eq(applications.jobId, selected.id),
         exists(
           db
             .select({ id: candidates.id })
@@ -139,9 +142,8 @@ export const getPipelineOverview = cache(async (jobId?: string) => {
     .groupBy(jobStages.id)
     .orderBy(asc(jobStages.order));
 
-  // The funnel view omits the terminal "Rejected" lane.
+  // Show the job's complete stage distribution, including terminal outcomes.
   const stages = stageRows
-    .filter((s) => s.name.toLowerCase() !== "rejected")
     .map((s) => ({
       name: s.name,
       color: s.color,
@@ -159,10 +161,10 @@ export const getPipelineOverview = cache(async (jobId?: string) => {
 
 // ── Today's interviews ──────────────────────────────────────────────────────
 
-export const getTodayInterviews = cache(async () => {
+export const getTodayInterviews = cache(async (requestedZone?: string | null, requestedDay?: string) => {
   const { organization: workspace } = await getWorkspaceContext();
-  const start = startOfDay(new Date());
-  const end = new Date(start.getTime() + DAY_MS);
+  const zone = dashboardTimeZone(requestedZone);
+  const day = validDashboardDay(requestedDay) ? requestedDay : dashboardDay(zone);
 
   const rows = await db
     .select({
@@ -198,8 +200,9 @@ export const getTodayInterviews = cache(async () => {
     .where(
       and(
         eq(interviews.workspaceId, workspace.id),
-        gte(interviews.scheduledAt, start),
-        lt(interviews.scheduledAt, end),
+        sql`${interviews.status} <> 'canceled'`,
+        gte(interviews.scheduledAt, sql`(${day}::date::timestamp at time zone ${zone})`),
+        lt(interviews.scheduledAt, sql`((${day}::date + 1)::timestamp at time zone ${zone})`),
       ),
     )
     .orderBy(asc(interviews.scheduledAt));
@@ -268,7 +271,8 @@ export const getCandidatesNeedingReview = cache(async () => {
         and(
           eq(scorecards.workspaceId, workspace.id),
           eq(scorecards.candidateId, applications.candidateId),
-          eq(scorecards.stageName, jobStages.name),
+          eq(scorecards.applicationId, applications.id),
+          or(eq(scorecards.stageId, jobStages.id), and(isNull(scorecards.stageId), eq(scorecards.stageName, jobStages.name))),
         ),
       )
       .where(
@@ -499,31 +503,17 @@ export const getHiringPerformance = cache(async () => {
         ),
       ),
     getHiringEvents(workspace.id, { since: prevStart }),
-    db
-      .select({ at: applicationStageHistory.createdAt })
-      .from(applicationStageHistory)
-      .innerJoin(
-        jobStages,
-        and(
-          eq(jobStages.id, applicationStageHistory.toStageId),
-          inArray(jobStages.name, ["Offer", "Hired"]),
-        ),
-      )
-      .where(
-        and(
-          eq(applicationStageHistory.workspaceId, workspace.id),
-          gte(applicationStageHistory.createdAt, prevStart),
-        ),
-      ),
+    getOfferDecisions(workspace.id),
   ]);
 
   const apps = splitCount(appRows.map((r) => r.at), windowStart);
   const ivs = splitCount(interviewRows.map((r) => r.at), windowStart);
   const hires = splitCount(hireRows.map((r) => r.hiredAt), windowStart);
-  const offers = splitCount(offerRows.map((r) => r.at), windowStart);
-
-  const curRate = offers.cur > 0 ? hires.cur / offers.cur : 0;
-  const prevRate = offers.prev > 0 ? hires.prev / offers.prev : 0;
+  const datedDecisions = offerRows.filter((row): row is typeof row & { at: Date } => row.at !== null && row.at >= prevStart);
+  const offers = splitCount(datedDecisions.map((r) => r.at), windowStart);
+  const accepted = splitCount(datedDecisions.filter((r) => r.status === "accepted").map((r) => r.at), windowStart);
+  const curRate = offers.cur > 0 ? accepted.cur / offers.cur : 0;
+  const prevRate = offers.prev > 0 ? accepted.prev / offers.prev : 0;
   const acceptanceDelta = Math.round((curRate - prevRate) * 100);
 
   return {
@@ -574,6 +564,7 @@ export const getInbox = cache(async () => {
     db
       .select({
         applicationId: applications.id,
+        stageId: applications.currentStageId,
         candidateId: candidates.id,
         first: candidates.firstName,
         last: candidates.lastName,
@@ -615,6 +606,8 @@ export const getInbox = cache(async () => {
     db
       .select({
         candidateId: scorecards.candidateId,
+        applicationId: scorecards.applicationId,
+        stageId: scorecards.stageId,
         stageName: scorecards.stageName,
       })
       .from(scorecards)
@@ -636,7 +629,7 @@ export const getInbox = cache(async () => {
   ]);
 
   const reviewed = new Set(
-    scorecardKeys.map((k) => `${k.candidateId}::${k.stageName ?? ""}`),
+    scorecardKeys.filter((k) => k.applicationId).map((k) => `${k.applicationId}::${k.stageId ?? k.stageName ?? ""}`),
   );
   const interviewed = new Set(interviewedRows.map((r) => r.applicationId));
 
@@ -656,7 +649,7 @@ export const getInbox = cache(async () => {
     const name = `${a.first} ${a.last}`;
     const href = `/dashboard/candidates/${a.candidateId}`;
     const aging = daysSince(a.appliedAt);
-    const hasScore = reviewed.has(`${a.candidateId}::${a.stageName}`);
+    const hasScore = reviewed.has(`${a.applicationId}::${a.stageId}`) || reviewed.has(`${a.applicationId}::${a.stageName}`);
 
     if (a.stageName === "Interview") {
       if (!interviewed.has(a.applicationId)) {

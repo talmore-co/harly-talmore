@@ -8,7 +8,7 @@ export type TriageItem = {
   label: string;
   value: number;
   href: Route;
-  /** Draws attention only when the number represents work that is late. */
+  /** Draws attention to an actionable queue when it is nonempty. */
   urgent?: boolean;
 };
 
@@ -49,7 +49,7 @@ export function TriageStrip({ items }: { items: TriageItem[] }) {
             >
               {item.value}
             </span>
-            <span className="mt-1.5 block truncate text-[13px] text-soft-ink">
+            <span className="mt-1.5 block text-[13px] text-soft-ink">
               {item.label}
             </span>
           </span>

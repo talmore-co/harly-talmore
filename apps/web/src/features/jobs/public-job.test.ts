@@ -9,6 +9,7 @@ describe("internal evaluation guidance", () => {
     description: "Public requirements belong here.",
     experienceLevel: "INTERNAL experience guidance",
     education: "INTERNAL education guidance", evaluationMode: "strict",
+    takenOn: "2026-09-01",
   };
 
   it("removes guidance from public payloads without changing the stored source", () => {
@@ -16,6 +17,7 @@ describe("internal evaluation guidance", () => {
     expect(result).not.toHaveProperty("experienceLevel");
     expect(result).not.toHaveProperty("education");
     expect(result).not.toHaveProperty("evaluationMode");
+    expect(result).not.toHaveProperty("takenOn");
     expect(result.description).toBe(job.description);
     expect(job.experienceLevel).toBe("INTERNAL experience guidance");
     expect(job.education).toBe("INTERNAL education guidance");

@@ -2,6 +2,10 @@ import { listInterviewsForRange } from "@/features/interviews/data";
 import { CalendarBoard } from "@/features/interviews/CalendarBoard";
 import { listJobOptions } from "@/features/jobs/data";
 import { listWorkspaceMembers } from "@/features/jobs/hiring-team-data";
+import { getOwnProfileAction } from "@/features/people/actions";
+import { dashboardTimeZone, validDashboardDay } from "@/features/dashboard/day";
+import { getTodayInterviews } from "@/features/dashboard/widgets";
+import { TodayInterviews } from "@/components/dashboard/widgets/TodayInterviews";
 
 const MONTH_LABEL_FORMAT = new Intl.DateTimeFormat("en", {
   month: "long",
@@ -17,11 +21,17 @@ function parseMonthParam(raw: string | undefined): { year: number; month: number
 }
 
 type CalendarsPageProps = {
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<{ month?: string; day?: string }>;
 };
 
 export default async function CalendarsPage({ searchParams }: CalendarsPageProps) {
-  const { month: monthRaw } = await searchParams;
+  const { month: monthRaw, day } = await searchParams;
+  if (validDashboardDay(day)) {
+    const profile = await getOwnProfileAction();
+    const timeZone = dashboardTimeZone(profile?.timezone);
+    const interviews = await getTodayInterviews(timeZone, day);
+    return <div className="mx-auto max-w-4xl space-y-3"><p className="text-sm text-muted-foreground">Team calendar · {day} · {timeZone}</p><TodayInterviews interviews={interviews} timeZone={timeZone} calendarMonth={day.slice(0, 7)} title={`Interviews · ${day}`} /></div>;
+  }
   const { year, month, param } = parseMonthParam(monthRaw);
 
   const monthStart = new Date(year, month - 1, 1);

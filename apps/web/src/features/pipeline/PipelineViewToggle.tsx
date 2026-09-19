@@ -1,4 +1,6 @@
+"use client";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import type { Route } from "next";
 import { LayoutGrid, List } from "lucide-react";
 
@@ -8,10 +10,20 @@ import { cn } from "@/lib/utils";
 export function PipelineViewToggle({
   jobId,
   view,
+  stage,
 }: {
   jobId: string;
   view: "board" | "list";
+  stage?: string;
 }) {
+  const searchParams = useSearchParams();
+  const viewHref = (nextView: string) => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("jobId", jobId); next.set("view", nextView);
+    if (stage) next.set("stage", stage);
+    else next.delete("stage");
+    return `/dashboard/pipeline?${next}` as Route;
+  };
   const items = [
     { key: "list" as const, label: "List", icon: List },
     { key: "board" as const, label: "Board", icon: LayoutGrid },
@@ -21,7 +33,7 @@ export function PipelineViewToggle({
       {items.map((it) => (
         <Link
           key={it.key}
-          href={`/dashboard/pipeline?jobId=${jobId}&view=${it.key}` as Route}
+          href={viewHref(it.key)}
           aria-current={view === it.key ? "page" : undefined}
           className={cn(
             "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",

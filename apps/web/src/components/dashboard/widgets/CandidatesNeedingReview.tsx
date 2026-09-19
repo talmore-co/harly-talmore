@@ -10,8 +10,8 @@ import type { ReviewCandidate } from "@/features/dashboard/widgets";
 import { Tile, TileHeader, TileLink, EmptyHint } from "./primitives";
 
 function agingLabel(days: number) {
-  if (days <= 0) return "Requested today";
-  return `Requested ${days} day${days === 1 ? "" : "s"} ago`;
+  if (days <= 0) return "Entered stage today";
+  return `${days} day${days === 1 ? "" : "s"} in stage`;
 }
 
 export function CandidatesNeedingReview({
@@ -25,8 +25,8 @@ export function CandidatesNeedingReview({
     <Tile className={className}>
       <TileHeader
         icon={ClipboardCheck}
-        title="Candidates needing your review"
-        action={<TileLink href="/dashboard/candidates">View all</TileLink>}
+         title="Team reviews and feedback"
+        action={<TileLink href="/dashboard/candidates">Candidates</TileLink>}
       />
       <div className="flex flex-1 flex-col px-2 pb-2 pt-1">
         {candidates.length > 0 ? (

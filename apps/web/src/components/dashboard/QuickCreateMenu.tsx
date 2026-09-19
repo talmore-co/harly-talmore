@@ -44,22 +44,18 @@ function Items() {
   );
 }
 
-/**
- * The "+" in the icon rail (frame 01 puts create in the icon group, not the top
- * bar). It is an *action*, not a destination, so it doesn't count against the
- * five-primary-nav cap , but it is deliberately quiet: ink on hover wash, not a
- * chartreuse button. Chartreuse in the shell is reserved for the AI signal.
- */
-export function QuickCreateButton() {
+/** Shared create action for the expanded and collapsed sidebar. */
+export function QuickCreateButton({ expanded = false }: { expanded?: boolean }) {
   return (
     <DropdownMenu>
       <Tooltip>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger
             aria-label="Create"
-            className="flex size-10 items-center justify-center rounded-[12px] border border-mist-border bg-pure-snow text-near-ink transition-colors hover:bg-row-wash focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-near-ink"
+            className={`flex h-10 items-center gap-3 rounded-[12px] border border-mist-border bg-pure-snow text-near-ink transition-colors hover:bg-row-wash focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-near-ink ${expanded ? "w-full px-3" : "w-10 justify-center"}`}
           >
             <Plus className="size-[18px]" strokeWidth={2} />
+            {expanded ? <span className="text-sm font-medium">Create</span> : null}
           </DropdownMenuTrigger>
         </TooltipTrigger>
         <TooltipContent side="right">Create</TooltipContent>

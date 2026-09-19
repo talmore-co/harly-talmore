@@ -1,4 +1,7 @@
 import { Suspense } from "react";
+import { can } from "@/features/workspaces/permissions-server";
+import { listClientOptions } from "@/features/clients/actions";
+import { PipelineClientFilter } from "@/features/clients/PipelineClientFilter";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PipelineBoard } from "@/features/pipeline/PipelineBoard";
 import { RateRemainingApplications } from "@/features/pipeline/RateRemainingApplications";
@@ -19,17 +22,22 @@ type PipelinePageProps = {
     job?: string;
     jobId?: string;
     view?: string;
+    scope?: string;
+    stage?: string;
+    clientId?: string;
   }>;
 };
 
 export default async function PipelinePage({
   searchParams,
 }: PipelinePageProps) {
-  const { job, jobId, view: rawView } = await searchParams;
-  const view = rawView === "board" ? "board" : "list";
+  const { job, jobId, view: rawView, scope, stage, clientId } = await searchParams;
+  const selectedId = scope === "team" ? "all" : jobId ?? job;
+  const allJobs = selectedId === "all";
+  const view = rawView === "board" && !allJobs ? "board" : "list";
   const { organization: workspace } = await getWorkspaceContext();
   const [data, aiStatus] = await Promise.all([
-    getPipelineData(jobId ?? job),
+    getPipelineData(selectedId, clientId),
     getWorkspaceAiStatus(workspace.id),
   ]);
 
@@ -45,21 +53,23 @@ export default async function PipelinePage({
     );
   }
 
+  const clientOptions = await can("clients:view") ? await listClientOptions() : [];
   const toolbar = (
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex flex-wrap items-center justify-between gap-3">
       <Suspense>
         <PipelineJobSelect
           jobs={data.jobs}
           selectedJobId={data.selectedJob.id}
         />
       </Suspense>
-      {data.stages.length > 0 ? (
-        <PipelineViewToggle jobId={data.selectedJob.id} view={view} />
+      {allJobs && clientOptions.length ? <Suspense><PipelineClientFilter clients={clientOptions} /></Suspense> : null}
+      {data.stages.length > 0 && !allJobs ? (
+        <PipelineViewToggle jobId={data.selectedJob.id} view={view} stage={stage} />
       ) : null}
     </div>
   );
 
-  if (data.stages.length === 0) {
+  if (data.stages.length === 0 && !allJobs) {
     return (
       <div className="space-y-4">
         {toolbar}
@@ -71,7 +81,7 @@ export default async function PipelinePage({
     );
   }
 
-  if (data.applications.length === 0) {
+  if (data.applications.length === 0 && !stage && !allJobs) {
     return (
       <div className="space-y-4">
         {toolbar}
@@ -83,7 +93,7 @@ export default async function PipelinePage({
     );
   }
 
-  const evaluationAction = (
+  const evaluationAction = allJobs ? undefined : (
     <RateRemainingApplications
       key={`evaluate-${data.selectedJob.id}`}
       jobId={data.selectedJob.id}
@@ -96,13 +106,15 @@ export default async function PipelinePage({
   return (
     <div className="space-y-4">
       {toolbar}
-      <Suspense fallback={null}>
+      {allJobs ? <p className="text-xs text-muted-foreground">Active applications across all open jobs</p> : null}
+      {!allJobs ? <Suspense fallback={null}>
         <PipelineSummaryCard jobId={data.selectedJob.id} />
-      </Suspense>
+      </Suspense> : null}
       {view === "list" ? (
         <PipelineList
           evaluationAction={evaluationAction}
           key={`list-${data.selectedJob.id}`}
+          allJobs={allJobs}
           stages={data.stages}
           applications={data.applications}
         />

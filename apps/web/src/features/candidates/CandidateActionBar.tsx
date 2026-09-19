@@ -182,7 +182,7 @@ function RejectButton({
   const { confirmRejection, rejectionDialog } = useRejectionConfirmation();
   const [isPending, startTransition] = useTransition();
 
-  async function run(status: "rejected" | "withdrawn", pastTense: string) {
+  async function run(status: "rejected" | "withdrawn", pastTense: string, rejectionSource?: "agency" | "client") {
     if (!application) {
       toast.error("This candidate has no application to update.");
       return;
@@ -201,6 +201,7 @@ function RejectButton({
         applicationIds: [application.applicationId],
         status,
         sendRejectionEmail,
+        rejectionSource,
       });
       if (result.success) {
         toast.success(`${name} ${pastTense}.`);
@@ -246,6 +247,10 @@ function RejectButton({
           >
             <ProhibitIcon className="size-4" />
             Reject candidate
+          </DropdownMenuItem>
+          <DropdownMenuItem variant="destructive" onSelect={() => run("rejected", "rejected by client", "client")}>
+            <ProhibitIcon className="size-4" />
+            Rejected by client
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => run("withdrawn", "withdrawn")}>
             <UserMinus className="size-4" />

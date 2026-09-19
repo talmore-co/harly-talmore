@@ -131,9 +131,11 @@ const defaultStages = [
   { name: "Applied", color: "#E0F2FE" },
   { name: "Screening", color: "#F5F3FF" },
   { name: "Interview", color: "#FEF3C7" },
+  { name: "Submitted", color: "#E0E7FF" },
   { name: "Offer", color: "#DCFCE7" },
   { name: "Hired", color: "#CCFBF1" },
   { name: "Rejected", color: "#FEE2E2" },
+  { name: "Rejected by client", color: "#FECACA" },
 ];
 
 export async function syncJobApplicationQuestions(

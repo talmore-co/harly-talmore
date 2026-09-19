@@ -16,6 +16,7 @@ import { EvaluationDrawer } from "@/features/candidates/EvaluationDrawer";
 import { NoteForm } from "@/features/candidates/NoteForm";
 import { ScheduleDrawer } from "@/features/candidates/ScheduleDrawer";
 import { OffersPanel } from "@/features/offers/OffersPanel";
+import { AgencyApplicationPanel } from "@/features/clients/AgencyApplicationPanel";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -123,7 +124,7 @@ export function CandidateProfileTabs({
           <TabCount value={scorecards.length} />
         </TabsTrigger>
         <TabsTrigger value="offers">
-          Offers
+          Offers & hire
           <TabCount value={offers.length} />
         </TabsTrigger>
         <TabsTrigger value="activity">
@@ -290,7 +291,9 @@ export function CandidateProfileTabs({
       </TabsContent>
 
       {/* ── Offers ── */}
-      <TabsContent value="offers" className="mt-4">
+      <TabsContent value="offers" className="mt-4 space-y-6">
+        <AgencyApplicationPanel applications={jobOptions} />
+        <h2 className="font-semibold">Offers sent through Talmore</h2>
         <OffersPanel
           offers={offers}
           applications={jobOptions}

@@ -9,6 +9,8 @@
  */
 
 export const PERMISSIONS = [
+  "clients:view",
+  "clients:manage",
   "jobs:create",
   "jobs:view",
   "jobs:edit",
@@ -108,6 +110,10 @@ export type PermissionGroup = {
 
 /** Grouped for the role-editor matrix. */
 export const PERMISSION_GROUPS: PermissionGroup[] = [
+  { label: "Clients", permissions: [
+    { key: "clients:view", label: "View clients", hint: "Read the internal workspace client directory." },
+    { key: "clients:manage", label: "Manage clients", hint: "Create, edit, archive clients and link jobs." },
+  ] },
   {
     label: "Jobs",
     permissions: [
@@ -238,6 +244,8 @@ export const BUILTIN_ROLE_PERMISSIONS: Record<BuiltinRole, Permission[]> = {
   owner: [...PERMISSIONS],
   admin: [...PERMISSIONS],
   recruiter: [
+    "clients:view",
+    "clients:manage",
     "jobs:create",
     "jobs:view",
     "jobs:edit",
@@ -323,6 +331,9 @@ export const SETTINGS_SECTION_PERMISSION: Record<
   string,
   Permission | Permission[]
 > = {
+  "/settings/templates": "templates:manage",
+  "/settings/career-page": "settings:edit",
+  "/settings/documents": "documents:manage",
   "/settings": "settings:edit",
   "/settings/members": "members:read",
   "/settings/roles": "roles:manage",

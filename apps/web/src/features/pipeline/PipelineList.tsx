@@ -5,7 +5,8 @@ import { PipelineScores, PipelineScoreControls, matchesScoreFilters, compareScor
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import type { Route } from "next";
 import {
   ArrowRightLeft,
   CheckCircle2,
@@ -42,6 +43,7 @@ import { MetaAttributionBadge } from "./MetaAttributionBadge";
 import { cn } from "@/lib/utils";
 
 type PipelineListProps = {
+  allJobs?: boolean;
   evaluationAction?: React.ReactNode;
   stages: PipelineStage[];
   applications: PipelineApplication[];
@@ -53,11 +55,22 @@ export function PipelineList({
   evaluationAction,
   stages,
   applications,
+  allJobs = false,
 }: PipelineListProps) {
   const router = useRouter();
-  const [activeStage, setActiveStage] = useState<string>(ALL);
+  const searchParams = useSearchParams();
+  const stageParam = searchParams.get("stage");
+  const activeStage = stageParam ? (allJobs ? stageParam : stages.find((stage) => stage.name === stageParam)?.id ?? stageParam) : ALL;
+  function setActiveStage(id: string) {
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("queue");
+    if (id === ALL) next.delete("stage");
+    else next.set("stage", allJobs ? id : stages.find((stage) => stage.id === id)?.name ?? id);
+    setSelected(new Set());
+    router.push(`/dashboard/pipeline?${next}` as Route, { scroll: false });
+  }
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<ScoreSort>("manual");
+  const [sort, setSort] = useState<ScoreSort>("newest");
   const [minimumQuestionnaire, setMinimumQuestionnaire] = useState("");
   const [minimumAi, setMinimumAi] = useState("");
   const [attributionQuery, setAttributionQuery] = useState("");
@@ -77,15 +90,17 @@ export function PipelineList({
   const counts = useMemo(() => {
     const map = new Map<string, number>();
     for (const a of applications) {
-      map.set(a.currentStageId, (map.get(a.currentStageId) ?? 0) + 1);
+      const key = allJobs ? stageNameById.get(a.currentStageId) ?? "Unknown stage" : a.currentStageId;
+      map.set(key, (map.get(key) ?? 0) + 1);
     }
     return map;
-  }, [applications]);
+  }, [applications, allJobs, stageNameById]);
+  const stageTabs = allJobs ? Array.from(new Set(stages.map((stage) => stage.name))).map((name, order) => ({ id: name, name, order })) : stages;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return applications.filter((a) => {
-      if (activeStage !== ALL && a.currentStageId !== activeStage) return false;
+      if (activeStage !== ALL && (allJobs ? stageNameById.get(a.currentStageId) : a.currentStageId) !== activeStage) return false;
       if (!matchesScoreFilters(a, minimumQuestionnaire, minimumAi)) return false;
       if (!matchesAttribution(a.attribution, attributionQuery)) return false;
       if (!q) return true;
@@ -96,7 +111,7 @@ export function PipelineList({
         (a.source ?? "").toLowerCase().includes(q)
       );
     }).sort((a, b) => compareScores(a, b, sort));
-  }, [applications, activeStage, query, sort, minimumQuestionnaire, minimumAi, attributionQuery]);
+  }, [applications, activeStage, query, sort, minimumQuestionnaire, minimumAi, attributionQuery, allJobs, stageNameById]);
 
   const allVisibleSelected =
     filtered.length > 0 && filtered.every((a) => selected.has(a.id));
@@ -123,6 +138,8 @@ export function PipelineList({
     () => filtered.filter((a) => selected.has(a.id)).map((a) => a.id),
     [filtered, selected],
   );
+  const selectedJobIds = new Set(applications.filter((a) => selectedIds.includes(a.id)).map((a) => a.jobId));
+  const moveStages = allJobs ? stages.filter((stage) => selectedJobIds.size === 1 && selectedJobIds.has(stage.jobId ?? "")) : stages;
 
   function afterBulk(result: { success: boolean; error?: string; warning?: string }, label: string) {
     if (result.success) {
@@ -175,22 +192,26 @@ export function PipelineList({
     <div className="space-y-4">
       {rejectionDialog}
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative ml-auto w-full max-w-xs">
+      <div className="flex flex-wrap items-end gap-3">
+        <PipelineScoreControls inline allowManual={false} sort={sort} onSort={setSort} questionnaire={minimumQuestionnaire} onQuestionnaire={setMinimumQuestionnaire} ai={minimumAi} onAi={setMinimumAi} />
+        <AttributionControls inline query={attributionQuery} onChange={setAttributionQuery} applications={filtered} />
+        <label className="flex min-w-56 flex-1 flex-col gap-1 text-xs text-muted-foreground sm:ml-auto sm:max-w-xs">
+          <span>Search</span>
+          <span className="relative">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search candidates…"
             aria-label="Search candidates"
-            className="h-9 pl-9"
+            className="h-10 pl-9"
           />
-        </div>
+          </span>
+        </label>
+        {evaluationAction}
       </div>
 
       {/* Stage tabs */}
-      <PipelineScoreControls sort={sort} onSort={setSort} questionnaire={minimumQuestionnaire} onQuestionnaire={setMinimumQuestionnaire} ai={minimumAi} onAi={setMinimumAi} evaluationAction={evaluationAction} />
-      <AttributionControls query={attributionQuery} onChange={setAttributionQuery} applications={filtered} />
       <div className="flex items-center gap-1 overflow-x-auto rounded-xl border border-border/70 bg-card p-1">
         <StageTab
           label="All"
@@ -198,7 +219,7 @@ export function PipelineList({
           active={activeStage === ALL}
           onClick={() => setActiveStage(ALL)}
         />
-        {stages
+        {stageTabs
           .slice()
           .sort((a, b) => a.order - b.order)
           .map((stage) => (
@@ -217,16 +238,16 @@ export function PipelineList({
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/25 bg-accent/40 px-3 py-2 duration-200 animate-in fade-in slide-in-from-top-1">
           <span className="text-sm font-medium">{selectedIds.length} selected</span>
           <div className="ml-auto flex flex-wrap gap-2">
-            <DropdownMenu>
+               <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline" disabled={isPending}>
+                <Button size="sm" variant="outline" disabled={isPending || moveStages.length === 0} title={allJobs && selectedJobIds.size > 1 ? "Select applications from one job to move stages" : undefined}>
                   <ArrowRightLeft className="size-4" />
                   Move to stage
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Move to</DropdownMenuLabel>
-                {stages
+                {moveStages
                   .slice()
                   .sort((a, b) => a.order - b.order)
                   .map((stage) => (
@@ -307,6 +328,7 @@ export function PipelineList({
                     size="sm"
                   />
                   <div className="min-w-0">
+                    {allJobs || a.clientName ? <p className="truncate text-xs text-muted-foreground">{[a.clientName, allJobs ? a.jobTitle : null].filter(Boolean).join(" · ")}</p> : null}
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <p className="truncate font-medium text-foreground group-hover:text-primary">
                         {fullName}
@@ -326,7 +348,7 @@ export function PipelineList({
                   <p className="text-xs font-medium text-foreground">{stageName}</p>
                   <PipelineSpine
                     current={stageName}
-                    stages={orderedStageNames}
+                    stages={allJobs ? stages.filter((stage) => stage.jobId === a.jobId).sort((a, b) => a.order - b.order).map((stage) => stage.name) : orderedStageNames}
                     className="mt-1.5 max-w-40"
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -367,6 +389,7 @@ function StageTab({
   return (
     <button
       type="button"
+      aria-pressed={active}
       onClick={onClick}
       className={cn(
         "flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",

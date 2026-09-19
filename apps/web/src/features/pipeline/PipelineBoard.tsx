@@ -539,7 +539,7 @@ export function PipelineBoard({
           <SelectItem value="withdrawn">Withdrawn</SelectItem>
         </SelectContent>
       </Select>
-      <PipelineScoreControls sort={sort} onSort={setSort} questionnaire={minimumScore} onQuestionnaire={value => { setMinimumScore(value); setSelectedIds(new Set()); }} ai={minimumAi} onAi={value => { setMinimumAi(value); setSelectedIds(new Set()); }} evaluationAction={evaluationAction} />
+      <PipelineScoreControls sort={sort} onSort={setSort} questionnaire={minimumScore} onQuestionnaire={value => { setMinimumScore(value); setSelectedIds(new Set()); }} ai={minimumAi} onAi={value => { setMinimumAi(value); setSelectedIds(new Set()); }} />
       <AttributionControls query={attributionQuery} onChange={value => { setAttributionQuery(value); setSelectedIds(new Set()); }} applications={Array.from(filteredColumns.values()).flat()} />
       {scoreSort && <span className="text-xs text-muted-foreground">Turn off score sorting to drag cards.</span>}
       <label className="hidden h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-md border bg-muted/40 px-3 text-sm font-medium text-muted-foreground sm:flex">
@@ -549,6 +549,7 @@ export function PipelineBoard({
         />
         Hide empty
       </label>
+      {evaluationAction}
     </div>
   );
 

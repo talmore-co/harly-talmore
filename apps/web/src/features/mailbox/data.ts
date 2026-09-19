@@ -22,6 +22,7 @@ import { resolveSenderFromOverride } from "@/lib/email/sender-identity";
 import { listEmailTemplates } from "@/features/email-templates/data";
 import { preferredThread } from "./reading";
 import { isMailUnificationEnabled } from "@/lib/mail/feature-flag";
+import { threadNeedsReply } from "./thread-query";
 
 export type InboxSource = "mailbox";
 export type InboxTransport = "imap" | "legacy-webhook" | "provider" | "smtp";
@@ -157,11 +158,7 @@ export async function getInboxData(input: {
       ? sql`exists (select 1 from mail_messages reply where reply.thread_id = ${mailThreads.id} and reply.direction = 'inbound')`
       : undefined,
     filter === "needs-reply"
-      ? sql`(
-        select mm.direction from mail_messages mm
-        where mm.thread_id = ${mailThreads.id}
-        order by mm.received_at desc limit 1
-      ) = 'inbound'`
+      ? threadNeedsReply()
       : undefined,
   );
 
@@ -188,15 +185,11 @@ export async function getInboxData(input: {
         applicationStatus: applications.status,
         applicationStageName: jobStages.name,
         hasInboundReply: sql<boolean>`exists (select 1 from mail_messages reply where reply.thread_id = ${mailThreads.id} and reply.direction = 'inbound')`,
-        needsReply: sql<boolean>`(
-          select mm.direction from mail_messages mm
-          where mm.thread_id = ${mailThreads.id}
-          order by mm.received_at desc limit 1
-        ) = 'inbound'`,
+        needsReply: threadNeedsReply(),
         preview: sql<string | null>`(
           select mm.text_body from mail_messages mm
           where mm.thread_id = ${mailThreads.id}
-          order by mm.received_at desc limit 1
+          order by mm.received_at desc, mm.id desc limit 1
         )`,
         lastActivity: sql<"received" | "sent" | "automated">`(
           select case when mm.direction = 'inbound' then 'received'
@@ -205,7 +198,7 @@ export async function getInboxData(input: {
               and eo.kind = 'application.received.candidate') then 'automated'
             else 'sent' end
           from mail_messages mm where mm.thread_id = ${mailThreads.id}
-          order by mm.received_at desc limit 1
+          order by mm.received_at desc, mm.id desc limit 1
         )`,
         searchText: sql<string | null>`(
           select string_agg(mm.text_body, ' ' order by mm.received_at desc)

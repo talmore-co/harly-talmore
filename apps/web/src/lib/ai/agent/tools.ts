@@ -32,7 +32,7 @@ import {
   listEmailTemplates,
   getEmailTemplate,
 } from "@/features/email-templates/data";
-import { getReportsData } from "@/features/reports/data";
+import { getAgencyReports } from "@/features/reports/agency-data";
 import { detectCandidateDuplicatesAction } from "@/features/candidates/ai-actions";
 import { generateEmailDraftAction } from "@/features/candidates/actions";
 import {
@@ -1427,15 +1427,27 @@ function buildReadTools(ctx: HarlyToolContext) {
     reportsOverview: tool({
       strict: true,
       description:
-        "Get the full recruiting analytics report: headline summary (open roles, total candidates, 90-day applications, hires, avg time-to-hire, offer acceptance), the hiring funnel with conversion %, candidate sources with conversion, and time-to-hire distribution. Use for deep analytics, 'show me the funnel', 'where do candidates drop off', 'time to hire', 'best sources'.",
+        "Get agency recruiting reports for the last 30 UTC calendar days: applications, first submissions, placements, median application-to-placement time, dated offer decisions, client/job delivery and source cohorts. Current pipeline aging is as of today. Source/outcome cohorts select applications received in the period and follow outcomes to today. Client grouping uses each job's current client assignment. Period activity counts are not a conversion funnel.",
       inputSchema: z.object({}),
       execute: async () => {
-        const data = await getReportsData();
+        const data = await getAgencyReports();
         return {
+          filters: data.filters,
+          generatedAt: data.generatedAt,
           summary: data.summary,
-          funnel: data.funnel,
-          sources: data.sources,
-          timeToHire: data.timeToHire,
+          firstSubmission: data.firstSubmission,
+          roleCohort: data.roleCohort,
+          waitingRoles: data.waitingRoles,
+          approvalDateUnknown: data.approvalDateUnknown,
+          delivery: data.delivery,
+          outcomes: data.outcomes,
+          stages: data.stages,
+          sources: data.sources.map((row) => ({
+            source: row.source, campaign: row.campaign, campaignId: row.campaignId,
+            applications: row.applications, qualified: row.qualified,
+            assessed: row.assessed, submitted: row.submitted,
+            offers: row.offers, placements: row.placements,
+          })),
         };
       },
     }),

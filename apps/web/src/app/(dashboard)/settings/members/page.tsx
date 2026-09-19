@@ -1,4 +1,6 @@
 import { MembersAndRoles } from "@/features/workspaces/MembersSection";
+import Link from "next/link";
+import type { Route } from "next";
 import { getWorkspaceSettingsData } from "@/features/workspaces/data";
 import {
   can,
@@ -10,16 +12,23 @@ export const dynamic = "force-dynamic";
 
 export default async function MembersSettingsPage() {
   await requirePagePermission("members:read");
-  const [{ members, invitations, inviteLink, context, emailIdentity }, roles, canInvite, canEditMembers, canRemoveMembers, canManageInviteLinks, canRoles] =
-    await Promise.all([
-      getWorkspaceSettingsData(),
-      listWorkspaceRoles(),
-      can("members:invite"),
-      can("members:edit"),
-      can("members:remove"),
-      can("invite_links:manage"),
-      can("roles:manage"),
-    ]);
+  const [
+    { members, invitations, inviteLink, context, emailIdentity },
+    roles,
+    canInvite,
+    canEditMembers,
+    canRemoveMembers,
+    canManageInviteLinks,
+    canRoles,
+  ] = await Promise.all([
+    getWorkspaceSettingsData(),
+    listWorkspaceRoles(),
+    can("members:invite"),
+    can("members:edit"),
+    can("members:remove"),
+    can("invite_links:manage"),
+    can("roles:manage"),
+  ]);
 
   const assignableRoles = roles.map((role) => ({
     key: role.key,
@@ -31,20 +40,28 @@ export default async function MembersSettingsPage() {
   const canManageMemberAccounts = context.roleKey === "owner";
 
   return (
-    <MembersAndRoles
-      members={members}
-      invitations={invitations}
-      assignableRoles={assignableRoles}
-      inviteLink={inviteLink}
-      roles={roles}
-      canInviteMembers={canInvite}
-      canEditMembers={canEditMembers}
-      canRemoveMembers={canRemoveMembers}
-      canManageInviteLinks={canManageInviteLinks}
-      canManageRoles={canRoles}
-      canManageMemberAccounts={canManageMemberAccounts}
-      canEditMemberAccess={canEditMembers}
-      emailIdentity={emailIdentity}
-    />
+    <div className="space-y-4">
+      <Link
+        href={"/people" as Route}
+        className="text-sm underline underline-offset-4"
+      >
+        View colleague directory
+      </Link>
+      <MembersAndRoles
+        members={members}
+        invitations={invitations}
+        assignableRoles={assignableRoles}
+        inviteLink={inviteLink}
+        roles={roles}
+        canInviteMembers={canInvite}
+        canEditMembers={canEditMembers}
+        canRemoveMembers={canRemoveMembers}
+        canManageInviteLinks={canManageInviteLinks}
+        canManageRoles={canRoles}
+        canManageMemberAccounts={canManageMemberAccounts}
+        canEditMemberAccess={canEditMembers}
+        emailIdentity={emailIdentity}
+      />
+    </div>
   );
 }

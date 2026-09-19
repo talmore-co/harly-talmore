@@ -11,6 +11,12 @@ export default async function SettingsPage() {
   // their scoped Legal & Compliance surface rather than company settings.
   if (!(await can("settings:edit"))) {
     if (await can("dsar:manage")) redirect("/settings/legal");
+    if (await can("templates:manage")) redirect("/settings/templates");
+    if (await can("members:read")) redirect("/settings/members");
+    if (await can("documents:manage")) redirect("/settings/documents");
+    if (await can("integrations:manage")) redirect("/settings/integrations");
+    if (await can("security:manage")) redirect("/settings/security");
+    if (await can("roles:manage")) redirect("/settings/roles");
   }
   await requirePagePermission("settings:edit");
   const { context, branding } = await getWorkspaceSettingsData();

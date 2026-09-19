@@ -1,4 +1,5 @@
 "use server";
+import { hireDetailsSchema } from "@/features/clients/validation";
 
 import { revalidatePath } from "next/cache";
 import { and, asc, desc, eq, inArray, isNull, isNotNull, sql } from "drizzle-orm";
@@ -29,6 +30,7 @@ import {
 import { normalizeStageEmailConfig } from "@/features/pipeline/data";
 import {
   statusForStageName,
+  rejectionSourceForStageName,
   terminalStageNameForStatus,
   type PipelineApplicationStatus,
 } from "@/features/pipeline/state";
@@ -61,6 +63,8 @@ type UpdateApplicationStatusInput = {
   workspaceId: string;
   status: ApplicationStatus;
   sendRejectionEmail?: boolean;
+  hireDetails?: { hiredOn: string; hireTerms: string };
+  rejectionSource?: "agency" | "client";
 };
 
 type UpdateStageEmailSettingsInput = {
@@ -315,6 +319,7 @@ export async function moveApplicationInPipeline(
             .set({
               currentStageId: input.toStageId,
               status: nextStatus,
+              ...(changedStage || changedStatus ? { rejectionSource: rejectionSourceForStageName(application.toStageName) } : {}),
               updatedAt: now,
             })
             .where(
@@ -372,6 +377,7 @@ export async function moveApplicationInPipeline(
               fromStageId: application.currentStageId,
               toStageId: input.toStageId,
               movedById: user.id,
+              rejectionSource: rejectionSourceForStageName(application.toStageName),
             });
 
             await tx.insert(activityEvents).values({
@@ -384,6 +390,7 @@ export async function moveApplicationInPipeline(
                 fromStageId: application.currentStageId,
                 toStageId: input.toStageId,
                 status: nextStatus,
+                rejectionSource: rejectionSourceForStageName(application.toStageName),
               },
             });
 
@@ -479,7 +486,7 @@ export async function moveApplicationInPipeline(
               candidateId: application.candidateId,
               type: "application_hired",
               title: `Congratulations! You've been hired for ${application.jobTitle}`,
-              body: "We're excited to have you on the team!",
+              body: "Congratulations on your new role!",
               href: `/portal/applications/${application.id}`,
               metadata: { applicationId: application.id, status: nextStatus },
             });
@@ -801,6 +808,7 @@ export async function bulkMoveApplications(
                 .set({
                   currentStageId: input.toStageId,
                   status: nextStatus,
+                  rejectionSource: rejectionSourceForStageName(toStageName),
                   updatedAt: now,
                 })
                 .where(
@@ -826,6 +834,7 @@ export async function bulkMoveApplications(
                 fromStageId,
                 toStageId: input.toStageId,
                 movedById: user.id,
+                rejectionSource: rejectionSourceForStageName(toStageName),
               })),
             );
 
@@ -840,6 +849,7 @@ export async function bulkMoveApplications(
                   fromStageId,
                   toStageId: input.toStageId,
                   bulk: true,
+                  rejectionSource: rejectionSourceForStageName(toStageName),
                   ...(nextStatus ? { status: nextStatus } : {}),
                 },
               })),
@@ -917,7 +927,7 @@ export async function bulkMoveApplications(
                     ? `Congratulations! You've been hired for ${appData.jobTitle}`
                     : `Application for ${appData.jobTitle} not selected`,
                   body: becameHired
-                    ? "We're excited to have you on the team!"
+                    ? "Congratulations on your new role!"
                     : "We appreciate your interest and encourage you to apply for other roles.",
                   href: `/portal/applications/${applicationId}`,
                   metadata: {
@@ -1061,6 +1071,9 @@ export async function updateApplicationStatus(
   input: UpdateApplicationStatusInput,
 ): Promise<{ success: boolean; error?: string; warning?: string }> {
   try {
+    const hireDetails = input?.hireDetails === undefined ? undefined : hireDetailsSchema.parse(input.hireDetails);
+    if (input?.rejectionSource !== undefined && (input.status !== "rejected" || !["agency", "client"].includes(input.rejectionSource))) return { success: false, error: "Invalid rejection source." };
+    if (hireDetails && (input.status !== "hired" || input.applicationIds.length !== 1)) return { success: false, error: "Hire details require a single hired application." };
     if (
       !input ||
       !Array.isArray(input.applicationIds) ||
@@ -1133,7 +1146,7 @@ export async function updateApplicationStatus(
               emailConfig: unknown;
             } | null = null;
 
-            const terminalStageName = terminalStageNameForStatus(input.status);
+            const terminalStageName = terminalStageNameForStatus(input.status, input.rejectionSource);
             if (terminalStageName) {
               const [terminalStage] = await tx
                 .select({
@@ -1151,6 +1164,7 @@ export async function updateApplicationStatus(
                 )
                 .limit(1);
               targetStage = terminalStage ?? null;
+              if (input.rejectionSource === "client" && !targetStage) throw new Error("This job has no Rejected by client stage.");
               if (targetStage) targetStageId = targetStage.id;
             } else if (input.status === "active") {
               const [currentStage] = await tx
@@ -1176,6 +1190,7 @@ export async function updateApplicationStatus(
                 const [previousStage] = await tx
                   .select({ fromStageId: applicationStageHistory.fromStageId })
                   .from(applicationStageHistory)
+                  .innerJoin(jobStages, and(eq(jobStages.id, applicationStageHistory.fromStageId), eq(jobStages.jobId, application.jobId), eq(jobStages.workspaceId, input.workspaceId), sql`lower(trim(${jobStages.name})) not in ('hired', 'rejected', 'rejected by client')`))
                   .where(
                     and(
                       eq(
@@ -1183,10 +1198,6 @@ export async function updateApplicationStatus(
                         input.workspaceId,
                       ),
                       eq(applicationStageHistory.applicationId, application.id),
-                      eq(
-                        applicationStageHistory.toStageId,
-                        application.currentStageId,
-                      ),
                       isNotNull(applicationStageHistory.fromStageId),
                     ),
                   )
@@ -1239,13 +1250,15 @@ export async function updateApplicationStatus(
 
             const stageChanged = targetStageId !== application.currentStageId;
             const statusChanged = application.status !== input.status;
-            if (!stageChanged && !statusChanged) continue;
+            if (!stageChanged && !statusChanged && !hireDetails) continue;
 
             const [updated] = await tx
               .update(applications)
               .set({
                 status: input.status,
                 currentStageId: targetStageId,
+                rejectionSource: input.status === "rejected" ? input.rejectionSource ?? "agency" : null,
+                ...(hireDetails ? { hiredOn: hireDetails.hiredOn, hireTerms: hireDetails.hireTerms } : {}),
                 updatedAt: now,
               })
               .where(
@@ -1261,6 +1274,9 @@ export async function updateApplicationStatus(
               throw new ConcurrencyConflictError();
             }
 
+            if (hireDetails) {
+              await tx.insert(activityEvents).values({ workspaceId: input.workspaceId, actorId: user.id, entityType: "application", entityId: application.id, type: "application.hire_details_updated", metadata: { hiredOn: hireDetails.hiredOn } });
+            }
             if (stageChanged) {
               await tx.insert(applicationStageHistory).values({
                 workspaceId: input.workspaceId,
@@ -1268,6 +1284,7 @@ export async function updateApplicationStatus(
                 fromStageId: application.currentStageId,
                 toStageId: targetStageId,
                 movedById: user.id,
+                rejectionSource: input.status === "rejected" ? input.rejectionSource ?? "agency" : null,
               });
               await tx.insert(activityEvents).values({
                 workspaceId: input.workspaceId,
@@ -1280,6 +1297,7 @@ export async function updateApplicationStatus(
                   toStageId: targetStageId,
                   status: input.status,
                   source: "status_change",
+                  rejectionSource: input.status === "rejected" ? input.rejectionSource ?? "agency" : null,
                 },
               });
               const stageEvent: StageTransitionEvent = {
@@ -1361,7 +1379,7 @@ export async function updateApplicationStatus(
                       : `Application for ${application.jobTitle} not selected`,
                   body:
                     input.status === "hired"
-                      ? "We're excited to have you on the team!"
+                      ? "Congratulations on your new role!"
                       : "We appreciate your interest and encourage you to apply for other roles.",
                   href: `/portal/applications/${application.id}`,
                   metadata: {

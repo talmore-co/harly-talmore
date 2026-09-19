@@ -40,22 +40,22 @@ export function GreetingHeader({
  */
 export function buildSubline({
   waiting,
-  overdue,
+  replies,
   interviewsToday,
 }: {
   waiting: number;
-  overdue: number;
+  replies: number;
   interviewsToday: number;
 }) {
   const parts: string[] = [];
 
   if (waiting > 0) {
     parts.push(
-      `${waiting} ${waiting === 1 ? "candidate" : "candidates"} in play`,
+      `${waiting} new ${waiting === 1 ? "application" : "applications"}`,
     );
   }
-  if (overdue > 0) {
-    parts.push(`${overdue} waiting over a week`);
+  if (replies > 0) {
+    parts.push(`${replies} ${replies === 1 ? "conversation needs" : "conversations need"} a reply`);
   }
   if (interviewsToday > 0) {
     parts.push(
@@ -63,6 +63,6 @@ export function buildSubline({
     );
   }
 
-  if (parts.length === 0) return "Nothing needs a decision right now.";
+  if (parts.length === 0) return "No new applications, conversations needing a reply, or interviews today.";
   return `${parts.join(" · ")}.`;
 }

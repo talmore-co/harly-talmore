@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Users } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { toast } from "@/lib/notification-island/toast";
 import { Button } from "@/components/ui/button";
 import { bulkGenerateAiEvaluationsForJobAction } from "@/features/candidates/ai-actions";
@@ -64,14 +64,14 @@ export function RateRemainingApplications({
       variant="outline"
       onClick={rate}
       disabled={pending}
-      title={`Evaluate ${count} remaining active applicants for this job, including those hidden by filters`}
+      title={`Run ${aiConfigured ? "AI" : "rules-based"} evaluation for ${count} remaining active applicants for this job, including those hidden by filters`}
     >
-      <Users className="size-4" />
+      <Sparkles className="size-4" />
       {pending
         ? "Evaluating…"
         : aiConfigured
-          ? "Rate the rest"
-          : "Evaluate the rest"}
+           ? "Run AI evaluation"
+           : "Run rules-based evaluation"}
       <span className="text-muted-foreground">{count}</span>
     </Button>
   );

@@ -3,6 +3,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { FileText, Globe, FolderCog } from "lucide-react";
 
 import {
   BuildingsIcon,
@@ -30,6 +31,24 @@ type SettingsSection = {
 
 const sections: SettingsSection[] = [
   {
+    href: "/settings/career-page" as Route,
+    label: "Career page",
+    hint: "Public job board, layout and branding.",
+    icon: Globe,
+  },
+  {
+    href: "/settings/templates" as Route,
+    label: "Templates",
+    hint: "Reusable recruiting messages.",
+    icon: FileText,
+  },
+  {
+    href: "/settings/documents" as Route,
+    label: "Documents",
+    hint: "Categories and document configuration.",
+    icon: FolderCog,
+  },
+  {
     href: "/settings" as Route,
     label: "Company & brand",
     hint: "Logo, colors, careers page, and other organization-wide settings.",
@@ -38,9 +57,15 @@ const sections: SettingsSection[] = [
   },
   {
     href: "/settings/members" as Route,
-    label: "Members & roles",
+    label: "Team & access",
     hint: "Teammates, permissions, and access control settings.",
     icon: UsersThreeIcon,
+  },
+  {
+    href: "/settings/roles" as Route,
+    label: "Roles & permissions",
+    hint: "Manage permission sets for workspace roles.",
+    icon: ShieldIcon,
   },
   {
     href: "/settings/portal" as Route,

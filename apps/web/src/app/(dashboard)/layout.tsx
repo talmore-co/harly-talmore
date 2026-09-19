@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 
 import { HarlyAIProvider } from "@/components/dashboard/HarlyAIWidget";
 import { AssistantPersonaProvider } from "@/features/account/AssistantPersona";
@@ -18,7 +19,6 @@ import {
   getSidebarBranding,
   listUserWorkspaceOptions,
 } from "@/features/workspaces/data";
-import { listWorkspaceRoles } from "@/features/workspaces/permissions-server";
 import { getMyTasksDueCount } from "@/features/tasks/data";
 import { getOwnProfileAction } from "@/features/people/actions";
 import { RealtimeProvider } from "@/components/dashboard/RealtimeProvider";
@@ -45,7 +45,6 @@ export default async function DashboardLayout({
     unreadNotificationCount,
     unreadInboxThreadCount,
     sidebarLogo,
-    roles,
     userPermissions,
     aiStatus,
     taskDueCount,
@@ -56,13 +55,12 @@ export default async function DashboardLayout({
     getUnreadNotificationCount(),
     getUnreadInboxThreadCount(),
     getSidebarBranding(organization.id),
-    listWorkspaceRoles(),
     getCurrentPermissions(),
     getWorkspaceAiStatus(organization.id),
     getMyTasksDueCount(),
     getOwnProfileAction(),
   ]);
-  const assignableRoles = roles.map((r) => ({ key: r.key, name: r.name }));
+  const initialCollapsed = (await cookies()).get(`harly_sidebar_${encodeURIComponent(user.id)}`)?.value === "collapsed";
 
   const workspace = {
     id: organization.id,
@@ -96,7 +94,8 @@ export default async function DashboardLayout({
               taskDueCount={taskDueCount}
               userPermissions={userPermissions}
               sidebarLogo={sidebarLogo}
-              assignableRoles={assignableRoles}
+              userId={user.id}
+              initialCollapsed={initialCollapsed}
             />
             <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-pure-snow md:my-2 md:mr-2 md:rounded-[var(--radius-shell)] md:border md:border-hairline">
               <TopBar

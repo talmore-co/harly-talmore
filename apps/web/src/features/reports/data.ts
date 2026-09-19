@@ -1,4 +1,5 @@
 import "server-only";
+import { getOfferDecisionTotals } from "./offer-decisions";
 
 import { and, countDistinct, eq, exists, gte, isNull, sql } from "drizzle-orm";
 
@@ -9,7 +10,6 @@ import {
   db,
   jobs,
   jobStages,
-  offers,
 } from "@harly/db";
 import { requirePermission } from "@/features/workspaces/permissions-server";
 import {
@@ -29,7 +29,7 @@ const DAY_SECONDS = 86_400;
 
 // Canonical funnel order. Stage names are consistent across jobs (default set),
 // so aggregating reached-counts by name gives a workspace-wide funnel.
-const FUNNEL_ORDER = ["Applied", "Screening", "Interview", "Offer", "Hired"];
+const FUNNEL_ORDER = ["Applied", "Screening", "Interview", "Submitted", "Offer", "Hired"];
 
 export type ReportsSummary = {
   openRoles: number;
@@ -75,15 +75,15 @@ export type ReportsData = {
 };
 
 /**
- * Canonical hiring events. A hire is the first transition of an application
- * into a stage named Hired, rather than a later update to the application row.
+ * Canonical hiring events use an explicit hire date when entered, otherwise
+ * the first transition into Hired, never a later application update time.
  * Keeping this query here gives Reports, the dashboard and AI the same clock.
  */
 export async function getHiringEvents(
   workspaceId: string,
   options: { since?: Date } = {},
 ): Promise<HiringEvent[]> {
-  const hiredAt = sql<Date>`min(${applicationStageHistory.createdAt})`;
+  const hiredAt = sql<Date>`coalesce((${applications.hiredOn}::date::timestamp at time zone 'UTC'), min(${applicationStageHistory.createdAt}) filter (where ${jobStages.id} is not null))`;
 
   const query = db
     .select({
@@ -92,14 +92,14 @@ export async function getHiringEvents(
       hiredAt,
     })
     .from(applications)
-    .innerJoin(
+    .leftJoin(
       applicationStageHistory,
       and(
         eq(applicationStageHistory.applicationId, applications.id),
         eq(applicationStageHistory.workspaceId, workspaceId),
       ),
     )
-    .innerJoin(
+    .leftJoin(
       jobStages,
       and(
         eq(jobStages.id, applicationStageHistory.toStageId),
@@ -119,6 +119,7 @@ export async function getHiringEvents(
       and(
         eq(applications.workspaceId, workspaceId),
         activeCandidateForApplication(workspaceId),
+        sql`(${applications.hiredOn} is not null or ${jobStages.id} is not null)`,
       ),
     )
     .groupBy(applications.id, applications.appliedAt);
@@ -129,7 +130,7 @@ export async function getHiringEvents(
       // postgres-js without the timestamp column's custom serializer and throws
       // ERR_INVALID_ARG_TYPE ("Received an instance of Date"). An ISO string
       // casts cleanly to timestamptz in the comparison.
-      query.having(sql`min(${applicationStageHistory.createdAt}) >= ${options.since.toISOString()}`)
+      query.having(sql`${hiredAt} >= ${options.since.toISOString()}`)
     : query;
 }
 
@@ -142,14 +143,14 @@ export async function countHiringEvents(workspaceId: string): Promise<number> {
   const [row] = await db
     .select({ count: countDistinct(applications.id) })
     .from(applications)
-    .innerJoin(
+    .leftJoin(
       applicationStageHistory,
       and(
         eq(applicationStageHistory.applicationId, applications.id),
         eq(applicationStageHistory.workspaceId, workspaceId),
       ),
     )
-    .innerJoin(
+    .leftJoin(
       jobStages,
       and(
         eq(jobStages.id, applicationStageHistory.toStageId),
@@ -169,6 +170,7 @@ export async function countHiringEvents(workspaceId: string): Promise<number> {
       and(
         eq(applications.workspaceId, workspaceId),
         activeCandidateForApplication(workspaceId),
+        sql`(${applications.hiredOn} is not null or ${jobStages.id} is not null)`,
       ),
     );
 
@@ -268,21 +270,7 @@ export async function getReportsData(rangeDays = 30): Promise<ReportsData> {
       ),
     getHiringEvents(ws, { since: eventStart }),
     countHiringEvents(ws),
-    db
-      .select({
-        accepted: sql<number>`count(*) filter (where ${offers.status} = 'accepted')::int`,
-        decided: sql<number>`count(*) filter (where ${offers.status} in ('accepted','declined'))::int`,
-      })
-      .from(offers)
-      .innerJoin(
-        jobs,
-        and(
-          eq(jobs.id, offers.jobId),
-          eq(jobs.workspaceId, ws),
-          isNull(jobs.deletedAt),
-        ),
-      )
-      .where(eq(offers.workspaceId, ws)),
+    getOfferDecisionTotals(ws),
     db
       .select({
         month: sql<string>`to_char(${applications.appliedAt}, 'YYYY-MM')`,

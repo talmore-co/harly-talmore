@@ -338,7 +338,7 @@ export function JobShell({
             </Link>
             <span className="mx-1.5">/</span>
             <Link href={(boardRoot || "/") as Route} className="hover:text-zinc-700 dark:hover:text-zinc-300">
-              Jobs at {workspace.name}
+              Jobs with {workspace.name}
             </Link>
             <span className="mx-1.5">/</span>
             <span>{job.title}</span>

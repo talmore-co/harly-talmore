@@ -1249,6 +1249,17 @@ export type CustomRole = typeof customRoles.$inferSelect;
 export type NewCustomRole = typeof customRoles.$inferInsert;
 
 // Jobs and hiring pipeline
+export const clients = pgTable("clients", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: text("workspace_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  website: text("website"),
+  contacts: jsonb("contacts").$type<Array<{ name: string; email: string; phone: string; role: string }>>().default(sql`'[]'::jsonb`).notNull(),
+  notes: text("notes"),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  ...timestamps(),
+}, (table) => [index("clients_workspace_idx").on(table.workspaceId), uniqueIndex("clients_workspace_id_idx").on(table.workspaceId, table.id)]);
+
 export const jobs = pgTable(
   "jobs",
   {
@@ -1257,6 +1268,9 @@ export const jobs = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
+    clientId: uuid("client_id"),
+    // Private client approval date; independent of draft creation/publication.
+    takenOn: text("taken_on"),
     slug: text("slug").notNull(),
     department: text("department"),
     location: text("location"),
@@ -1314,6 +1328,8 @@ export const jobs = pgTable(
   },
   (table) => [
     uniqueIndex("jobs_workspace_slug_idx").on(table.workspaceId, table.slug),
+    foreignKey({ columns: [table.workspaceId, table.clientId], foreignColumns: [clients.workspaceId, clients.id] }).onDelete("restrict"),
+    index("jobs_client_idx").on(table.workspaceId, table.clientId),
     index("jobs_workspace_status_idx").on(table.workspaceId, table.status),
     index("jobs_workspace_created_at_idx").on(
       table.workspaceId,
@@ -1552,6 +1568,9 @@ export const applications = pgTable(
   "applications",
   {
     questionnaireScore: doublePrecision("questionnaire_score"),
+    hiredOn: text("hired_on"),
+    hireTerms: text("hire_terms"),
+    rejectionSource: text("rejection_source").$type<"agency" | "client">(),
     questionnaireScoreSnapshot: jsonb("questionnaire_score_snapshot"),
     attribution: jsonb("attribution"),
     id: uuid("id").defaultRandom().primaryKey(),
@@ -1699,6 +1718,7 @@ export const metaConversionEvents = pgTable("meta_conversion_events", {
 export const applicationStageHistory = pgTable(
   "application_stage_history",
   {
+    rejectionSource: text("rejection_source").$type<"agency" | "client">(),
     id: uuid("id").defaultRandom().primaryKey(),
     workspaceId: text("workspace_id")
       .notNull()
@@ -2438,6 +2458,26 @@ export const offers = pgTable(
 
 export type Offer = typeof offers.$inferSelect;
 export type NewOffer = typeof offers.$inferInsert;
+
+/** Internal records of offers issued by a client; never sent or exposed in the portal. */
+export const clientOffers = pgTable("client_offers", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: text("workspace_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  applicationId: uuid("application_id").notNull(),
+  candidateId: uuid("candidate_id").notNull(),
+  jobId: uuid("job_id").notNull(),
+  clientId: uuid("client_id").notNull(),
+  offeredOn: text("offered_on").notNull(),
+  status: text("status").notNull().default("pending"),
+  terms: text("terms"),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+  createdById: text("created_by_id").references(() => user.id, { onDelete: "set null" }),
+  ...timestamps(),
+}, (table) => [
+  foreignKey({ columns: [table.workspaceId, table.applicationId, table.candidateId, table.jobId], foreignColumns: [applications.workspaceId, applications.id, applications.candidateId, applications.jobId] }).onDelete("cascade"),
+  foreignKey({ columns: [table.workspaceId, table.clientId], foreignColumns: [clients.workspaceId, clients.id] }).onDelete("restrict"),
+  index("client_offers_application_idx").on(table.workspaceId, table.applicationId),
+]);
 
 // Provider-independent signing domain. The provider's identifiers are stored
 // for reconciliation, while Harly owns the lifecycle, recipients, evidence, and

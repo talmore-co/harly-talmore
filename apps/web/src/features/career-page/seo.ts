@@ -44,7 +44,7 @@ export function publicBoardMetadata(
 ): Metadata {
   const url = options?.path !== undefined ? pathUrl(options.path) : boardUrl(workspace.slug);
   const title = config.seo.title || workspace.name || "Careers";
-  const description = config.seo.description || workspace.description || workspace.tagline || `Explore open roles at ${workspace.name}.`;
+  const description = config.seo.description || workspace.description || workspace.tagline || `Explore open roles with ${workspace.name}.`;
   const image = config.seo.socialImageUrl ?? config.hero.imageUrl ?? workspace.heroImageUrl ?? workspace.logoUrl ?? undefined;
   const favicon = config.seo.faviconUrl ?? workspace.logoUrl ?? HARLY_FAVICON;
 
@@ -67,8 +67,8 @@ export function publicJobMetadata(
 ): Metadata {
   const base = options?.path !== undefined ? pathUrl(options.path) : boardUrl(workspace.slug);
   const url = `${base.replace(/\/$/, "")}/jobs/${job.slug}`;
-  const title = `${job.title} at ${workspace.name}`;
-  const description = plainText(job.description).slice(0, 180) || `Apply for ${job.title} at ${workspace.name}.`;
+  const title = `${job.title} with ${workspace.name}`;
+  const description = plainText(job.description).slice(0, 180) || `Apply for ${job.title} with ${workspace.name}.`;
   const image = config.seo.socialImageUrl ?? config.hero.imageUrl ?? workspace.heroImageUrl ?? workspace.logoUrl ?? undefined;
   const favicon = config.seo.faviconUrl ?? workspace.logoUrl ?? HARLY_FAVICON;
   return {

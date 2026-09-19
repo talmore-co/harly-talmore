@@ -21,6 +21,8 @@ import {
 import { getSetupChecklist } from "@/features/dashboard/setup-checklist";
 import { getWorkspaceContext } from "@/features/workspaces/context";
 import { getOwnProfileAction } from "@/features/people/actions";
+import { getTeamDashboardCounts } from "@/features/dashboard/team-data";
+import { dashboardDay, dashboardTimeZone } from "@/features/dashboard/day";
 
 export const dynamic = "force-dynamic";
 
@@ -50,24 +52,21 @@ export default async function DashboardPage({
   const { job } = await searchParams;
   const { user } = await getWorkspaceContext();
   const profile = await getOwnProfileAction();
+  const timeZone = dashboardTimeZone(profile?.timezone);
+  const day = dashboardDay(timeZone);
   const firstName = (user.name ?? "").trim().split(/\s+/)[0] || "there";
 
-  const [inbox, interviews, pipeline, review, myTasks, performance, setup] =
+  const [inbox, interviews, pipeline, review, myTasks, performance, setup, counts] =
     await Promise.all([
       getInbox(),
-      getTodayInterviews(),
+      getTodayInterviews(timeZone, day),
       getPipelineOverview(job),
       getCandidatesNeedingReview(),
       getMyDashboardTasks(),
       getHiringPerformance(),
       getSetupChecklist(),
+      getTeamDashboardCounts(),
     ]);
-
-  const overdue = inbox.filter((item) => item.dueState === "overdue").length;
-  const activeCandidates = pipeline.stages.reduce(
-    (total, stage) => total + stage.count,
-    0,
-  );
 
   return (
     <div className="mx-auto w-full max-w-[1440px] pb-4">
@@ -76,8 +75,8 @@ export default async function DashboardPage({
         timeZone={profile?.timezone ?? null}
         initialNow={new Date().toISOString()}
         subline={buildSubline({
-          waiting: review.length,
-          overdue,
+          waiting: counts.screening,
+          replies: counts.replies,
           interviewsToday: interviews.length,
         })}
       />
@@ -90,29 +89,30 @@ export default async function DashboardPage({
       ) : null}
 
       <div className="mt-5">
+        <p className="mb-2 text-xs text-muted-foreground">Team overview · Applications across open jobs · Today in {timeZone}</p>
         <TriageStrip
           items={[
             {
-              label: "Awaiting your review",
-              value: review.length,
-              href: "/dashboard/candidates",
+              label: "New applications",
+              value: counts.screening,
+              href: "/dashboard/pipeline?jobId=all&stage=Applied",
               urgent: true,
             },
             {
-              label: "Overdue replies",
-              value: overdue,
-              href: "/dashboard/inbox",
+              label: "Conversations needing a reply",
+              value: counts.replies,
+              href: "/dashboard/inbox?filter=needs-reply",
               urgent: true,
             },
             {
               label: "Interviews today",
               value: interviews.length,
-              href: "/dashboard/calendars",
+              href: `/dashboard/calendars?day=${day}`,
             },
             {
-              label: "Candidates in pipeline",
-              value: activeCandidates,
-              href: "/dashboard/pipeline",
+              label: "Active applications",
+              value: counts.active,
+              href: "/dashboard/pipeline?jobId=all",
             },
           ]}
         />
@@ -121,7 +121,7 @@ export default async function DashboardPage({
       {/* The work itself , decisions first, and the widest column gets them. */}
       <section className="mt-4 grid gap-4 lg:grid-cols-5">
         <CandidatesNeedingReview candidates={review} className="lg:col-span-3" />
-        <TodayInterviews interviews={interviews} className="lg:col-span-2" />
+        <TodayInterviews interviews={interviews} timeZone={timeZone} calendarMonth={day.slice(0, 7)} className="lg:col-span-2" />
       </section>
 
       {/* Context for those decisions. */}

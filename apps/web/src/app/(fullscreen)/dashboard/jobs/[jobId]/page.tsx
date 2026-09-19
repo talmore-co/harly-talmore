@@ -1,4 +1,8 @@
 import { notFound } from "next/navigation";
+import { can } from "@/features/workspaces/permissions-server";
+import { listClientOptions } from "@/features/clients/actions";
+import { JobClientSelect } from "@/features/clients/JobClientSelect";
+import { RoleTakenOn } from "@/features/jobs/RoleTakenOn";
 import { ExternalLink } from "lucide-react";
 
 import { JobStatusBadge } from "@/components/ui/StatusBadge";
@@ -51,6 +55,7 @@ export default async function DashboardJobPage({
   }
 
   const { job } = result;
+  const clientOptions = await can("clients:view") && await can("clients:manage") ? await listClientOptions() : null;
   const appUrl = getHarlyPublicOrigin();
   const publicUrl = `${appUrl}/jobs/${job.slug}`;
 
@@ -73,6 +78,8 @@ export default async function DashboardJobPage({
       }
       railActions={
         <>
+          {clientOptions ? <JobClientSelect jobId={job.id} clientId={job.clientId} options={clientOptions} /> : null}
+          <RoleTakenOn key={`${job.id}:${job.takenOn}`} jobId={job.id} takenOn={job.takenOn} today={new Date().toISOString().slice(0, 10)} canEdit={await can("jobs:edit")} />
           <Button asChild variant="outline" size="sm" className="w-full justify-start">
             <a href={`/jobs/${job.slug}`} target="_blank" rel="noreferrer">
               <ExternalLink className="size-4" />

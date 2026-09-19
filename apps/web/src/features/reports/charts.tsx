@@ -65,9 +65,11 @@ function smoothPath(points: { x: number; y: number }[]): string {
     const p2 = points[i + 1];
     const p3 = points[i + 2 < points.length ? i + 2 : i + 1];
     const cp1x = p1.x + (p2.x - p0.x) / 6;
-    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const minY = Math.min(p1.y, p2.y), maxY = Math.max(p1.y, p2.y);
+    // Count charts must not overshoot into negative values between buckets.
+    const cp1y = Math.max(minY, Math.min(maxY, p1.y + (p2.y - p0.y) / 6));
     const cp2x = p2.x - (p3.x - p1.x) / 6;
-    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    const cp2y = Math.max(minY, Math.min(maxY, p2.y - (p3.y - p1.y) / 6));
     d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
   }
   return d;

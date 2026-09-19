@@ -11,11 +11,12 @@ const CANONICAL_STAGES = [
   "Applied",
   "Screening",
   "Interview",
+  "Submitted",
   "Offer",
   "Hired",
 ] as const;
 
-const REJECTED = new Set(["rejected", "declined", "withdrawn"]);
+const REJECTED = new Set(["rejected", "rejected by client", "declined", "withdrawn"]);
 const HIRED = new Set(["hired"]);
 
 type PipelineSpineProps = {
@@ -42,7 +43,7 @@ export function PipelineSpine({
   const position = activeIndex >= 0 ? activeIndex + 1 : 0;
 
   const label = isRejected
-    ? "Rejected"
+    ? normalized === "rejected by client" ? "Rejected by client" : "Rejected"
     : activeIndex >= 0
       ? stages[activeIndex]
       : current;
@@ -54,7 +55,7 @@ export function PipelineSpine({
         role="img"
         aria-label={
           isRejected
-            ? "Rejected"
+            ? label
             : position > 0
               ? `Stage: ${label} (${position} of ${total})`
               : `Stage: ${label}`

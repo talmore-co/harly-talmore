@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export type ScoreSort = "manual" | "questionnaireScore" | "aiScore";
+export type ScoreSort = "manual" | "newest" | "oldest" | "questionnaireScore" | "aiScore";
 type Scores = { questionnaireScore?: number | null; aiScore?: number | null };
 
 export function PipelineScores({ application }: { application: Scores }) {
@@ -56,7 +56,11 @@ export function matchesScoreFilters(
   );
 }
 
-export function compareScores(a: Scores, b: Scores, sort: ScoreSort) {
+export function compareScores(a: Scores & { appliedAt?: string }, b: Scores & { appliedAt?: string }, sort: ScoreSort) {
+  if (sort === "newest" || sort === "oldest") {
+    const difference = new Date(b.appliedAt ?? 0).getTime() - new Date(a.appliedAt ?? 0).getTime();
+    return sort === "newest" ? difference : -difference;
+  }
   return sort === "manual" ? 0 : (b[sort] ?? -1) - (a[sort] ?? -1);
 }
 
@@ -67,7 +71,8 @@ export function PipelineScoreControls({
   onQuestionnaire,
   ai,
   onAi,
-  evaluationAction,
+  inline = false,
+  allowManual = true,
 }: {
   sort: ScoreSort;
   onSort: (value: ScoreSort) => void;
@@ -75,10 +80,11 @@ export function PipelineScoreControls({
   onQuestionnaire: (value: string) => void;
   ai: string;
   onAi: (value: string) => void;
-  evaluationAction?: React.ReactNode;
+  inline?: boolean;
+  allowManual?: boolean;
 }) {
   return (
-    <div className="flex flex-wrap items-end gap-3">
+    <div className={inline ? "contents" : "flex flex-wrap items-end gap-3"}>
       <label className="flex flex-col gap-1 text-xs text-muted-foreground">
         <span>Sort by</span>
         <Select
@@ -89,7 +95,9 @@ export function PipelineScoreControls({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="manual">Manual pipeline order</SelectItem>
+            {allowManual ? <SelectItem value="manual">Manual pipeline order</SelectItem> : null}
+            <SelectItem value="newest">Newest applications first</SelectItem>
+            <SelectItem value="oldest">Oldest applications first</SelectItem>
             <SelectItem value="questionnaireScore">
               Questionnaire: highest first
             </SelectItem>
@@ -117,7 +125,6 @@ export function PipelineScoreControls({
           />
         </label>
       ))}
-      {evaluationAction}
     </div>
   );
 }

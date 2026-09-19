@@ -520,7 +520,7 @@ export function CategoryDialog({
   open,
   onOpenChange,
 }: {
-  data: DocumentHubData;
+  data: Pick<DocumentHubData, "categories">;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {

@@ -51,7 +51,7 @@ export function TemplateEditorPage({ template, workspaceName, starter }: { templ
         return;
       }
       toast.success(template ? "Template updated" : "Template created");
-      router.push("/dashboard/templates");
+      router.push("/settings/templates");
       router.refresh();
     });
   }
@@ -60,10 +60,10 @@ export function TemplateEditorPage({ template, workspaceName, starter }: { templ
     <div className="flex h-dvh w-full flex-col overflow-hidden bg-background">
       <header className="shrink-0 border-b bg-background">
         <div className="grid h-16 grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 sm:px-6">
-          <Link href="/dashboard/templates" className="w-fit text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">← Templates</Link>
+          <Link href="/settings/templates" className="w-fit text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">← Templates</Link>
           <h1 className="text-base font-semibold">{template ? "Edit template" : "New template"}</h1>
           <div className="flex justify-self-end gap-2">
-            <Link href="/dashboard/templates" className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground">Cancel</Link>
+            <Link href="/settings/templates" className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground">Cancel</Link>
             <Button onClick={save} disabled={pending || !name.trim() || !subject.trim() || !body.trim()}>{pending ? "Saving…" : "Save template"}</Button>
           </div>
         </div>

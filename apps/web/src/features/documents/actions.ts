@@ -658,6 +658,7 @@ export async function createDocumentCategory(input: { name: string; accent?: str
     return { ok: false, error: "A category with that name already exists." };
   }
   revalidatePath("/dashboard/documents");
+  revalidatePath("/settings/documents");
   return { ok: true };
 }
 
@@ -669,6 +670,7 @@ export async function updateDocumentCategory(input: { categoryId: string; name: 
   if (!parsed.success) return { ok: false, error: "Invalid category." };
   await db.update(documentCategories).set({ name: parsed.data.name, slug: slugifyDocumentCategory(parsed.data.name), accent: parsed.data.accent || "pine", active: parsed.data.active }).where(and(eq(documentCategories.id, input.categoryId), eq(documentCategories.workspaceId, context.organization.id)));
   revalidatePath("/dashboard/documents");
+  revalidatePath("/settings/documents");
   return { ok: true };
 }
 

@@ -6,22 +6,21 @@ import type { PipelineOverview } from "@/features/dashboard/widgets";
 import { Tile, TileHeader, EmptyHint } from "./primitives";
 import { PipelineJobSelect } from "./PipelineJobSelect";
 
-/**
- * Funnel lanes, Applied → Hired.
- *
- * Deliberate exception to DESIGN.md's single-accent rule, scoped to this widget
- * only: five stages read as one blur in mono progression, and this card exists
- * specifically to be scanned at a glance. Distinct hues per stage, chosen close
- * in value so no single stage reads as a second brand accent; Hired keeps the
- * chartreuse signal since it's the one genuinely live event in the sequence.
- */
-const LANE_COLORS = [
-  "#8a8f98", // Applied , stone
-  "#5b8def", // Screening , pine-blue
-  "#e8a33d", // Interview , burnt orange
-  "#a875e0", // Offer , violet
-  "#c8f560", // Hired , chartreuse signal
-];
+// Color belongs to the stage, not its position in a job's pipeline.
+const LANE_COLORS: Record<string, string> = {
+  applied: "#8a8f98",
+  screening: "#5b8def",
+  interview: "#e8a33d",
+  submitted: "#a875e0",
+  offer: "#32a89b",
+  hired: "#c8f560",
+  rejected: "#d46b5e",
+  "rejected by client": "#b44f78",
+};
+
+function stageColor(stage: PipelineOverview["stages"][number]) {
+  return LANE_COLORS[stage.name.trim().toLowerCase()] ?? stage.color ?? "#8a8f98";
+}
 
 export function PipelineOverviewCard({
   data,
@@ -56,14 +55,14 @@ export function PipelineOverviewCard({
             {/* Segmented funnel bar */}
             <div className="flex h-2.5 w-full gap-1 overflow-hidden">
               {data.total > 0 ? (
-                data.stages.map((stage, i) =>
+                data.stages.map((stage) =>
                   stage.count > 0 ? (
                     <div
                       key={stage.name}
                       className="h-full rounded-full"
                       style={{
                         width: `${(stage.count / data.total) * 100}%`,
-                        backgroundColor: LANE_COLORS[i % LANE_COLORS.length],
+                        backgroundColor: stageColor(stage),
                       }}
                     />
                   ) : null,
@@ -74,24 +73,24 @@ export function PipelineOverviewCard({
             </div>
 
             {/* Stage counts */}
-            <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-5">
-              {data.stages.map((stage, i) => (
-                <div key={stage.name} className="min-w-0">
-                  <div className="flex items-center gap-1.5">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]">
+              {data.stages.map((stage) => (
+                <Link key={stage.name} href={`/dashboard/pipeline?jobId=${data.selected!.id}&stage=${encodeURIComponent(stage.name)}`} className="min-w-0 rounded-md p-1 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <div className="flex items-start gap-1.5">
                     <span
-                      className="size-2 shrink-0 rounded-full"
+                      className="mt-1 size-2 shrink-0 rounded-full"
                       style={{
-                        backgroundColor: LANE_COLORS[i % LANE_COLORS.length],
+                        backgroundColor: stageColor(stage),
                       }}
                     />
-                    <span className="truncate text-xs text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {stage.name}
                     </span>
                   </div>
                   <p className="mt-1 text-xl font-semibold tabular-nums">
                     {stage.count}
                   </p>
-                </div>
+                </Link>
               ))}
             </div>
 

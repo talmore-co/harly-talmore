@@ -28,7 +28,7 @@ export function MinimalTemplate({
   portalEnabled?: boolean;
 }) {
   const accent = config.theme.accent ?? workspace.primaryColor;
-  const headline = config.hero.headline || `Careers at ${workspace.name}`;
+  const headline = config.hero.headline || `Careers with ${workspace.name}`;
   const subhead = config.hero.subhead;
   const ctaText = config.hero.ctaButtonText || "View jobs";
 

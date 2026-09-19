@@ -67,13 +67,15 @@ export function AttributionControls({
   query,
   onChange,
   applications,
+  inline = false,
 }: {
   query: string;
   onChange: (value: string) => void;
   applications: PipelineApplication[];
+  inline?: boolean;
 }) {
   return (
-    <div className="flex flex-wrap items-end gap-3">
+    <div className={inline ? "contents" : "flex flex-wrap items-end gap-3"}>
       <label className="flex flex-col gap-1 text-xs text-muted-foreground">
         <span>Attribution</span>
         <Input

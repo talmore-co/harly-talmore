@@ -14,14 +14,22 @@ export function statusForStageName(
 ): PipelineApplicationStatus {
   const normalized = stageName.trim().toLowerCase();
   if (normalized === "hired") return "hired";
-  if (normalized === "rejected") return "rejected";
+  if (normalized === "rejected" || normalized === "rejected by client") return "rejected";
   return "active";
 }
 
 export function terminalStageNameForStatus(
   status: PipelineApplicationStatus,
+  rejectionSource: "agency" | "client" = "agency",
 ) {
   if (status === "hired") return "Hired";
-  if (status === "rejected") return "Rejected";
+  if (status === "rejected") return rejectionSource === "client" ? "Rejected by client" : "Rejected";
+  return null;
+}
+
+export function rejectionSourceForStageName(name: string): "agency" | "client" | null {
+  const normalized = name.trim().toLowerCase();
+  if (normalized === "rejected by client") return "client";
+  if (normalized === "rejected") return "agency";
   return null;
 }

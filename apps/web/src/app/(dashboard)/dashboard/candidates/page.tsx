@@ -1,5 +1,4 @@
-import Link from "next/link";
-import type { Route } from "next";
+import { DirectoryNavigation } from "@/features/candidates/DirectoryNavigation";
 import { Trash2, Users } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -29,7 +28,6 @@ import { getWorkspaceContext } from "@/features/workspaces/context";
 import { can } from "@/features/workspaces/permissions-server";
 import { candidateAvatarFallbackSrcs } from "@/lib/candidate-avatar";
 import { formatRelative, formatShort } from "@/lib/date";
-import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -140,17 +138,7 @@ const initialImportSource: ImportSource | undefined =
 
   return (
     <div className="space-y-5">
-      <div className="flex w-fit items-center gap-1 rounded-lg border bg-card p-1 text-sm">
-        <Tab href="/dashboard/candidates" active={!isTrash}>
-          All
-          <span className="ml-1.5 tabular-nums text-muted-foreground">{rows.length}</span>
-        </Tab>
-        <Tab href="/dashboard/candidates?view=trash" active={isTrash}>
-          <Trash2 className="size-3.5" />
-          Trash
-          <span className="ml-1.5 tabular-nums text-muted-foreground">{trashed.length}</span>
-        </Tab>
-      </div>
+      <DirectoryNavigation active={isTrash ? "trash" : "all"} />
 
       {isTrash ? (
         trashed.length > 0 ? (
@@ -234,29 +222,5 @@ const initialImportSource: ImportSource | undefined =
         />
       )}
     </div>
-  );
-}
-
-function Tab({
-  href,
-  active,
-  children,
-}: {
-  href: string;
-  active: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href as Route}
-      className={cn(
-        "flex items-center gap-1 rounded-md px-3 py-1.5 font-medium transition",
-        active
-          ? "bg-primary/10 text-primary"
-          : "text-muted-foreground hover:bg-accent hover:text-foreground",
-      )}
-    >
-      {children}
-    </Link>
   );
 }

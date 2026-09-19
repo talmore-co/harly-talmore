@@ -44,9 +44,8 @@ export function InboxCard({
     <Tile className={className}>
       <TileHeader
         icon={Inbox}
-        title="Your inbox"
-        count={items.length}
-        action={<TileLink href="/dashboard/inbox">View all</TileLink>}
+        title="Recruiting follow-ups"
+        action={<TileLink href="/dashboard/pipeline?jobId=all">Pipeline</TileLink>}
       />
       <div className="flex flex-1 flex-col px-2 pb-2 pt-1">
         {items.length > 0 ? (

@@ -1,4 +1,6 @@
 import "server-only";
+import { z } from "zod";
+import { teamApplicationWhere } from "@/features/dashboard/team-data";
 
 import {
   and,
@@ -20,6 +22,7 @@ import {
   applicationStageHistory,
   candidateReferrals,
   candidates,
+  clients,
   jobs,
   jobStages,
 } from "@harly/db";
@@ -34,6 +37,8 @@ export type PipelineJobOption = {
 };
 
 export type PipelineStage = {
+  jobId?: string;
+  jobTitle?: string;
   id: string;
   name: string;
   color: string | null;
@@ -44,6 +49,7 @@ export type PipelineStage = {
 };
 
 export type PipelineApplication = {
+  clientName?: string | null;
   id: string;
   workspaceId: string;
   jobId: string;
@@ -185,6 +191,7 @@ export async function getNextStage(
 
 export async function getPipelineData(
   requestedJobId: string | undefined,
+  clientId?: string,
 ): Promise<PipelineData> {
   const { organization: workspace } = await getWorkspaceContext();
   const latestStageMove = db
@@ -221,22 +228,26 @@ export async function getPipelineData(
   const defaultJobId =
     requestedJob?.id ?? (await getDefaultPipelineJobId(workspace.id));
   const selectedJob =
-    jobOptions.find((job) => job.id === defaultJobId) ?? jobOptions[0];
+    requestedJobId === "all" ? { id: "all", title: "All open jobs", status: "open" as const } : jobOptions.find((job) => job.id === defaultJobId) ?? jobOptions[0];
+  const allJobs = selectedJob.id === "all";
 
   const [stages, jobApplications] = await Promise.all([
     db
       .select({
         id: jobStages.id,
+        jobId: jobStages.jobId,
+        jobTitle: jobs.title,
         name: jobStages.name,
         color: jobStages.color,
         order: jobStages.order,
         emailConfig: jobStages.emailConfig,
       })
       .from(jobStages)
+      .innerJoin(jobs, eq(jobs.id, jobStages.jobId))
       .where(
         and(
           eq(jobStages.workspaceId, workspace.id),
-          eq(jobStages.jobId, selectedJob.id),
+          allJobs ? and(eq(jobs.status, "open"), isNull(jobs.deletedAt)) : eq(jobStages.jobId, selectedJob.id),
         ),
       )
       .orderBy(asc(jobStages.order)),
@@ -246,6 +257,7 @@ export async function getPipelineData(
         workspaceId: applications.workspaceId,
         jobId: applications.jobId,
         jobTitle: jobs.title,
+        clientName: clients.name,
         candidateId: candidates.id,
         currentStageId: applications.currentStageId,
         pipelineOrder: applications.pipelineOrder,
@@ -286,6 +298,7 @@ export async function getPipelineData(
         ),
       )
       .leftJoin(latestStageMove, eq(latestStageMove.applicationId, applications.id))
+      .leftJoin(clients, and(eq(clients.id, jobs.clientId), eq(clients.workspaceId, workspace.id)))
       .leftJoin(
         aiEvaluations,
         and(
@@ -296,7 +309,10 @@ export async function getPipelineData(
       .where(
         and(
           eq(applications.workspaceId, workspace.id),
-          eq(applications.jobId, selectedJob.id),
+          allJobs ? eq(jobs.status, "open") : eq(applications.jobId, selectedJob.id),
+          isNull(candidates.deletedAt),
+          allJobs ? teamApplicationWhere(workspace.id, false) : undefined,
+          allJobs && z.uuid().safeParse(clientId).success ? eq(jobs.clientId, clientId!) : undefined,
         ),
       )
       .orderBy(asc(applications.pipelineOrder), desc(applications.appliedAt)),

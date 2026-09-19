@@ -105,6 +105,7 @@ export async function createEmailTemplate(input: {
   }
 
   revalidatePath("/dashboard/templates");
+  revalidatePath("/settings/templates");
   return { success: true };
 }
 
@@ -215,6 +216,7 @@ export async function updateEmailTemplate(input: {
   }
 
   revalidatePath("/dashboard/templates");
+  revalidatePath("/settings/templates");
   return { success: true };
 }
 
@@ -326,6 +328,7 @@ export async function setActiveEmailTemplate(input: {
   });
 
   revalidatePath("/dashboard/templates");
+  revalidatePath("/settings/templates");
   return { success: true };
 }
 
@@ -365,5 +368,6 @@ export async function deleteEmailTemplate(input: {
   });
 
   revalidatePath("/dashboard/templates");
+  revalidatePath("/settings/templates");
   return { success: true };
 }
