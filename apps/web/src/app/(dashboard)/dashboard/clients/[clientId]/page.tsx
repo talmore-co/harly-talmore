@@ -1,36 +1,92 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, asc, eq, isNull } from "drizzle-orm";
-import { clients, jobs, db } from "@harly/db";
+import { and, eq } from "drizzle-orm";
+import { clients, db } from "@harly/db";
 import { z } from "zod";
-import { can, requireJobPermission, requirePermission } from "@/features/workspaces/permissions-server";
+import {
+  can,
+  requirePermission,
+} from "@/features/workspaces/permissions-server";
 import { ClientEditor } from "@/features/clients/ClientEditor";
-import { JobClientSelect } from "@/features/clients/JobClientSelect";
-import { listClientOptions } from "@/features/clients/actions";
+import { listJobsWithStats } from "@/features/jobs/data";
+import { JobsTable } from "@/features/jobs/JobsTable";
 
-export default async function ClientPage({ params }: { params: Promise<{ clientId: string }> }) {
+export default async function ClientPage({
+  params,
+}: {
+  params: Promise<{ clientId: string }>;
+}) {
   const { clientId } = await params;
   if (!z.uuid().safeParse(clientId).success) notFound();
   const context = await requirePermission("clients:view");
-  const [client] = await db.select().from(clients).where(and(eq(clients.workspaceId, context.organization.id), eq(clients.id, clientId)));
+  const [client] = await db
+    .select()
+    .from(clients)
+    .where(
+      and(
+        eq(clients.workspaceId, context.organization.id),
+        eq(clients.id, clientId),
+      ),
+    );
   if (!client) notFound();
-  const canManage = await can("clients:manage");
-  const options = canManage ? await listClientOptions() : [];
-  const allJobs = await db.select({ id: jobs.id, title: jobs.title, clientId: jobs.clientId, status: jobs.status }).from(jobs).where(and(eq(jobs.workspaceId, context.organization.id), isNull(jobs.deletedAt))).orderBy(asc(jobs.title));
-  const accessible = (await Promise.all(allJobs.map(async (job) => {
-    const allowed = async (permission: "jobs:view" | "jobs:edit") => {
-      try { await requireJobPermission(permission, job.id, context); return true; }
-      catch (error) {
-        if (error instanceof Error && ["You do not have permission to perform this action.", "You do not have access to this job.", "You are not assigned to this job.", "Job not found."].includes(error.message)) return false;
-        throw error;
-      }
-    };
-    if (!await allowed("jobs:view")) return null;
-    return { ...job, editable: canManage && await allowed("jobs:edit") };
-  }))).filter((job) => job !== null);
-  return <div className="space-y-6"><Link href="/dashboard/clients" className="text-sm underline">Clients</Link><h1 className="text-xl font-semibold">{client.name}{client.archivedAt ? " · Archived" : ""}</h1><p className="text-sm text-muted-foreground">Client information is internal. Public vacancies use Talmore branding.</p>
-    <Link className="inline-block text-sm underline" href={`/dashboard/pipeline?jobId=all&clientId=${client.id}`}>View active applications for this client</Link>
-    <ClientEditor client={{ ...client, archived: Boolean(client.archivedAt) }} canManage={canManage} />
-    <section className="max-w-3xl space-y-3"><h2 className="text-lg font-semibold">Jobs</h2>{accessible.filter((job) => job.clientId === client.id || (!job.clientId && job.editable && !client.archivedAt)).map((job) => <div key={job.id} className="space-y-3 rounded-lg border p-4"><Link className="font-medium underline" href={`/dashboard/jobs/${job.id}`}>{job.title}</Link><p className="text-sm text-muted-foreground">{job.status} · {job.clientId === client.id ? "Linked to this client" : "Not linked to a client"}</p>{job.editable ? <JobClientSelect jobId={job.id} clientId={job.clientId} options={options} /> : null}</div>)}<p className="text-xs text-muted-foreground">Link existing jobs above, or select a client from the job editor after creating a job.</p></section>
-  </div>;
+  const canManage = await can("clients:manage"),
+    canViewJobs = await can("jobs:view");
+  const jobs = canViewJobs ? await listJobsWithStats(client.id) : [];
+  return (
+    <div className="space-y-6">
+      <Link href="/dashboard/clients" className="text-sm underline">
+        Clients
+      </Link>
+      <h1 className="text-xl font-semibold">
+        {client.name}
+        {client.archivedAt ? " · Archived" : ""}
+      </h1>
+      <p className="text-sm text-muted-foreground">
+        Client information is internal. Public vacancies use Talmore branding.
+      </p>
+      {canViewJobs ? (
+        <Link
+          className="inline-block text-sm underline"
+          href={`/dashboard/pipeline?jobId=all&clientId=${client.id}`}
+        >
+          View active applications for this client
+        </Link>
+      ) : null}
+      <ClientEditor
+        client={{ ...client, archived: Boolean(client.archivedAt) }}
+        canManage={canManage}
+      />
+      {canViewJobs ? (
+        <section className="space-y-4 border-t pt-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">Jobs</h2>
+              <p className="text-sm text-muted-foreground">
+                Only jobs linked to {client.name}. Open jobs are active; draft
+                and closed jobs are inactive.
+              </p>
+            </div>
+            <Link
+              className="text-sm underline"
+              href={`/dashboard/jobs?clientId=${client.id}`}
+            >
+              View in Jobs
+            </Link>
+          </div>
+          {jobs.length ? (
+            <JobsTable jobs={jobs} showClient={false} />
+          ) : (
+            <p className="rounded-xl border p-6 text-sm text-muted-foreground">
+              No jobs are linked to this client that you can access.
+            </p>
+          )}
+          {canManage ? (
+            <p className="text-xs text-muted-foreground">
+              To link a job, select this client in the job editor.
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+    </div>
+  );
 }

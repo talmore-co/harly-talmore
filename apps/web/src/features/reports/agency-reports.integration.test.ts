@@ -20,6 +20,7 @@ vi.mock("@/features/workspaces/context", () => ({
   getWorkspaceContext: mocks.context,
 }));
 import { getAgencyReports } from "./agency-data";
+import { listJobsWithStats, listTrashedJobs } from "@/features/jobs/data";
 import { saveRoleTakenOn } from "@/features/jobs/taken-on-actions";
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
@@ -144,6 +145,24 @@ integration("agency report queries and scope", () => {
         },
       },
       { workspaceId, key: "no-reports", name: "No reports", permissions: [] },
+      {
+        workspaceId,
+        key: "job-assigned",
+        name: "Assigned job reader",
+        permissions: ["jobs:view"],
+        scope: { jobAccess: "assigned" },
+      },
+      {
+        workspaceId,
+        key: "job-department",
+        name: "Department job reader",
+        permissions: ["jobs:view"],
+        scope: {
+          jobAccess: "all",
+          departments: ["operations"],
+          regions: ["ph"],
+        },
+      },
     ]);
     await db
       .insert(jobHiringTeam)
@@ -230,6 +249,30 @@ integration("agency report queries and scope", () => {
       expect(data.summary.applications).toBe(1);
       expect(data.options.jobs.map((row) => row.id)).toEqual([jobIds[0]]);
       expect((await getAgencyReports({ job: jobIds[1] })).records).toEqual([]);
+    }
+  });
+  it("limits client job lists and filter options to accessible linked jobs", async () => {
+    owner();
+    expect((await listJobsWithStats(clientId)).map((job) => job.id)).toEqual([
+      jobIds[0],
+    ]);
+    expect((await listJobsWithStats()).map((job) => job.id).sort()).toEqual(
+      jobIds.slice(0, 2).sort(),
+    );
+    expect((await listTrashedJobs()).map((job) => job.id)).toEqual([jobIds[2]]);
+    expect((await listJobsWithStats(clientId))[0].clientName).toBe(
+      "Fictional report client",
+    );
+    for (const roleKey of ["job-assigned", "job-department"]) {
+      mocks.context.mockResolvedValue({
+        organization: { id: workspaceId },
+        user: { id: userId },
+        roleKey,
+      });
+      expect((await listJobsWithStats()).map((job) => job.id)).toEqual([
+        jobIds[0],
+      ]);
+      expect(await listTrashedJobs()).toEqual([]);
     }
   });
   it("requires report permission and removes trashed candidates from totals", async () => {

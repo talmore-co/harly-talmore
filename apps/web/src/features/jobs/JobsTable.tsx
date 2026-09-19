@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { Search } from "lucide-react";
@@ -12,12 +12,11 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FilterPill, FILTER_ALL } from "@/components/ui/FilterPill";
 import { JobIdentity } from "@/features/jobs/JobIdentity";
-import {
-  formatEmploymentType,
-  formatWorkplaceType,
-} from "@/lib/format";
+import { formatEmploymentType, formatWorkplaceType } from "@/lib/format";
 
 export type JobRow = {
+  clientId: string | null;
+  clientName: string | null;
   id: string;
   title: string;
   slug: string;
@@ -40,10 +39,11 @@ function uniqueSorted(values: (string | null)[]) {
   ).sort((a, b) => a.localeCompare(b));
 }
 
-const STATUS_OPTIONS = ["draft", "open", "closed"];
+const STATUS_OPTIONS = ["open", "inactive", "draft", "closed"];
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
-  open: "Open",
+  open: "Active (open)",
+  inactive: "Inactive",
   closed: "Closed",
 };
 
@@ -58,7 +58,15 @@ const SORT_LABELS: Record<string, string> = {
   title: "Title A–Z",
 };
 
-export function JobsTable({ jobs }: { jobs: JobRow[] }) {
+export function JobsTable({
+  jobs,
+  clientFilter,
+  showClient = true,
+}: {
+  jobs: JobRow[];
+  clientFilter?: ReactNode;
+  showClient?: boolean;
+}) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState(FILTER_ALL);
   const [dept, setDept] = useState(FILTER_ALL);
@@ -75,17 +83,28 @@ export function JobsTable({ jobs }: { jobs: JobRow[] }) {
     const q = query.trim().toLowerCase();
     const base = jobs.filter((j) => {
       if (q) {
-        const haystack = [j.title, j.department, j.location]
+        const haystack = [
+          j.title,
+          j.department,
+          j.location,
+          ...(showClient ? [j.clientName] : []),
+        ]
           .filter(Boolean)
           .join(" ")
           .toLowerCase();
         if (!haystack.includes(q)) return false;
       }
-      if (status !== FILTER_ALL && j.status !== status) return false;
+      if (
+        status === "inactive"
+          ? j.status === "open"
+          : status !== FILTER_ALL && j.status !== status
+      )
+        return false;
       if (dept !== FILTER_ALL && j.department !== dept) return false;
       if (employment !== FILTER_ALL && j.employmentType !== employment)
         return false;
-      if (workplace !== FILTER_ALL && j.workplaceType !== workplace) return false;
+      if (workplace !== FILTER_ALL && j.workplaceType !== workplace)
+        return false;
       return true;
     });
 
@@ -96,7 +115,7 @@ export function JobsTable({ jobs }: { jobs: JobRow[] }) {
         return a.createdAt.getTime() - b.createdAt.getTime();
       return b.createdAt.getTime() - a.createdAt.getTime();
     });
-  }, [jobs, query, status, dept, employment, workplace, sortKey]);
+  }, [jobs, query, status, dept, employment, workplace, sortKey, showClient]);
 
   const maxApplicants = Math.max(1, ...filtered.map((j) => j.applicants));
 
@@ -123,13 +142,19 @@ export function JobsTable({ jobs }: { jobs: JobRow[] }) {
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search jobs by title, department or location…"
+          aria-label="Search jobs"
+          placeholder={
+            showClient
+              ? "Search jobs by title, client, department or location…"
+              : "Search this client’s jobs…"
+          }
           className="h-11 rounded-full pl-11"
         />
       </div>
 
       {/* Filter pills */}
       <div className="flex flex-wrap items-center gap-2">
+        {clientFilter}
         <FilterPill
           label="Status"
           value={status}
@@ -203,6 +228,11 @@ export function JobsTable({ jobs }: { jobs: JobRow[] }) {
                 department={job.department}
                 location={job.location}
               />
+              {showClient ? (
+                <p className="mt-1 truncate text-xs text-muted-foreground">
+                  {job.clientName ?? "No client assigned"}
+                </p>
+              ) : null}
             </Link>
 
             <div className="hidden text-xs text-muted-foreground sm:block">
@@ -226,7 +256,9 @@ export function JobsTable({ jobs }: { jobs: JobRow[] }) {
               <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
                 <div
                   className="h-full rounded-full bg-primary/70"
-                  style={{ width: `${(job.applicants / maxApplicants) * 100}%` }}
+                  style={{
+                    width: `${(job.applicants / maxApplicants) * 100}%`,
+                  }}
                 />
               </div>
               <p className="mt-1 text-[0.65rem] text-muted-foreground">

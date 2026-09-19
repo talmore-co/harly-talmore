@@ -36,6 +36,7 @@ export function FilterPill({
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger
+        aria-label={`${label}: ${display}`}
         size="sm"
         className={cn(
           // Soft kraft fill, no visible border at rest (DESIGN.md , Filter Chip

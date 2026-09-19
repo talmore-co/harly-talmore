@@ -14,10 +14,18 @@ also requires `jobs:edit` and access to that job. Client detail pages only show
 jobs the viewer can access. Company-directory access is workspace-wide, separate
 from job assignment. Client contacts are external contacts, not ATS users.
 
-Use the job editor's **Client · internal** selector, or the job list on a client
-page, to link a saved job. This saves independently of the job form. A null
+Use the job editor's **Client · internal** selector to link a saved job.
+This saves independently of the job form. A null
 client means an internal or not-yet-assigned vacancy. Cross-workspace links are
 rejected by both the action and a composite database foreign key.
+
+Jobs has a URL-backed client filter, including No client assigned, and displays
+each job's client. The selection applies to summary cards, list and Trash and
+survives switching between All jobs and Trash. Options come only from jobs the
+viewer can access. A client's detail page shows only that client's linked jobs
+in the same searchable list, with Open, Draft and Closed badges. Open is active;
+the Inactive status filter includes draft and closed jobs. Unlinked jobs are
+assigned through the job editor rather than mixed into the client's list.
 
 Client IDs are stripped from public job projections. Public pages retain Talmore
 branding and use “with Talmore” rather than “at Talmore” in default wording.
@@ -80,14 +88,15 @@ offer or terms are copied into outbound messages or portal records.
 Dashboard and report offer acceptance use accepted / (accepted + declined)
 recorded offers, including client-issued offers. Pending/withdrawn offers and
 hires without offers do not change that ratio. The dashboard uses decision dates
-for its two 14-day periods; the Reports summary retains its all-time scope.
+for its two 14-day periods; Reports uses its selected date period.
 Do not record the same offer in both workflows or it will count twice.
 
 The canonical hiring-event query uses the entered hire date where present,
 otherwise the existing first Hired transition. This feeds dashboard/report hire
 counts and time-to-hire. A date-only hire is represented at UTC midnight for
-report aggregation. Broader client submission/placement reports and start-date
-tracking are future work.
+report aggregation. Client/job delivery, source quality and first-submission
+speed are documented in `agency-reports.md`. Structured employment-start tracking
+remains future work.
 
 ## Verification
 

@@ -22,6 +22,7 @@ export async function saveClient(input: z.input<typeof clientSchema>) {
       : await db.insert(clients).values({ ...values, workspaceId: organization.id }).returning({ id: clients.id });
     if (!row) return { success: false as const, error: "Client not found." };
     revalidatePath("/dashboard/clients", "layout");
+    revalidatePath("/dashboard/jobs");
     return { success: true as const, id: row.id };
   } catch { return { success: false as const, error: "Could not save client. Check the fields and your permissions." }; }
 }
@@ -49,7 +50,7 @@ export async function linkJobClient(jobId: string, clientId: string | null) {
       }
       await tx.update(jobs).set({ clientId, updatedAt: new Date() }).where(and(eq(jobs.id, jobId), eq(jobs.workspaceId, context.organization.id), isNull(jobs.deletedAt)));
     });
-    revalidatePath("/dashboard/clients", "layout"); revalidatePath(`/dashboard/jobs/${jobId}`); revalidatePath("/dashboard/pipeline");
+    revalidatePath("/dashboard/clients", "layout"); revalidatePath("/dashboard/jobs"); revalidatePath(`/dashboard/jobs/${jobId}`); revalidatePath("/dashboard/pipeline");
     return { success: true };
   } catch { return { success: false, error: "Could not link client. Check client status and job access." }; }
 }

@@ -5,6 +5,8 @@ import {
   asc,
   desc,
   eq,
+  exists,
+  inArray,
   gte,
   isNotNull,
   isNull,
@@ -21,6 +23,7 @@ import {
   applicationQuestions,
   applications,
   candidateReferrals,
+  clients,
   jobHiringTeam,
   jobStages,
   jobs,
@@ -42,6 +45,7 @@ import { normalizeCareerPageConfig } from "@/features/career-page/config";
 import type { JobFormValues, JobStatus } from "./validation";
 import { publicJobApplicationConfig } from "./config";
 import { withoutEvaluationGuidance } from "./public-job";
+import { getRolePolicy, requirePermission } from "@/features/workspaces/permissions-server";
 
 // Branding is sourced from the Better Auth `organization` (name/slug/logo) plus
 // the `workspace_settings` satellite (board theming). Left join so a workspace
@@ -199,8 +203,19 @@ export async function listJobOptions() {
 }
 
 /** Jobs list enriched with per-role applicant counts for the dashboard table. */
-export async function listJobsWithStats() {
-  const { organization: workspace } = await getWorkspaceContext();
+async function jobListAccess() {
+  const context = await requirePermission("jobs:view");
+  const policy = await getRolePolicy(context.organization.id, context.roleKey);
+  return { workspace: context.organization, where: and(
+    eq(jobs.workspaceId, context.organization.id),
+    policy.scope.departments.length ? inArray(sql`lower(${jobs.department})`, policy.scope.departments.map((value) => value.toLowerCase())) : undefined,
+    policy.scope.regions.length ? inArray(sql`lower(${jobs.jobLocationRegion})`, policy.scope.regions.map((value) => value.toLowerCase())) : undefined,
+    policy.scope.jobAccess === "assigned" ? exists(db.select({ id: jobHiringTeam.id }).from(jobHiringTeam).where(and(eq(jobHiringTeam.workspaceId, context.organization.id), eq(jobHiringTeam.jobId, jobs.id), eq(jobHiringTeam.userId, context.user.id)))) : undefined,
+  ) };
+}
+
+export async function listJobsWithStats(clientId?: string) {
+  const { workspace, where } = await jobListAccess();
   // Bind as ISO string , the raw sql template can't parametrize a JS Date here.
   const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
 
@@ -209,6 +224,8 @@ export async function listJobsWithStats() {
       id: jobs.id,
       title: jobs.title,
       slug: jobs.slug,
+      clientId: jobs.clientId,
+      clientName: clients.name,
       department: jobs.department,
       location: jobs.location,
       employmentType: jobs.employmentType,
@@ -220,6 +237,7 @@ export async function listJobsWithStats() {
       newApplicants: sql<number>`count(*) filter (where ${applications.appliedAt} >= ${weekAgo}::timestamptz)::int`,
     })
     .from(jobs)
+    .leftJoin(clients, and(eq(clients.id, jobs.clientId), eq(clients.workspaceId, workspace.id)))
     .leftJoin(
       applications,
       and(
@@ -227,8 +245,8 @@ export async function listJobsWithStats() {
         eq(applications.jobId, jobs.id),
       ),
     )
-    .where(and(eq(jobs.workspaceId, workspace.id), isNull(jobs.deletedAt)))
-    .groupBy(jobs.id)
+    .where(and(where, isNull(jobs.deletedAt), clientId ? eq(jobs.clientId, clientId) : undefined))
+    .groupBy(jobs.id, clients.name)
     .orderBy(desc(jobs.createdAt));
 }
 
@@ -248,14 +266,15 @@ export async function listWorkspaceDepartments() {
 }
 
 export async function listTrashedJobs() {
-  const { organization: workspace } = await getWorkspaceContext();
+  const { workspace, where } = await jobListAccess();
 
   return db
-    .select()
+    .select({ id: jobs.id, title: jobs.title, department: jobs.department, location: jobs.location, deletedAt: jobs.deletedAt, clientId: jobs.clientId, clientName: clients.name })
     .from(jobs)
+    .leftJoin(clients, and(eq(clients.id, jobs.clientId), eq(clients.workspaceId, workspace.id)))
     .where(
       and(
-        eq(jobs.workspaceId, workspace.id),
+        where,
         sql`${jobs.deletedAt} is not null`,
       ),
     )
