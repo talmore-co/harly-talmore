@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "@/lib/notification-island/toast";
 import { saveRoleTakenOn } from "./taken-on-actions";
 
@@ -26,14 +26,13 @@ export function RoleTakenOn({
       <label htmlFor="role-taken-on" className="text-sm font-medium">
         Role taken on · internal
       </label>
-      <Input
+      <DatePicker
         id="role-taken-on"
-        type="date"
         value={value}
         max={today}
         disabled={pending || !canEdit}
         className="w-full min-w-0"
-        onChange={(event) => setValue(event.target.value)}
+        onChange={setValue}
       />
       <p className="text-xs text-muted-foreground">
         Date the client approved Talmore to start recruiting. Used for

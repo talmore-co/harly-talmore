@@ -7,6 +7,7 @@ import { Copy, KeyRound, Plus, ShieldAlert, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { SectionHeader, StatusPill } from "@/features/workspaces/settings-ui";
 import { createScimTokenAction, revokeScimTokenAction, type ScimTokenSummary } from "@/features/security/scim-actions";
@@ -42,7 +43,7 @@ export function ScimProvisioningCard({ tokens, workspaceId, isOwner }: { tokens:
       ) : null}
       {isOwner ? <div className="grid gap-3 sm:grid-cols-[1fr_180px_auto] sm:items-end">
         <div className="space-y-2"><Label htmlFor="scim-token-name">Token name</Label><Input id="scim-token-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Okta production" /></div>
-        <div className="space-y-2"><Label htmlFor="scim-token-expiry">Expires</Label><Input id="scim-token-expiry" type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} /></div>
+        <div className="space-y-2"><Label htmlFor="scim-token-expiry">Expires</Label><DatePicker id="scim-token-expiry" value={expiresAt} onChange={setExpiresAt} /></div>
         <Button type="button" onClick={create} disabled={pending || !name.trim()}><Plus className="size-4" />Create token</Button>
       </div> : null}
       <div className="divide-y rounded-xl border border-border/70">

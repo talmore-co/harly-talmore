@@ -7,10 +7,11 @@ import { z } from "zod";
 import { ApiError } from "@harly/api";
 import { db } from "@harly/db";
 import { activityEvents, notifications, tasks } from "@harly/db";
-import { requirePermission } from "@/features/workspaces/permissions-server";
+import { requirePermission, requireApplicationPermission } from "@/features/workspaces/permissions-server";
 import { createLogger } from "@/lib/logger";
 import { logAuditEvent } from "@/lib/audit-log";
 import { assertTaskReferences } from "./service";
+import { taskContextHref } from "./task-link";
 import { emitRealtimeInvalidation } from "@/server/events/emit";
 import {
   persistDomainEvent,
@@ -74,6 +75,7 @@ export async function createTask(input: CreateTaskInput): Promise<{
     const { organization: workspace, user } =
       await requirePermission("tasks:write");
     const data = parsed.data;
+    if (data.applicationId) await requireApplicationPermission("candidates:view", data.applicationId);
 
     await assertTaskReferences({
       workspaceId: workspace.id,
@@ -131,7 +133,7 @@ export async function createTask(input: CreateTaskInput): Promise<{
           type: "task.assigned",
           title: `New task: ${data.title}`,
           body: `${user.name} assigned you a task.`,
-          href: "/dashboard/tasks",
+          href: data.applicationId ? taskContextHref({ candidateId: data.candidateId ?? null, applicationId: data.applicationId }) : "/dashboard/tasks",
         });
       }
 
@@ -160,6 +162,7 @@ export async function createTask(input: CreateTaskInput): Promise<{
     });
 
     revalidatePath("/dashboard/tasks");
+    revalidatePath("/dashboard/candidates", "layout");
     revalidatePath("/dashboard");
     void emitRealtimeInvalidation({
       eventName: REALTIME_EVENTS.DASHBOARD_INVALIDATE,
@@ -234,6 +237,8 @@ export async function updateTask(
       .limit(1);
 
     if (!existing) return { success: false, error: "Task not found." };
+    if (existing.applicationId) await requireApplicationPermission("candidates:view", existing.applicationId);
+    if (fields.applicationId && fields.applicationId !== existing.applicationId) await requireApplicationPermission("candidates:view", fields.applicationId);
 
     const ownerId = fields.ownerId ?? existing.ownerId;
     const links = {
@@ -348,6 +353,7 @@ export async function updateTask(
     });
 
     revalidatePath("/dashboard/tasks");
+    revalidatePath("/dashboard/candidates", "layout");
     revalidatePath("/dashboard");
     void emitRealtimeInvalidation({
       eventName: REALTIME_EVENTS.DASHBOARD_INVALIDATE,

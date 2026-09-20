@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { InterviewerSelect } from "@/features/candidates/InterviewerSelect";
 import { TaskLinkFields, type TaskContextOptions, type TaskLinkValues } from "./TaskLinkFields";
@@ -30,20 +31,28 @@ export function CreateTaskDialog({
   members,
   contextOptions,
   defaultStatus = "pending",
+  defaultLinks,
+  defaultOwnerId,
+  contextLabel,
+  onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   members: Member[];
   contextOptions: TaskContextOptions;
   defaultStatus?: TaskStatus;
+  defaultLinks?: TaskLinkValues;
+  defaultOwnerId?: string;
+  contextLabel?: string;
+  onSaved?: () => void;
 }) {
   const [pending, startTransition] = useTransition();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("medium");
   const [dueDate, setDueDate] = useState("");
-  const [ownerId, setOwnerId] = useState(members[0]?.id ?? "");
-  const [links, setLinks] = useState<TaskLinkValues>({
+  const [ownerId, setOwnerId] = useState(defaultOwnerId ?? members[0]?.id ?? "");
+  const [links, setLinks] = useState<TaskLinkValues>(defaultLinks ?? {
     candidateId: null,
     applicationId: null,
     jobId: null,
@@ -62,8 +71,8 @@ export function CreateTaskDialog({
     setDescription("");
     setPriority("medium");
     setDueDate("");
-    setOwnerId(members[0]?.id ?? "");
-    setLinks({ candidateId: null, applicationId: null, jobId: null, interviewId: null });
+    setOwnerId(defaultOwnerId ?? members[0]?.id ?? "");
+    setLinks(defaultLinks ?? { candidateId: null, applicationId: null, jobId: null, interviewId: null });
     setError(null);
   }
 
@@ -89,6 +98,7 @@ export function CreateTaskDialog({
         toast.success("Task created");
         reset();
         onOpenChange(false);
+        onSaved?.();
       } else {
         setError(result.error ?? "Something went wrong.");
       }
@@ -153,17 +163,16 @@ export function CreateTaskDialog({
                 <Calendar className="mr-1 inline size-3" />
                 Due date
               </label>
-              <Input
+              <DatePicker
                 id="new-task-due-date"
-                type="date"
                 value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
+                onChange={setDueDate}
                 className="h-9"
               />
             </div>
           </div>
 
-          <TaskLinkFields value={links} options={contextOptions} onChange={setLinks} />
+          {contextLabel ? <p className="rounded-lg border bg-muted/20 p-3 text-sm">{contextLabel}</p> : <TaskLinkFields value={links} options={contextOptions} onChange={setLinks} />}
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-zinc-500">

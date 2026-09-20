@@ -9,6 +9,7 @@ import { rescheduleInterview } from "@/features/interviews/actions";
 import { checkAvailability } from "@/lib/gcal/availability";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
   SelectContent,
@@ -134,13 +135,12 @@ export function RescheduleDrawer({
               >
                 Date
               </label>
-              <Input
+              <DatePicker
                 id="reschedule-date"
-                type="date"
                 value={date}
-                onChange={(e) => {
-                  setDate(e.target.value);
-                  checkTimeAvailability(e.target.value, time, durationMins);
+                onChange={(value) => {
+                  setDate(value);
+                  checkTimeAvailability(value, time, durationMins);
                 }}
               />
             </div>

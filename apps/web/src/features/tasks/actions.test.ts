@@ -3,6 +3,8 @@ import { ApiError } from "@harly/api";
 
 const mocks = vi.hoisted(() => ({
   requirePermission: vi.fn(),
+  requireApplicationPermission: vi.fn(),
+  existingApplicationId: null as string | null,
   assertTaskReferences: vi.fn(),
   dbTransaction: vi.fn(),
 }));
@@ -16,7 +18,7 @@ vi.mock("@harly/db", () => ({
             {
               ownerId: "u1",
               candidateId: null,
-              applicationId: null,
+              applicationId: mocks.existingApplicationId,
               jobId: null,
               interviewId: null,
             },
@@ -37,6 +39,7 @@ vi.mock("@harly/db", () => ({
 }));
 vi.mock("@/features/workspaces/permissions-server", () => ({
   requirePermission: mocks.requirePermission,
+  requireApplicationPermission: mocks.requireApplicationPermission,
 }));
 vi.mock("./service", () => ({
   assertTaskReferences: mocks.assertTaskReferences,
@@ -51,6 +54,9 @@ import { createTask, deleteTask, updateTask } from "./actions";
 
 describe("Tasks actions , RBAC (F2-04 / readiness)", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.existingApplicationId = null;
+    mocks.requireApplicationPermission.mockResolvedValue(undefined);
     mocks.assertTaskReferences.mockResolvedValue(undefined);
     mocks.requirePermission.mockResolvedValue({
       organization: { id: "ws-1" },
@@ -72,7 +78,7 @@ describe("Tasks actions , RBAC (F2-04 / readiness)", () => {
 
   it.each([
     ["createTask", () => createTask({ title: "T", ownerId: "u2" })],
-    ["updateTask", () => updateTask({ taskId: "x", title: "T2" })],
+    ["updateTask", () => updateTask({ taskId: "55555555-5555-4555-8555-555555555555", title: "T2" })],
     ["deleteTask", () => deleteTask("x")],
   ])("%s requires tasks:write", async (_name, run) => {
     await run();
@@ -105,6 +111,23 @@ describe("Tasks actions , RBAC (F2-04 / readiness)", () => {
         interviewId: "44444444-4444-4444-8444-444444444444",
       },
     });
+    expect(mocks.requireApplicationPermission).toHaveBeenCalledWith("candidates:view", "22222222-2222-4222-8222-222222222222");
+  });
+
+  it("blocks creating tasks for an inaccessible application", async () => {
+    mocks.requireApplicationPermission.mockRejectedValue(new Error("No application access"));
+    const result = await createTask({ title: "Follow up", ownerId: "u1", applicationId: "22222222-2222-4222-8222-222222222222" });
+    expect(result.success).toBe(false);
+    expect(mocks.dbTransaction).not.toHaveBeenCalled();
+  });
+
+  it("blocks completing tasks on an inaccessible application even without link changes", async () => {
+    mocks.existingApplicationId = "22222222-2222-4222-8222-222222222222";
+    mocks.requireApplicationPermission.mockRejectedValue(new Error("No application access"));
+    const result = await updateTask({ taskId: "55555555-5555-4555-8555-555555555555", status: "completed" });
+    expect(result.success).toBe(false);
+    expect(mocks.requireApplicationPermission).toHaveBeenCalledWith("candidates:view", mocks.existingApplicationId);
+    expect(mocks.dbTransaction).not.toHaveBeenCalled();
   });
 
   it("returns the validation error instead of attempting a task insert", async () => {

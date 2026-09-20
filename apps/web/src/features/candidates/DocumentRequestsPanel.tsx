@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
@@ -289,7 +290,7 @@ export function RequestDialog({
 
           <div className="space-y-2">
             <Label htmlFor="request-due">Due date (optional)</Label>
-            <Input id="request-due" type="date" value={dueAt} onChange={(event) => setDueAt(event.target.value)} />
+            <DatePicker id="request-due" value={dueAt} onChange={setDueAt} />
           </div>
         </div>
         <DialogFooter>

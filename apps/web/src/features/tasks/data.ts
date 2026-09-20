@@ -1,7 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
-import { and, asc, count, desc, eq, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 
 import { db } from "@harly/db";
 import {
@@ -13,7 +13,7 @@ import {
   user as authUsers,
 } from "@harly/db";
 import { getWorkspaceContext } from "@/features/workspaces/context";
-import { can, requirePermission } from "@/features/workspaces/permissions-server";
+import { can, requirePermission, requireApplicationPermission } from "@/features/workspaces/permissions-server";
 import type { TaskItem, TaskStatus } from "./shared";
 
 function toItem(row: {
@@ -118,11 +118,17 @@ export const listTasks = cache(
     status?: TaskStatus;
     ownerId?: string;
     priority?: string;
+    applicationIds?: string[];
   }): Promise<TaskItem[]> => {
     await requirePermission("tasks:read");
     const { organization: workspace } = await getWorkspaceContext();
 
     const conditions = [eq(tasks.workspaceId, workspace.id), isNull(tasks.deletedAt)];
+    if (filters?.applicationIds) {
+      if (!filters.applicationIds.length) return [];
+      await Promise.all(filters.applicationIds.map((id) => requireApplicationPermission("candidates:view", id)));
+      conditions.push(inArray(tasks.applicationId, filters.applicationIds));
+    }
 
     // All statuses (incl. canceled) so the board can show the full lifecycle.
     if (filters?.status) {

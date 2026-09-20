@@ -7,9 +7,9 @@ import { toast } from "@/lib/notification-island/toast";
 
 import { createOffer, updateOffer } from "@/features/offers/actions";
 import type { CandidateOfferItem } from "@/features/offers/shared";
-import { DrawerLayout } from "@/features/candidates/DrawerLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -18,7 +18,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Sheet, SheetClose } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "CLP", "MXN", "ARS", "BRL"];
@@ -91,7 +99,10 @@ export function OfferDrawer({
       return;
     }
     const salaryAmount = salary.trim() ? Number(salary) : null;
-    if (salaryAmount !== null && (!Number.isInteger(salaryAmount) || salaryAmount <= 0)) {
+    if (
+      salaryAmount !== null &&
+      (!Number.isInteger(salaryAmount) || salaryAmount <= 0)
+    ) {
       toast.error("Salary must be a positive whole number.");
       return;
     }
@@ -127,27 +138,18 @@ export function OfferDrawer({
   );
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} mobilePresentation="bottom-on-mobile">
-      <DrawerLayout
-        title={offer ? "Edit offer" : "New offer"}
-        description={
-          offer
-            ? "Update the terms of this draft offer."
-            : "Draft the offer terms. You can review before sending."
-        }
-        footer={
-          <>
-            <SheetClose asChild>
-              <Button variant="outline" disabled={isPending}>
-                Cancel
-              </Button>
-            </SheetClose>
-            <Button onClick={submit} disabled={isPending}>
-              {isPending ? "Saving…" : offer ? "Save changes" : "Create draft"}
-            </Button>
-          </>
-        }
-      >
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>
+            {offer ? "Edit offer" : "Create Talmore offer"}
+          </DialogTitle>
+          <DialogDescription>
+            {offer
+              ? "Update the terms of this draft offer."
+              : "Draft the offer terms. You can review before sending."}
+          </DialogDescription>
+        </DialogHeader>
         <div className="space-y-5">
           {!offer && applications.length > 1 ? (
             <div className="space-y-2">
@@ -180,20 +182,57 @@ export function OfferDrawer({
           {!offer && documents.length > 0 ? (
             <div className="space-y-2">
               <Label>Attach documents</Label>
-              <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={documentQuery} onChange={(event) => setDocumentQuery(event.target.value)} placeholder="Search documents…" className="pl-9" aria-label="Search documents to attach" /></div>
-              <div className="max-h-48 divide-y overflow-y-auto rounded-lg border">
-                {matchingDocuments.length === 0 ? <p className="px-3 py-4 text-xs text-muted-foreground">No documents match that search.</p> : matchingDocuments.map((document) => {
-                  const checked = documentIds.includes(document.id);
-                  return (
-                    <label key={document.id} className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-muted/30">
-                      <input type="checkbox" checked={checked} onChange={() => setDocumentIds((current) => checked ? current.filter((id) => id !== document.id) : [...current, document.id])} />
-                      <span className="min-w-0 flex-1 truncate">{document.name}</span>
-                      <span className="text-xs text-muted-foreground">{document.mimeType === "application/pdf" ? "PDF" : "File"}</span>
-                    </label>
-                  );
-                })}
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={documentQuery}
+                  onChange={(event) => setDocumentQuery(event.target.value)}
+                  placeholder="Search documents…"
+                  className="pl-9"
+                  aria-label="Search documents to attach"
+                />
               </div>
-              <p className="text-xs text-muted-foreground">Selected files will be associated with this offer and available when the offer is sent.</p>
+              <div className="max-h-48 divide-y overflow-y-auto rounded-lg border">
+                {matchingDocuments.length === 0 ? (
+                  <p className="px-3 py-4 text-xs text-muted-foreground">
+                    No documents match that search.
+                  </p>
+                ) : (
+                  matchingDocuments.map((document) => {
+                    const checked = documentIds.includes(document.id);
+                    return (
+                      <label
+                        key={document.id}
+                        className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-muted/30"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() =>
+                            setDocumentIds((current) =>
+                              checked
+                                ? current.filter((id) => id !== document.id)
+                                : [...current, document.id],
+                            )
+                          }
+                        />
+                        <span className="min-w-0 flex-1 truncate">
+                          {document.name}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {document.mimeType === "application/pdf"
+                            ? "PDF"
+                            : "File"}
+                        </span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Selected files will be associated with this offer and available
+                when the offer is sent.
+              </p>
             </div>
           ) : null}
 
@@ -204,7 +243,9 @@ export function OfferDrawer({
                 id="offer-salary"
                 inputMode="numeric"
                 value={salary}
-                onChange={(e) => setSalary(e.target.value.replace(/[^0-9]/g, ""))}
+                onChange={(e) =>
+                  setSalary(e.target.value.replace(/[^0-9]/g, ""))
+                }
                 placeholder="120000"
               />
             </div>
@@ -253,20 +294,18 @@ export function OfferDrawer({
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-2">
               <Label htmlFor="offer-start">Start date</Label>
-              <Input
+              <DatePicker
                 id="offer-start"
-                type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={setStartDate}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="offer-expires">Offer expires</Label>
-              <Input
+              <DatePicker
                 id="offer-expires"
-                type="date"
                 value={expiresAt}
-                onChange={(e) => setExpiresAt(e.target.value)}
+                onChange={setExpiresAt}
               />
             </div>
           </div>
@@ -282,7 +321,17 @@ export function OfferDrawer({
             />
           </div>
         </div>
-      </DrawerLayout>
-    </Sheet>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline" disabled={isPending}>
+              Cancel
+            </Button>
+          </DialogClose>
+          <Button onClick={submit} disabled={isPending}>
+            {isPending ? "Saving…" : offer ? "Save changes" : "Create draft"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

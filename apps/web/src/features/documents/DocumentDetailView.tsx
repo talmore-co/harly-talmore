@@ -33,6 +33,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { UserAvatar } from "@/components/ui/UserAvatar";
@@ -469,11 +470,11 @@ function ExpiresAtField({
   }
   return (
     <div className="flex items-center gap-2">
-      <Input
-        type="date"
+      <DatePicker
+        aria-label="Document expiry date"
         value={value}
         disabled={!editable || isPending}
-        onChange={(event) => setValue(event.target.value)}
+        onChange={setValue}
         className="h-8 w-40"
       />
       {dirty ? (

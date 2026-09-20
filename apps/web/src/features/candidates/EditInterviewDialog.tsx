@@ -11,6 +11,7 @@ import { InterviewerSelect, type InterviewerOption } from "./InterviewerSelect";
 import { DurationInput } from "./DurationInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Dialog,
   DialogClose,
@@ -212,13 +213,12 @@ export function EditInterviewDialog({
 
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Date" htmlFor="edit-date">
-                  <Input
+                  <DatePicker
                     id="edit-date"
-                    type="date"
                     value={date}
-                    onChange={(e) => {
-                      setDate(e.target.value);
-                      checkTimeAvailability(e.target.value, time, durationMins);
+                    onChange={(value) => {
+                      setDate(value);
+                      checkTimeAvailability(value, time, durationMins);
                     }}
                   />
                 </Field>

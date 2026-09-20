@@ -6,7 +6,7 @@ import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
   SelectContent,
@@ -453,25 +453,23 @@ export function ReportsDashboard({ data }: { data: AgencyReportsData }) {
           >
             <label className="space-y-1 text-xs text-muted-foreground">
               From
-              <Input
+              <DatePicker
                 aria-label="Report from date"
                 required
-                type="date"
                 value={from}
                 max={to}
-                onChange={(event) => setFrom(event.target.value)}
+                onChange={setFrom}
               />
             </label>
             <label className="space-y-1 text-xs text-muted-foreground">
               To
-              <Input
+              <DatePicker
                 aria-label="Report to date"
                 required
-                type="date"
                 value={to}
                 min={from}
                 max={data.today}
-                onChange={(event) => setTo(event.target.value)}
+                onChange={setTo}
               />
             </label>
             <Button type="submit" variant="outline">

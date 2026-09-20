@@ -12,7 +12,11 @@ import {
 } from "lucide-react";
 import { toast } from "@/lib/notification-island/toast";
 
-import { decideOffer, sendOffer, withdrawOffer } from "@/features/offers/actions";
+import {
+  decideOffer,
+  sendOffer,
+  withdrawOffer,
+} from "@/features/offers/actions";
 import { OfferDrawer } from "@/features/offers/OfferDrawer";
 import { OfferFieldPlacementDialog } from "@/features/offers/OfferFieldPlacementDialog";
 import {
@@ -37,19 +41,25 @@ export function OffersPanel({
   applications,
   documents,
   offerSignatureChannel,
+  hideCreate = false,
 }: {
   offers: CandidateOfferItem[];
   applications: Array<{ id: string; jobTitle: string }>;
   documents: Array<{ id: string; name: string; mimeType: string }>;
   offerSignatureChannel: "email" | "esign" | "native";
+  hideCreate?: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [editing, setEditing] = useState<CandidateOfferItem | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [placingFieldsFor, setPlacingFieldsFor] = useState<CandidateOfferItem | null>(null);
+  const [placingFieldsFor, setPlacingFieldsFor] =
+    useState<CandidateOfferItem | null>(null);
 
-  function run(action: () => Promise<{ success: boolean; error?: string }>, ok: string) {
+  function run(
+    action: () => Promise<{ success: boolean; error?: string }>,
+    ok: string,
+  ) {
     startTransition(async () => {
       const result = await action();
       if (!result.success) {
@@ -63,27 +73,25 @@ export function OffersPanel({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          {offers.length === 0
-            ? "No offers yet."
-            : `${offers.length} offer${offers.length === 1 ? "" : "s"}.`}
-        </p>
-        {applications.length > 0 ? (
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <BadgeDollarSign className="size-4" />
-            New offer
-          </Button>
-        ) : null}
-      </div>
+      {!hideCreate ? (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            {offers.length === 0
+              ? "No offers yet."
+              : `${offers.length} offer${offers.length === 1 ? "" : "s"}.`}
+          </p>
+          {applications.length > 0 ? (
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <BadgeDollarSign className="size-4" />
+              New offer
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
 
       {offers.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed px-6 py-12 text-center">
-          <span className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-            <BadgeDollarSign className="size-5" strokeWidth={1.6} />
-          </span>
-          <p className="text-sm font-medium">No offers extended</p>
-          <p className="max-w-sm text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-muted/20 p-4">
+          <p className="text-sm text-muted-foreground">
             Draft an offer with compensation and start date, then send it and
             track the candidate&apos;s decision here.
           </p>
@@ -100,14 +108,21 @@ export function OffersPanel({
               >
                 <span
                   aria-hidden
-                  className={cn("absolute inset-y-0 left-0 w-1", STATUS_ACCENT[meta.variant])}
+                  className={cn(
+                    "absolute inset-y-0 left-0 w-1",
+                    STATUS_ACCENT[meta.variant],
+                  )}
                 />
                 <div className="space-y-4 p-5 pl-6">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm text-muted-foreground">{offer.jobTitle}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {offer.jobTitle}
+                      </p>
                       <div className="mt-0.5 flex flex-wrap items-center gap-2">
-                        <p className="text-base font-semibold tracking-tight">{offer.title}</p>
+                        <p className="text-base font-semibold tracking-tight">
+                          {offer.title}
+                        </p>
                         <Badge variant={meta.variant}>{meta.label}</Badge>
                       </div>
                     </div>
@@ -128,7 +143,10 @@ export function OffersPanel({
                             onClick={() =>
                               offerSignatureChannel === "native"
                                 ? setPlacingFieldsFor(offer)
-                                : run(() => sendOffer({ offerId: offer.id }), "Offer sent")
+                                : run(
+                                    () => sendOffer({ offerId: offer.id }),
+                                    "Offer sent",
+                                  )
                             }
                           >
                             <Send className="size-4" />
@@ -144,7 +162,10 @@ export function OffersPanel({
                             onClick={() =>
                               run(
                                 () =>
-                                  decideOffer({ offerId: offer.id, decision: "accepted" }),
+                                  decideOffer({
+                                    offerId: offer.id,
+                                    decision: "accepted",
+                                  }),
                                 "Offer accepted. Candidate marked as hired",
                               )
                             }
@@ -159,7 +180,10 @@ export function OffersPanel({
                             onClick={() =>
                               run(
                                 () =>
-                                  decideOffer({ offerId: offer.id, decision: "declined" }),
+                                  decideOffer({
+                                    offerId: offer.id,
+                                    decision: "declined",
+                                  }),
                                 "Offer marked as declined",
                               )
                             }

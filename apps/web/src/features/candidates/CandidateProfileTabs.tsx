@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import type { Route } from "next";
 import {
   CalendarClock,
   ClipboardCheck,
@@ -15,7 +17,6 @@ import { EmailDrawer } from "@/features/candidates/EmailDrawer";
 import { EvaluationDrawer } from "@/features/candidates/EvaluationDrawer";
 import { NoteForm } from "@/features/candidates/NoteForm";
 import { ScheduleDrawer } from "@/features/candidates/ScheduleDrawer";
-import { OffersPanel } from "@/features/offers/OffersPanel";
 import { AgencyApplicationPanel } from "@/features/clients/AgencyApplicationPanel";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -87,7 +88,16 @@ export function CandidateProfileTabs({
   privacyRequests = [],
   canFulfilErasure = false,
 }: CandidateProfileTabsProps) {
-  const [tab, setTab] = useState("profile");
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
+  const requestedTab = searchParams.get("tab") ?? "profile";
+  const tab = ["profile", "interviews", "communication", "evaluation", "offers", "activity", "documents", "privacy"].includes(requestedTab) ? requestedTab : "profile";
+  const setTab = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", value);
+    router.replace(`${pathname}?${params}` as Route, { scroll: false });
+  };
   const [signatureOpen, setSignatureOpen] = useState(false);
   const conversations = groupIntoConversations(messages);
   const jobOptions = applications.map((application) => ({
@@ -291,10 +301,8 @@ export function CandidateProfileTabs({
       </TabsContent>
 
       {/* ── Offers ── */}
-      <TabsContent value="offers" className="mt-4 space-y-6">
-        <AgencyApplicationPanel applications={jobOptions} />
-        <h2 className="font-semibold">Offers sent through Talmore</h2>
-        <OffersPanel
+      <TabsContent value="offers" className="mt-5 w-full min-w-0 space-y-6">
+        <AgencyApplicationPanel
           offers={offers}
           applications={jobOptions}
           documents={relatedDocuments}

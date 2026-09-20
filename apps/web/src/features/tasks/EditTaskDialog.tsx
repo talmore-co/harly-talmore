@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { InterviewerSelect, type InterviewerOption } from "@/features/candidates/InterviewerSelect";
 import { updateTask } from "./actions";
@@ -42,6 +43,7 @@ export function EditTaskDialog({
   members,
   contextOptions,
   onSave,
+  contextLabel,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -49,6 +51,7 @@ export function EditTaskDialog({
   members: Member[];
   contextOptions: TaskContextOptions;
   onSave: () => void;
+  contextLabel?: string;
 }) {
   const [pending, startTransition] = useTransition();
   const [title, setTitle] = useState(task?.title ?? "");
@@ -170,17 +173,16 @@ export function EditTaskDialog({
                 <Calendar className="mr-1 inline size-3" />
                 Due date
               </label>
-              <Input
+              <DatePicker
                 id="edit-task-due-date"
-                type="date"
                 value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
+                onChange={setDueDate}
                 className="h-9"
               />
             </div>
           </div>
 
-          <TaskLinkFields value={links} options={contextOptions} onChange={setLinks} />
+          {contextLabel ? <p className="rounded-lg border bg-muted/20 p-3 text-sm">{contextLabel}</p> : <TaskLinkFields value={links} options={contextOptions} onChange={setLinks} />}
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-zinc-500">

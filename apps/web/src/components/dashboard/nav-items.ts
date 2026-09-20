@@ -1,6 +1,7 @@
 import type { Route } from "next";
 import {
   BarChart3,
+  BadgeCheck,
   Bookmark,
   Briefcase,
   Building2,
@@ -78,6 +79,12 @@ export const navigationGroups: { label: string | null; items: NavItem[] }[] = [
         href: "/dashboard/clients",
         icon: Building2,
         requiredPermission: "clients:view",
+      },
+      {
+        label: "Placements",
+        href: "/dashboard/placements" as Route,
+        icon: BadgeCheck,
+        requiredPermission: "candidates:view",
       },
     ],
   },

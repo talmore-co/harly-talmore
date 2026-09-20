@@ -40,7 +40,7 @@ export function CandidateActivityRail({ activity }: { activity: ActivityItem[] }
   const [open, setOpen] = useState(true);
 
   return (
-    <aside className="lg:sticky lg:top-20 lg:self-start">
+    <aside>
       <div className="rounded-lg border border-border/60 bg-background/92 shadow-sm shadow-black/[0.02] backdrop-blur-sm">
         <button
           type="button"

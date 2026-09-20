@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn(), replace: vi.fn() }),
+  usePathname: () => "/dashboard/candidates/candidate-1",
+  useSearchParams: () => new URLSearchParams("tab=tasks&applicationId=application-b"),
+}));
 vi.mock("lucide-react", () => ({
   CalendarClock: () => null,
   CheckCircle2: () => null,
@@ -110,5 +114,6 @@ describe("candidate decision application scope", () => {
     expect(markup).toContain('aria-label="Application to update"');
     expect(markup).toContain("Frontend Engineer");
     expect(markup).toContain("Product Designer");
+    expect(markup).toContain('value="application-b" selected=""');
   });
 });

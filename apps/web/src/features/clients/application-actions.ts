@@ -1,5 +1,5 @@
 "use server";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { activityEvents, applications, applicationStageHistory, clientOffers, clients, db, jobs, jobStages } from "@harly/db";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -13,10 +13,10 @@ export async function getAgencyApplication(applicationId: string) {
     .from(applications).innerJoin(jobs, eq(jobs.id, applications.jobId)).leftJoin(clients, and(eq(clients.id, jobs.clientId), eq(clients.workspaceId, context.organization.id)))
     .where(and(eq(applications.id, applicationId), eq(applications.workspaceId, context.organization.id)));
   const [hireEvent] = await db.select({ at: applicationStageHistory.createdAt }).from(applicationStageHistory).innerJoin(jobStages, and(eq(jobStages.id, applicationStageHistory.toStageId), sql`lower(trim(${jobStages.name})) = 'hired'`))
-    .where(and(eq(applicationStageHistory.applicationId, applicationId), eq(applicationStageHistory.workspaceId, context.organization.id))).orderBy(desc(applicationStageHistory.createdAt)).limit(1);
+    .where(and(eq(applicationStageHistory.applicationId, applicationId), eq(applicationStageHistory.workspaceId, context.organization.id))).orderBy(asc(applicationStageHistory.createdAt)).limit(1);
   const rows = await db.select({ id: clientOffers.id, offeredOn: clientOffers.offeredOn, status: clientOffers.status, terms: clientOffers.terms, clientName: clients.name }).from(clientOffers).innerJoin(clients, eq(clients.id, clientOffers.clientId))
     .where(and(eq(clientOffers.workspaceId, context.organization.id), eq(clientOffers.applicationId, applicationId))).orderBy(desc(clientOffers.offeredOn));
-  return { ...application, hiredOn: application.hiredOn ?? (application.status === "hired" ? hireEvent?.at.toISOString().slice(0, 10) ?? null : null), offers: rows, workspaceId: context.organization.id, canEdit: await can("candidates:edit"), canManageOffers: await can("offers:manage") };
+  return { ...application, hiredOn: application.hiredOn ?? hireEvent?.at.toISOString().slice(0, 10) ?? null, offers: rows, workspaceId: context.organization.id, canEdit: await can("candidates:edit"), canManageOffers: await can("offers:manage") };
 }
 
 const offerSchema = z.object({

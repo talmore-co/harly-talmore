@@ -4,7 +4,8 @@ import { useRejectionConfirmation } from "./useRejectionConfirmation";
 import type { ComponentType, ReactNode } from "react";
 import { useState, useTransition } from "react";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import type { Route } from "next";
 import {
   CalendarClock,
   CheckCircle2,
@@ -435,9 +436,17 @@ export function CandidateActionBar({
   pipelineAction?: ReactNode;
   referralAction?: ReactNode;
 }) {
-  const [selectedApplicationId, setSelectedApplicationId] = useState(
-    applications[0]?.applicationId ?? null,
-  );
+  const params = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
+  const requestedApplicationId = params.get("applicationId");
+  const selectedApplicationId = applications.some((application) => application.applicationId === requestedApplicationId)
+    ? requestedApplicationId : applications[0]?.applicationId ?? null;
+  const setSelectedApplicationId = (applicationId: string) => {
+    const next = new URLSearchParams(params.toString());
+    next.set("applicationId", applicationId);
+    router.replace(`${pathname}?${next}` as Route, { scroll: false });
+  };
   const selectedDecisionIds = decisionApplicationIds(
     applications,
     selectedApplicationId,

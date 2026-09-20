@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Route } from "next";
+import { taskContextHref } from "@/features/tasks/task-link";
 import { CheckSquare } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -57,9 +57,7 @@ export function MyTasksCard({
           <ul className="flex-1 divide-y divide-border/60">
             {tasks.map((task) => {
               const due = formatDue(task);
-              const href = task.candidateId
-                ? (`/dashboard/candidates/${task.candidateId}` as Route)
-                : ("/dashboard/tasks" as Route);
+              const href = taskContextHref(task);
 
               return (
                 <li key={task.id}>

@@ -29,6 +29,8 @@ import { CandidateActivityRail } from "@/features/candidates/CandidateActivityRa
 import { CandidatePager } from "@/features/candidates/CandidatePager";
 import { CandidateStickyHeader } from "@/features/candidates/CandidateStickyHeader";
 import { CandidateProfileTabs } from "@/features/candidates/CandidateProfileTabs";
+import { ApplicationTasks } from "@/features/tasks/ApplicationTasks";
+import { listTasks, listWorkspaceMembers as listTaskMembers } from "@/features/tasks/data";
 import { filterApplicationScopedItems } from "@/features/candidates/profile-scope";
 import { CandidateTags } from "@/features/candidates/CandidateTags";
 import { CandidateReferrals } from "@/features/candidates/referrals/CandidateReferrals";
@@ -202,6 +204,12 @@ export default async function CandidateDetailPage({
     can("candidates:edit"),
   ]);
   const workspaceName = workspaceContext.organization.name;
+  const canReadTasks = await can("tasks:read");
+  const canWriteTasks = canReadTasks && await can("tasks:write");
+  const [applicationTasks, taskMembers] = canReadTasks ? await Promise.all([
+    listTasks({ applicationIds: applications.map((application) => application.id) }),
+    canWriteTasks ? listTaskMembers() : Promise.resolve([]),
+  ]) : [[], []];
   const pipelineJobs = canEditCandidates
     ? (await Promise.all(jobOptions
         .filter(job => job.status === "open" && !applications.some(application => application.jobId === job.id))
@@ -588,7 +596,10 @@ export default async function CandidateDetailPage({
           />
         </div>
 
-        <CandidateActivityRail activity={serializedActivity} />
+        <div className="min-w-0 space-y-4 lg:sticky lg:top-20 lg:self-start">
+          {canReadTasks ? <ApplicationTasks applications={applications} tasks={applicationTasks} members={taskMembers} candidateId={candidateId} candidateName={`${candidate.firstName} ${candidate.lastName}`} currentUserId={workspaceContext.user.id} canWrite={canWriteTasks} /> : null}
+          <CandidateActivityRail activity={serializedActivity} />
+        </div>
       </div>
     </div>
   );

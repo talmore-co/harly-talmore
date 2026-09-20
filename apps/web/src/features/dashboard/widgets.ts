@@ -738,6 +738,7 @@ export const getMyDashboardTasks = cache(async () => {
       candidateFirst: candidates.firstName,
       candidateLast: candidates.lastName,
       candidateId: tasks.candidateId,
+      applicationId: tasks.applicationId,
       jobTitle: jobs.title,
     })
     .from(tasks)
@@ -793,6 +794,7 @@ export const getMyDashboardTasks = cache(async () => {
           ? `${r.candidateFirst} ${r.candidateLast}`
           : r.jobTitle ?? null,
       candidateId: r.candidateId,
+      applicationId: r.applicationId,
     };
   });
 });

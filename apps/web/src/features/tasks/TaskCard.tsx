@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import Link from "next/link";
+import { taskContextHref } from "./task-link";
 
 import { cn } from "@/lib/utils";
 import {
@@ -82,7 +83,7 @@ function Meta({ task }: { task: TaskItem }) {
         <span className="inline-flex items-center gap-1">
           <User className="size-3" />
           {task.candidateId ? (
-            <Link href={`/dashboard/candidates/${task.candidateId}`} className="hover:underline">
+            <Link href={taskContextHref(task)} className="hover:underline">
               {task.candidateName}
             </Link>
           ) : (
@@ -106,7 +107,7 @@ function Meta({ task }: { task: TaskItem }) {
         <span className="inline-flex items-center gap-1">
           <FileText className="size-3" />
           {task.candidateId ? (
-            <Link href={`/dashboard/candidates/${task.candidateId}`} className="hover:underline">
+            <Link href={taskContextHref(task)} className="hover:underline">
               Application
             </Link>
           ) : (
@@ -118,7 +119,7 @@ function Meta({ task }: { task: TaskItem }) {
         <span className="inline-flex items-center gap-1">
           <CalendarClock className="size-3" />
           {task.candidateId ? (
-            <Link href={`/dashboard/candidates/${task.candidateId}`} className="hover:underline">
+            <Link href={taskContextHref(task)} className="hover:underline">
               Interview
             </Link>
           ) : (
