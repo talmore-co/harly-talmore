@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import type { Route } from "next";
+import { resolveMergedCandidateId, resolveMergedApplicationId } from "@/features/candidates/merge-aliases";
 import type { ReactNode } from "react";
 import {
   ArrowLeft,
@@ -36,6 +38,7 @@ import { CandidateTags } from "@/features/candidates/CandidateTags";
 import { CandidateReferrals } from "@/features/candidates/referrals/CandidateReferrals";
 import { ReferCandidateDrawer } from "@/features/candidates/referrals/ReferCandidateDrawer";
 import { DuplicateDetectionCard } from "@/features/candidates/DuplicateDetectionCard";
+import { MergeHistoryEntry } from "@/features/candidates/MergeHistoryEntry";
 import { IdentityShield, Redact, RedactLink } from "@/features/candidates/IdentityShield";
 import { getCandidateProfile, listCandidates, findSuspectDuplicates } from "@/features/candidates/data";
 import { getNextStage } from "@/features/pipeline/data";
@@ -90,12 +93,27 @@ const SOURCE_ICON: Record<string, ReactNode> = {
 
 type CandidateDetailPageProps = {
   params: Promise<{ candidateId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
 export default async function CandidateDetailPage({
   params,
+  searchParams,
 }: CandidateDetailPageProps) {
   const { candidateId } = await params;
+  if (/^[a-f0-9-]{36}$/i.test(candidateId)) {
+    const context = await getWorkspaceContext();
+    const canonicalId = await resolveMergedCandidateId(context.organization.id, candidateId);
+    const query = await searchParams;
+    const selected = typeof query.applicationId === "string" && /^[a-f0-9-]{36}$/i.test(query.applicationId) ? query.applicationId : null;
+    const canonicalApplication = selected ? await resolveMergedApplicationId(context.organization.id, selected) : null;
+    if (canonicalId !== candidateId || canonicalApplication !== selected) {
+      await requireCandidatePermission("candidates:view", canonicalId).catch(() => notFound());
+      const next = new URLSearchParams(Object.entries(query).flatMap(([key, value]) => typeof value === "string" ? [[key, value]] : []));
+      if (canonicalApplication) next.set("applicationId", canonicalApplication);
+      redirect(`/dashboard/candidates/${canonicalId}${next.size ? `?${next}` : ""}` as Route);
+    }
+  }
 
   try {
     await requireCandidatePermission("candidates:view", candidateId);
@@ -540,6 +558,7 @@ export default async function CandidateDetailPage({
             aiConfigured={aiStatus.enabled && aiStatus.hasApiKey && aiStatus.encryptionReady}
           />
 
+          <MergeHistoryEntry candidateId={candidate.id} />
           <CandidateProfileTabs
             candidateId={candidate.id}
             workspaceId={workspaceId}

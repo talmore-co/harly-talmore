@@ -1,11 +1,12 @@
 import "server-only";
 
-import { and, eq, ilike, isNull, ne, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 
 import { candidates, db } from "@harly/db";
 
 import { detectDuplicatesWithAI } from "@/lib/ai/surfaces/detect-duplicates";
 import type { AiModelConfig } from "@/lib/ai/providers";
+import { duplicateSuspects } from "./duplicate-signals";
 
 export type DuplicateMatch = {
   candidateId: string;
@@ -24,6 +25,7 @@ export async function detectCandidateDuplicatesForWorkspace(input: {
   workspaceId: string;
   candidateId: string;
   config: AiModelConfig;
+  otherCandidateId?: string;
 }): Promise<DuplicateMatch[]> {
   const [target] = await db
     .select({
@@ -45,6 +47,9 @@ export async function detectCandidateDuplicatesForWorkspace(input: {
     .limit(1);
 
   if (!target) return [];
+  const signals = await duplicateSuspects(input.workspaceId, input.candidateId, input.otherCandidateId);
+  const ids = signals.filter((row) => !input.otherCandidateId || row.candidateId === input.otherCandidateId).map((row) => row.candidateId);
+  if (!ids.length) return [];
 
   const suspects = await db
     .select({
@@ -59,13 +64,8 @@ export async function detectCandidateDuplicatesForWorkspace(input: {
     .where(
       and(
         eq(candidates.workspaceId, input.workspaceId),
-        ne(candidates.id, input.candidateId),
+        inArray(candidates.id, ids),
         isNull(candidates.deletedAt),
-        or(
-          ilike(candidates.firstName, `%${target.firstName}%`),
-          ilike(candidates.lastName, `%${target.lastName}%`),
-          sql`lower(${candidates.email}) = lower(${target.email})`,
-        ),
       ),
     )
     .limit(10);

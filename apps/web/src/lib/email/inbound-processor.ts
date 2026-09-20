@@ -1,10 +1,11 @@
 import "server-only";
 
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, or, inArray } from "drizzle-orm";
 import type { CanonicalInboundEmail } from "@harly/emails";
 
 import {
   applications,
+  applicationMerges,
   candidates,
   db,
   jobs,
@@ -189,14 +190,16 @@ export async function processInboundEmail(
     )
     .where(
       and(
-        eq(applications.inboundToken, token),
+        or(eq(applications.inboundToken, token), inArray(applications.id,
+          db.select({ id: applicationMerges.applicationId }).from(applicationMerges).where(and(eq(applicationMerges.workspaceId, workspaceId), eq(applicationMerges.inboundToken, token))),
+        )),
         eq(applications.workspaceId, workspaceId),
       ),
     )
     .limit(1);
 
   if (!application) {
-    log.warn({ token }, "inbound email: no application matches token, dropping");
+    log.warn("inbound email: no application matches token, dropping");
     return;
   }
 

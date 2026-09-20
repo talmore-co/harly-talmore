@@ -400,7 +400,7 @@ export type DetectDuplicatesResult =
   | { ok: true; matches: DuplicateMatch[] }
   | { ok: false; error: string };
 
-const detectSchema = z.object({ candidateId: z.uuid() });
+const detectSchema = z.object({ candidateId: z.uuid(), otherCandidateId: z.uuid().optional() });
 
 /**
  * Use AI to compare a candidate against name-alike candidates in the workspace
@@ -408,6 +408,7 @@ const detectSchema = z.object({ candidateId: z.uuid() });
  */
 export async function detectCandidateDuplicatesAction(input: {
   candidateId: string;
+  otherCandidateId?: string;
 }): Promise<DetectDuplicatesResult> {
   const parsed = detectSchema.safeParse(input);
   if (!parsed.success) {
@@ -452,6 +453,7 @@ export async function detectCandidateDuplicatesAction(input: {
       workspaceId,
       candidateId: parsed.data.candidateId,
       config: aiConfig,
+      otherCandidateId: parsed.data.otherCandidateId,
     });
     return { ok: true, matches };
   } catch (error) {

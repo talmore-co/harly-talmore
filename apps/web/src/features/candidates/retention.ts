@@ -8,6 +8,7 @@ import {
   applications,
   candidateEmbeddings,
   candidateFiles,
+  candidateMerges,
   candidates,
   db,
   documentAssociations,
@@ -172,6 +173,7 @@ export async function anonymizeCandidateForRetention(
       await tx.delete(candidateEmbeddings).where(eq(candidateEmbeddings.candidateId, candidateId));
       await tx.delete(evaluationJobs).where(eq(evaluationJobs.candidateId, candidateId));
       await tx.delete(candidateFiles).where(eq(candidateFiles.candidateId, candidateId));
+      await tx.update(candidateMerges).set({ snapshot: {}, originalEmails: [] }).where(and(eq(candidateMerges.workspaceId, workspaceId), eq(candidateMerges.candidateId, candidateId)));
 
       const now = new Date();
       const [updated] = await tx

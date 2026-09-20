@@ -22,6 +22,11 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock("@harly/db", () => ({
+  applicationMerges: {
+    applicationId: "applicationMerges.applicationId",
+    workspaceId: "applicationMerges.workspaceId",
+    inboundToken: "applicationMerges.inboundToken",
+  },
   applications: {
     id: "applications.id",
     candidateId: "applications.candidateId",
@@ -91,6 +96,8 @@ vi.mock("@harly/db", () => ({
 
 vi.mock("drizzle-orm", () => ({
   and: (...args: unknown[]) => args,
+  or: (...args: unknown[]) => args,
+  inArray: (...args: unknown[]) => args,
   eq: (...args: unknown[]) => args,
   isNull: (...args: unknown[]) => args,
   desc: (...args: unknown[]) => args,

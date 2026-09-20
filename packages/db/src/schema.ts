@@ -1636,6 +1636,36 @@ export const applications = pgTable(
   ],
 );
 
+/** Durable redirects and original records retained by an explicit staff merge. */
+export const candidateMerges = pgTable("candidate_merges", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: text("workspace_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  sourceId: uuid("source_id").notNull().unique(),
+  candidateId: uuid("candidate_id").notNull().references(() => candidates.id, { onDelete: "cascade" }),
+  originalEmails: jsonb("original_emails").$type<string[]>().notNull(),
+  snapshot: jsonb("snapshot").notNull(),
+  actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [index("candidate_merges_target_idx").on(table.workspaceId, table.candidateId)]);
+
+export const applicationMerges = pgTable("application_merges", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: text("workspace_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  sourceId: uuid("source_id").notNull().unique(),
+  applicationId: uuid("application_id").notNull().references(() => applications.id, { onDelete: "cascade" }),
+  inboundToken: text("inbound_token").unique(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const candidateDuplicateDismissals = pgTable("candidate_duplicate_dismissals", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: text("workspace_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  candidateId: uuid("candidate_id").notNull().references(() => candidates.id, { onDelete: "cascade" }),
+  otherCandidateId: uuid("other_candidate_id").notNull().references(() => candidates.id, { onDelete: "cascade" }),
+  actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [uniqueIndex("candidate_duplicate_dismissals_pair_idx").on(table.workspaceId, table.candidateId, table.otherCandidateId)]);
+
 /** Optional self-identification data, kept separate from candidate PII. */
 export const candidateDemographics = pgTable(
   "candidate_demographics",
@@ -2441,7 +2471,7 @@ export const offers = pgTable(
         applications.candidateId,
         applications.jobId,
       ],
-    }).onDelete("cascade"),
+    }).onDelete("cascade").onUpdate("cascade"),
     index("offers_workspace_created_at_idx").on(
       table.workspaceId,
       table.createdAt,
@@ -2474,7 +2504,7 @@ export const clientOffers = pgTable("client_offers", {
   createdById: text("created_by_id").references(() => user.id, { onDelete: "set null" }),
   ...timestamps(),
 }, (table) => [
-  foreignKey({ columns: [table.workspaceId, table.applicationId, table.candidateId, table.jobId], foreignColumns: [applications.workspaceId, applications.id, applications.candidateId, applications.jobId] }).onDelete("cascade"),
+  foreignKey({ columns: [table.workspaceId, table.applicationId, table.candidateId, table.jobId], foreignColumns: [applications.workspaceId, applications.id, applications.candidateId, applications.jobId] }).onDelete("cascade").onUpdate("cascade"),
   foreignKey({ columns: [table.workspaceId, table.clientId], foreignColumns: [clients.workspaceId, clients.id] }).onDelete("restrict"),
   index("client_offers_application_idx").on(table.workspaceId, table.applicationId),
 ]);
@@ -3663,7 +3693,7 @@ export const interviews = pgTable(
         applications.candidateId,
         applications.jobId,
       ],
-    }).onDelete("cascade"),
+    }).onDelete("cascade").onUpdate("cascade"),
     check(
       "interviews_duration_mins_check",
       sql`${table.durationMins} between 1 and 1440`,

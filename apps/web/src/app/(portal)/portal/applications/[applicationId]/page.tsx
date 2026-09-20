@@ -6,6 +6,7 @@ import type { Route } from "next";
 
 import { applications, candidates, db, jobs, workspaceSettings } from "@harly/db";
 import { PORTAL_SESSION_COOKIE, resolvePortalSession } from "@/lib/portal-auth";
+import { resolveMergedApplicationId } from "@/features/candidates/merge-aliases";
 import {
   getPortalApplicationInterviews,
   getPortalApplicationOffer,
@@ -97,7 +98,7 @@ export default async function ApplicationDetailPage({
   params,
   searchParams,
 }: PageProps) {
-  const { applicationId } = await params;
+   const { applicationId: requestedId } = await params;
   const searchParamsMap = await searchParams;
   const cookieStore = await cookies();
   const token = cookieStore.get(PORTAL_SESSION_COOKIE)?.value;
@@ -105,6 +106,7 @@ export default async function ApplicationDetailPage({
 
   const session = await resolvePortalSession(token);
   if (!session) redirect("/portal/login" as Route);
+  const applicationId = await resolveMergedApplicationId(session.workspaceId, requestedId);
 
   const [appRow] = await db
     .select({
@@ -141,6 +143,10 @@ export default async function ApplicationDetailPage({
     .limit(1);
 
   if (!appRow) notFound();
+  if (applicationId !== requestedId) {
+    const query = new URLSearchParams(Object.entries(searchParamsMap).flatMap(([key, value]) => typeof value === "string" ? [[key, value]] : []));
+    redirect(`/portal/applications/${applicationId}${query.size ? `?${query}` : ""}` as Route);
+  }
 
   const [settingsRow] = await db
     .select({ showStatus: workspaceSettings.portalShowApplicationStatus })

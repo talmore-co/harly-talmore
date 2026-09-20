@@ -4,6 +4,7 @@ import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import {
   db,
   applications,
+  applicationMerges,
   candidates,
   jobs,
   interviews,
@@ -175,8 +176,12 @@ export async function syncPersonalCalBooking(
       mappings.find((item) => item.interviewId && item.applicationId) ??
       mappings.find((item) => item.interviewId) ??
       mappings.find((item) => item.applicationId);
-    const applicationId =
+    let applicationId =
       mapped?.applicationId ?? manualApplicationId ?? signedApplicationId;
+    if (applicationId) {
+      const [redirect] = await tx.select({ id: applicationMerges.applicationId }).from(applicationMerges).where(and(eq(applicationMerges.workspaceId, connection.workspaceId), eq(applicationMerges.sourceId, applicationId))).limit(1);
+      applicationId = redirect?.id ?? applicationId;
+    }
     const attendee = canonical.attendees[0];
     const fields = {
       connectionId: connection.id,

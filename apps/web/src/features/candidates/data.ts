@@ -1282,6 +1282,10 @@ export async function getCandidateProfile(candidateId: string) {
       };
     }
 
+    if (event.type === "candidate.merged") {
+      return { id: event.id, type: event.type, label: "Duplicate candidate records merged", actorName: event.actorName, createdAt: event.createdAt };
+    }
+
     if (event.type === "candidate.anonymized") {
       return {
         id: event.id,
@@ -2282,35 +2286,13 @@ export type SuspectCandidate = {
 /** Fuzzy name match , heuristic only, no AI. Used for the profile banner. */
 export async function findSuspectDuplicates(
   candidateId: string,
-  firstName: string,
-  lastName: string,
+  _firstName: string,
+  _lastName: string,
   workspaceId: string,
 ): Promise<SuspectCandidate[]> {
-  const { ilike, ne, sql: drizzleSql } = await import("drizzle-orm");
-
-  const rows = await db
-    .select({
-      candidateId: candidates.id,
-      fullName: drizzleSql<string>`concat(${candidates.firstName}, ' ', ${candidates.lastName})`,
-      email: candidates.email,
-    })
-    .from(candidates)
-    .where(
-      and(
-        eq(candidates.workspaceId, workspaceId),
-        ne(candidates.id, candidateId),
-        isNull(candidates.deletedAt),
-        or(
-          ilike(candidates.firstName, `%${firstName}%`),
-          ilike(candidates.lastName, `%${lastName}%`),
-        ),
-      ),
-    )
-    .limit(5);
-
-  return rows.map((r) => ({
-    candidateId: r.candidateId,
-    fullName: r.fullName,
-    email: r.email,
-  }));
+  const { mergeContext } = await import("./merge-service");
+  const { duplicateSuspects } = await import("./duplicate-signals");
+  try { const context = await mergeContext(); if (context.organization.id !== workspaceId) return []; }
+  catch { return []; }
+  return duplicateSuspects(workspaceId, candidateId);
 }
