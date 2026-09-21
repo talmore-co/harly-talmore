@@ -87,7 +87,7 @@ export function InboxPeopleList({
         <div className="flex min-h-0 flex-1 items-center p-4">
           <EmptyState
             title={query ? "No matching people" : "No people yet"}
-            description={query ? "Try a different candidate, subject, or message." : "People who write to Harly will appear here."}
+            description={query ? "Try a different candidate, subject, or message." : "People who write to your team will appear here."}
             icon={EnvelopeSimpleDuotoneIcon}
             className="min-h-0 w-full border-0 bg-transparent py-10"
           />

@@ -1,4 +1,5 @@
 "use server";
+import { definitionSchema, freezeCriteria, responsesSchema, ScorecardValidationError, type ScorecardSubmission } from "./scorecard-definition";
 
 import { createElement } from "react";
 import { randomUUID } from "node:crypto";
@@ -20,6 +21,7 @@ import {
   member as authMembers,
   notifications,
   scorecards,
+  interviews,
   mailMessages,
   mailThreads,
 } from "@harly/db";
@@ -1091,6 +1093,8 @@ async function assertCandidate(candidateId: string, workspaceId: string) {
 
 // ── Scorecards (structured evaluations) ──
 const scorecardSchema = z.object({
+  scorecard: z.object({ definitionToken: z.string().max(100000), responses: responsesSchema }).optional(),
+  interviewId: z.uuid().optional(),
   candidateId: z.string().min(1),
   workspaceId: z.string().min(1),
   applicationId: z.string().uuid(),
@@ -1100,6 +1104,8 @@ const scorecardSchema = z.object({
 });
 
 export async function createScorecard(input: {
+  scorecard?: ScorecardSubmission;
+  interviewId?: string;
   candidateId: string;
   workspaceId: string;
   applicationId: string;
@@ -1124,7 +1130,7 @@ export async function createScorecard(input: {
       return { success: false, error: "Candidate not found." };
     }
     const [application] = await db
-      .select({ id: applications.id, jobId: applications.jobId })
+      .select({ id: applications.id, jobId: applications.jobId, currentStageId: applications.currentStageId })
       .from(applications)
       .where(
         and(
@@ -1137,14 +1143,31 @@ export async function createScorecard(input: {
     if (!application) {
       return { success: false, error: "Application not found." };
     }
+    await requireApplicationPermission("collab:write", application.id);
+    if (parsed.data.interviewId) {
+      const [interview] = await db
+        .select({ id: interviews.id })
+        .from(interviews)
+        .where(and(
+          eq(interviews.id, parsed.data.interviewId),
+          eq(interviews.workspaceId, workspace.id),
+          eq(interviews.applicationId, application.id),
+          eq(interviews.candidateId, input.candidateId),
+        ))
+        .limit(1);
+      if (!interview) {
+        return { success: false, error: "Interview does not belong to this application." };
+      }
+    }
     let stageName: string | null = null;
-    if (parsed.data.stageId) {
+    const stageId = parsed.data.stageId ?? application.currentStageId;
+    if (stageId) {
       const [stage] = await db
         .select({ id: jobStages.id, name: jobStages.name })
         .from(jobStages)
         .where(
           and(
-            eq(jobStages.id, parsed.data.stageId),
+            eq(jobStages.id, stageId),
             eq(jobStages.workspaceId, input.workspaceId),
             eq(jobStages.jobId, application.jobId),
           ),
@@ -1158,22 +1181,30 @@ export async function createScorecard(input: {
       }
       stageName = stage.name;
     }
-    await db.insert(scorecards).values({
+    await db.transaction(async (tx) => {
+    const [job] = await tx.select({ definition: jobs.scorecardDefinition }).from(jobs).where(and(eq(jobs.id, application.jobId), eq(jobs.workspaceId, workspace.id), isNull(jobs.deletedAt))).for("share");
+    if (!job) throw new Error("Job unavailable.");
+    const criteria = freezeCriteria(definitionSchema.parse(job.definition), parsed.data.scorecard);
+    await tx.insert(scorecards).values({
+      criteria,
+      interviewId: parsed.data.interviewId ?? null,
       workspaceId: input.workspaceId,
       candidateId: input.candidateId,
       applicationId: application.id,
-      stageId: parsed.data.stageId ?? null,
+      stageId,
       authorId: user.id,
       rating: parsed.data.rating,
       comment: parsed.data.comment?.trim() || null,
       stageName,
     });
+    });
+    revalidatePath("/dashboard/pipeline");
     revalidatePath(`/dashboard/candidates/${input.candidateId}`);
     return { success: true };
-  } catch {
+  } catch (error) {
     return {
       success: false,
-      error: "Unable to save evaluation.",
+      error: error instanceof ScorecardValidationError ? error.message : "Unable to save evaluation.",
     };
   }
 }
@@ -2129,12 +2160,14 @@ export type RefineScorecardResult =
   | { ok: false; error: string; reason?: "not_configured" };
 
 const refineScorecardSchema = z.object({
+  applicationId: z.uuid().optional(),
   comment: z.string().trim().min(1, "Write a comment first.").max(6000),
   candidateId: z.string().min(1),
 });
 
 /** Improve grammar/clarity/formatting of an interviewer's scorecard comment. */
 export async function refineScorecardTextAction(input: {
+  applicationId?: string;
   comment: string;
   candidateId: string;
 }): Promise<RefineScorecardResult> {
@@ -2161,6 +2194,7 @@ export async function refineScorecardTextAction(input: {
   const job = await getLatestAuthorizedJobForCandidate(
     workspace.id,
     parsed.data.candidateId,
+    parsed.data.applicationId,
   );
   if (!job) return { ok: false, error: "No authorized job found for this candidate." };
 
@@ -2185,12 +2219,14 @@ export type SuggestScorecardAttributesResult =
   | { ok: false; error: string; reason?: "not_configured" };
 
 const suggestAttributesSchema = z.object({
+  applicationId: z.uuid().optional(),
   candidateId: z.string().min(1),
   existingAttributes: z.array(z.string()).max(20).optional(),
 });
 
 /** Suggest role-specific evaluation attributes for a scorecard. */
 export async function suggestScorecardAttributesAction(input: {
+  applicationId?: string;
   candidateId: string;
   existingAttributes?: string[];
 }): Promise<SuggestScorecardAttributesResult> {
@@ -2217,6 +2253,7 @@ export async function suggestScorecardAttributesAction(input: {
   const job = await getLatestAuthorizedJobForCandidate(
     workspace.id,
     parsed.data.candidateId,
+    parsed.data.applicationId,
   );
 
   if (!job) {
@@ -2243,6 +2280,7 @@ export async function suggestScorecardAttributesAction(input: {
 async function getLatestAuthorizedJobForCandidate(
   workspaceId: string,
   candidateId: string,
+  applicationId?: string,
 ): Promise<{
   id: string;
   title: string;
@@ -2269,6 +2307,7 @@ async function getLatestAuthorizedJobForCandidate(
       and(
         eq(applications.workspaceId, workspaceId),
         eq(applications.candidateId, candidateId),
+        applicationId ? eq(applications.id, applicationId) : undefined,
       ),
     )
     .orderBy(desc(applications.appliedAt))

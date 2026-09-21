@@ -65,7 +65,7 @@ export function mcpOAuthResourceGuard(origin: string) {
     if (resource !== undefined && resource !== `${origin}/api/mcp`) {
       throw new APIError("BAD_REQUEST", {
         error: "invalid_target",
-        error_description: "Only the Harly MCP resource is supported.",
+        error_description: "Only the Talmore MCP resource is supported.",
       });
     }
   });
@@ -112,7 +112,7 @@ export function mcpOAuthProvider(origin: string) {
           .limit(2);
         if (memberships.length !== 1)
           throw new APIError("FORBIDDEN", {
-            message: "Select an active Harly workspace before connecting.",
+            message: "Select an active Talmore workspace before connecting.",
           });
         return memberships[0]!.workspaceId;
       },

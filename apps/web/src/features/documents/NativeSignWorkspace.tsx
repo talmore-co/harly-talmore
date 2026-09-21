@@ -95,7 +95,7 @@ export function NativeSignWorkspace({
         </Button>
         <div className="mb-1.5 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-primary">
           <PenLine className="size-3.5" />
-          Harly Signature
+          Talmore Signature
         </div>
         <h1 className="truncate font-display text-2xl font-semibold tracking-tight sm:text-3xl">
           Sign document
@@ -176,7 +176,7 @@ export function NativeSignWorkspace({
           <div className="flex items-start gap-2 rounded-xl border border-primary/20 bg-accent/40 p-3 text-xs leading-5 text-muted-foreground">
             <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary" />
             <p>
-              Harly records your signing intent, consent, document hash,
+              Talmore records your signing intent, consent, document hash,
               timestamp, placements, and artifact integrity.
             </p>
           </div>

@@ -58,7 +58,7 @@ export default async function Setup2FAPage() {
             href="/"
             className="font-display text-lg tracking-tight text-pine"
           >
-            Harly
+            Talmore
           </Link>
         </header>
 

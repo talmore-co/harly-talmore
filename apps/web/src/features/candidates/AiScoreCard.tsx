@@ -355,7 +355,7 @@ export function AiScoreCard({
                     const Logo = PROVIDER_LOGO[evaluation.provider as AiProviderId];
                     return Logo ? <Logo className="size-3.5" /> : null;
                   })()}
-                  {evaluation.source === "rules" ? "Harly Algorithm · rules-v2" : formatModelLabel(evaluation.modelId)}
+                  {evaluation.source === "rules" ? "Talmore Algorithm · rules-v2" : formatModelLabel(evaluation.modelId)}
                 </Badge>
                 <span className="inline-flex items-center gap-1">
                   <FileText className="size-3.5" />

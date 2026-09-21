@@ -117,11 +117,11 @@ function buildReadTools(ctx: HarlyToolContext) {
     workspaceCapabilities: tool({
       strict: true,
       description:
-        "Return the product capabilities Harly actually supports, including explicit limitations. Use before answering whether Harly can publish, share, sync, or perform an integration action. Never infer a capability from general recruiting knowledge.",
+        "Return the product capabilities Talmore actually supports, including explicit limitations. Use before answering whether Talmore can publish, share, sync, or perform an integration action. Never infer a capability from general recruiting knowledge.",
       inputSchema: z.object({}),
       execute: async () => ({
         capabilities: getHarlyCapabilities(),
-        source: "Harly product capability registry",
+        source: "Talmore product capability registry",
         sourceId: "harly-capability-registry",
         confidence: "high" as const,
         observedAt: new Date().toISOString(),
@@ -142,12 +142,12 @@ function buildReadTools(ctx: HarlyToolContext) {
     harlyProductKnowledge: tool({
       strict: true,
       description:
-        "Search versioned Harly product documentation for how the product works, supported workflows, policies, and stable integration limitations. Use for product questions; do not use it as a substitute for live workspace data.",
+        "Search versioned Talmore product documentation for how the product works, supported workflows, policies, and stable integration limitations. Use for product questions; do not use it as a substitute for live workspace data.",
       inputSchema: z.object({
         query: z.string().min(1).max(160).describe("The product question."),
       }),
       execute: async ({ query }) => ({
-        ...evidence("versioned Harly product knowledge"),
+        ...evidence("versioned Talmore product knowledge"),
         results: searchHarlyProductKnowledge(query),
       }),
     }),
@@ -155,7 +155,7 @@ function buildReadTools(ctx: HarlyToolContext) {
     recentAgentActions: tool({
       strict: true,
       description:
-        "List the current user's most recent Harly actions, newest first. Use for 'what did you do', 'what happened', 'undo', 'deshazlo', or 'deshaz lo último'. The receipt id is internal: use it only to call undoAgentAction and never show it to the user.",
+        "List the current user's most recent Talmore actions, newest first. Use for 'what did you do', 'what happened', 'undo', 'deshazlo', or 'deshaz lo último'. The receipt id is internal: use it only to call undoAgentAction and never show it to the user.",
       inputSchema: z.object({
         limit: z
           .number()
@@ -978,7 +978,7 @@ function buildReadTools(ctx: HarlyToolContext) {
               id: "linkedin.share_job_link",
               status: publicUrl ? "available" : "blocked",
               description: publicUrl
-                ? "Share the public Harly job link through LinkedIn's share flow."
+                ? "Share the public Talmore job link through LinkedIn's share flow."
                 : "The job must be publicly visible before it can be shared.",
               url: publicUrl
                 ? `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(publicUrl)}`
@@ -989,7 +989,7 @@ function buildReadTools(ctx: HarlyToolContext) {
             {
               id: "linkedin.publish_native_job",
               status: "unsupported",
-              description: "Create a native LinkedIn Job from Harly.",
+              description: "Create a native LinkedIn Job from Talmore.",
               limitation:
                 "No LinkedIn Jobs publishing integration is available.",
               url: null,
@@ -1023,7 +1023,7 @@ function buildReadTools(ctx: HarlyToolContext) {
     prepareInterview: tool({
       strict: true,
       description:
-        "Prepare an interview schedule without writing anything. Resolve the candidate's application, interpret the requested time in the supplied IANA timezone, check the assigned interviewer's internal and Google Calendar availability, and choose/validate the video provider using their Google connection. Use before scheduling when the request includes a time or meeting provider. If status is needs_attention, explain the warnings. Google Calendar busy periods are advisory, including blocks reserved for interviews: still offer the confirmation card so the user can choose to book. An overlapping Harly interview is blocked by the scheduling action.",
+        "Prepare an interview schedule without writing anything. Resolve the candidate's application, interpret the requested time in the supplied IANA timezone, check the assigned interviewer's internal and Google Calendar availability, and choose/validate the video provider using their Google connection. Use before scheduling when the request includes a time or meeting provider. If status is needs_attention, explain the warnings. Google Calendar busy periods are advisory, including blocks reserved for interviews: still offer the confirmation card so the user can choose to book. An overlapping Talmore interview is blocked by the scheduling action.",
       inputSchema: z.object({
         candidateId: z.string().describe("The resolved candidate id."),
         jobQuery: z.string().nullable().describe("The role phrase, or null."),

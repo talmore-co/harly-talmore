@@ -33,7 +33,7 @@ export const POST = withApi(
           event: "application.created",
           created: Math.floor(Date.now() / 1000),
           workspace: auth.workspaceId,
-          data: { test: true, message: "Harly webhook test ping." },
+          data: { test: true, message: "Talmore webhook test ping." },
         },
         status: "pending",
       })

@@ -13,14 +13,14 @@ export const resetPasswordSubject = "Reset your password";
 export function ResetPasswordEmail({ userName, resetUrl }: ResetPasswordEmailProps) {
   return (
     <HarlyLayout
-      preview="Reset your Harly password — this link expires in 1 hour."
+      preview="Reset your Talmore password. This link expires in 1 hour."
       bodyClassName="mobile:px-6! px-10 pt-8 pb-8"
     >
       <Text className="text-[40px] leading-[1.05] tracking-[-1px] font-inter text-fg m-0 font-medium">
         Reset your password
       </Text>
       <Text className="text-[14px] leading-[1.5] font-inter text-fg-2 m-0 mt-[18px] mb-9">
-        Someone requested a password reset for your Harly account. Use the button
+        Someone requested a password reset for your Talmore account. Use the button
         below to choose a new password.
       </Text>
       <Button
@@ -40,5 +40,5 @@ export function ResetPasswordEmail({ userName, resetUrl }: ResetPasswordEmailPro
 
 ResetPasswordEmail.PreviewProps = {
   userName: "Ava",
-  resetUrl: "https://app.harly.dev/reset-password?token=abc123",
+  resetUrl: "https://ats.example.test/reset-password?token=abc123",
 } satisfies ResetPasswordEmailProps;

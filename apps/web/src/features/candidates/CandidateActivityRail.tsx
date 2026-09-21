@@ -28,6 +28,7 @@ const DOT_STYLES: Record<string, string> = {
   "interview.scheduled": "bg-indigo-500",
   "interview.canceled": "bg-destructive",
   "interview.completed": "bg-emerald-500",
+  "interview.recorded": "bg-emerald-500",
   "interview.rescheduled": "bg-amber-500",
 };
 

@@ -59,5 +59,5 @@ ApplicationReceivedRecruiter.PreviewProps = {
   candidateName: "Ava Thompson",
   candidateEmail: "ava@example.com",
   jobTitle: "Senior Frontend Engineer",
-  dashboardUrl: "https://app.harly.dev/dashboard/candidates/123",
+  dashboardUrl: "https://ats.example.test/dashboard/candidates/123",
 } satisfies ApplicationReceivedRecruiterProps;

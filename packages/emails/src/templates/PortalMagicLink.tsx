@@ -45,5 +45,5 @@ export function PortalMagicLinkEmail({ candidateName, loginUrl, branding }: Port
 
 PortalMagicLinkEmail.PreviewProps = {
   candidateName: "Ava",
-  loginUrl: "https://app.harly.dev/portal/login?token=abc123",
+  loginUrl: "https://ats.example.test/portal/login?token=abc123",
 } satisfies PortalMagicLinkEmailProps;

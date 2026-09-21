@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Harly API",
+    "title": "Talmore API",
     "version": "1.0.0"
   },
   "servers": [
@@ -9,8 +9,8 @@
       "url": "https://{instance}",
       "variables": {
         "instance": {
-          "default": "app.harly.dev",
-          "description": "Hostname of your Harly installation"
+          "default": "ats.talmore.co",
+          "description": "Hostname of your Talmore installation"
         }
       }
     }
@@ -24024,7 +24024,7 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "bearerFormat": "Harly API key"
+        "bearerFormat": "Talmore API key"
       }
     },
     "schemas": {},

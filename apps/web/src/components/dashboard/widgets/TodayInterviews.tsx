@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import type { TodayInterview } from "@/features/dashboard/widgets";
+import { googleCalendarEventHref, interviewCandidateHref } from "@/features/interviews/links";
 import { Tile, TileHeader, TileLink, EmptyHint } from "./primitives";
 
 export function TodayInterviews({
@@ -40,7 +41,7 @@ export function TodayInterviews({
                   {timeFmt.format(new Date(iv.scheduledAt))}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{iv.candidate}</p>
+                  <Link href={interviewCandidateHref(iv)} className="block truncate text-sm font-medium hover:underline" title={`View interviews for ${iv.candidate}`}>{iv.candidate}</Link>
                   <p className="truncate text-xs text-muted-foreground">{iv.job}</p>
                   {iv.interviewer ? (
                     <span className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -59,11 +60,12 @@ export function TodayInterviews({
                 </Badge>
                 {iv.gcalEventId ? (
                   <a
-                    href={`https://calendar.google.com/calendar/event?eid=${btoa(iv.gcalEventId).replace(/=/g, "")}`}
+                    href={googleCalendarEventHref(iv.gcalEventId)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="shrink-0 text-muted-foreground hover:text-foreground"
                     title="View in Google Calendar"
+                    aria-label={`View ${iv.candidate}'s interview in Google Calendar`}
                   >
                     <ExternalLink className="size-3.5" />
                   </a>

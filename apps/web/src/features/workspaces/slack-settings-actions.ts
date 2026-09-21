@@ -36,7 +36,7 @@ export type SlackDeliveryView = {
 };
 
 const RECONNECT_MESSAGE =
-  "Slack revoked this connection. Disconnect and add Harly to Slack again.";
+  "Slack revoked this connection. Disconnect and add Talmore to Slack again.";
 
 /** Slack error codes that mean the stored bot token is permanently dead. */
 const DEAD_TOKEN_ERRORS = new Set([
@@ -184,7 +184,7 @@ export async function saveSlackSettingsAction(input: {
       const client = new WebClient(botToken);
       const result = await client.conversations.info({ channel: input.channelId });
       if (!result.channel?.id || result.channel.id !== input.channelId || result.channel.is_member !== true) {
-        return { ok: false, error: "The Harly bot must be a member of the selected channel." };
+        return { ok: false, error: "The connected bot must be a member of the selected channel." };
       }
       input = { ...input, channelName: result.channel.name ?? input.channelName };
     } catch (error) {
@@ -273,13 +273,13 @@ export async function testSlackAction(): Promise<SlackActionResult> {
     const client = new WebClient(config.botToken);
     await client.chat.postMessage({
       channel: config.channelId,
-      text: "Test message from Harly",
+      text: "Test message from Talmore",
       blocks: [
         {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: "👋 *Test from Harly*. Your Slack integration is working!",
+            text: "👋 *Test from Talmore*. Your Slack integration is working!",
           },
         },
         {

@@ -37,7 +37,7 @@ export const HARLY_CAPABILITIES: readonly HarlyCapability[] = [
     domain: "jobs",
     status: "available",
     mode: "external_flow",
-    description: "Open LinkedIn's share flow for a public Harly job URL.",
+    description: "Open LinkedIn's share flow for a public Talmore job URL.",
     createsNativeJob: false,
     syncsCandidates: false,
     limitation:
@@ -50,7 +50,7 @@ export const HARLY_CAPABILITIES: readonly HarlyCapability[] = [
     domain: "jobs",
     status: "unsupported",
     mode: "unsupported",
-    description: "Create and manage a native LinkedIn Job from Harly.",
+    description: "Create and manage a native LinkedIn Job from Talmore.",
     createsNativeJob: false,
     syncsCandidates: false,
     reason: "No LinkedIn Jobs publishing integration is configured.",

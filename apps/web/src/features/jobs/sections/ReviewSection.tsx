@@ -3,7 +3,6 @@ import type { Job } from "@harly/db";
 
 import type { HiringTeamMember, WorkspaceMemberOption } from "../hiring-team-data";
 import { JobHiringTeam } from "../JobHiringTeam";
-import { PublicJobPreview } from "../PublicJobPreview";
 import { SemanticMatchPanel } from "@/features/matching/SemanticMatchPanel";
 
 const WORKPLACE_LABEL: Record<string, string> = {
@@ -62,7 +61,6 @@ export function ReviewSection({
                 aiConfigured={Boolean(aiConfigured)}
                 candidatePoolCount={candidatePoolCount ?? 0}
               />
-              <PublicJobPreview slug={job.slug} />
             </>
           ) : null}
         </>
@@ -71,10 +69,9 @@ export function ReviewSection({
           <span className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
             <Rocket className="size-5" />
           </span>
-          <p className="text-sm font-medium">Hiring team, AI matching, and live preview unlock after you publish</p>
+          <p className="text-sm font-medium">Hiring team and AI matching unlock after you save</p>
           <p className="max-w-sm text-sm text-muted-foreground">
-            Save this job first. You&apos;ll be able to assign a hiring team, rank your candidate pool, and preview
-            the public listing right after.
+            Save this job first. You&apos;ll be able to assign a hiring team and rank your candidate pool.
           </p>
         </div>
       )}

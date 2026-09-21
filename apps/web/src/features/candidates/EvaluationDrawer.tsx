@@ -1,99 +1,63 @@
 "use client";
+import { ScorecardFields } from "./ScorecardFields";
+import type { ScorecardSubmission } from "./scorecard-definition";
 
 import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Minus, ThumbsDown, ThumbsUp } from "lucide-react";
+import { RatingChoices } from "./RatingChoices";
 import { toast } from "@/lib/notification-island/toast";
 
 import {
   createScorecard,
   refineScorecardTextAction,
-  suggestScorecardAttributesAction,
-  type ScorecardAttribute,
 } from "@/features/candidates/actions";
 import { Button } from "@/components/ui/button";
 import { SidePanel } from "@/components/ui/side-panel";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   MagicWandDuotoneIcon,
-  SparkleFillIcon,
   SpinnerIcon,
 } from "@/components/ui/icons/phosphor";
 import { cn } from "@/lib/utils";
 
-const RATINGS = [
-  { key: "strong", label: "Strong", icon: ThumbsUp },
-  { key: "mixed", label: "Mixed", icon: Minus },
-  { key: "weak", label: "Weak", icon: ThumbsDown },
-] as const;
-
-type RatingKey = (typeof RATINGS)[number]["key"];
+type RatingKey = "strong" | "mixed" | "weak";
 
 export function EvaluationDrawer({
   candidateId,
   workspaceId,
   applicationId,
+  interviewId,
   stageId,
   stageName,
+  jobTitle,
+  clientName,
+  applications,
   trigger,
 }: {
   candidateId: string;
   workspaceId: string;
   applicationId: string;
+  interviewId?: string;
   stageId?: string | null;
   stageName: string | null;
+  jobTitle: string;
+  clientName?: string | null;
+  applications?: Array<{ applicationId: string; jobTitle: string; clientName?: string | null; currentStageName: string | null }>;
   trigger: ReactNode;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [scorecard, setScorecard] = useState<ScorecardSubmission>();
+  const [chosenApplicationId, setChosenApplicationId] = useState(applicationId);
+  const options = applications?.length ? applications : [{ applicationId, jobTitle, clientName, currentStageName: stageName }];
+  const selected = options.find((option) => option.applicationId === chosenApplicationId) ?? options[0];
   const [rating, setRating] = useState<RatingKey | null>(null);
   const [comment, setComment] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  const [attributes, setAttributes] = useState<ScorecardAttribute[] | null>(
-    null,
-  );
-  const [suggesting, startSuggest] = useTransition();
   const [refining, startRefine] = useTransition();
-
-  function suggestAttributes() {
-    startSuggest(async () => {
-      const result = await suggestScorecardAttributesAction({ candidateId });
-      if (!result.ok) {
-        toast.error(result.error ?? "Could not suggest attributes.");
-        return;
-      }
-      if (result.attributes.length === 0) {
-        toast.message("No attributes suggested", {
-          description: "Try again or add your own below.",
-        });
-        return;
-      }
-      setAttributes(result.attributes);
-    });
-  }
-
-  /** Insert an attribute as a labelled prompt the interviewer fills in. */
-  function addAttribute(attr: ScorecardAttribute) {
-    setComment((prev) => {
-      // Dedup on the label itself (any line already starting "Label:"),
-      // independent of trailing whitespace the interviewer may have edited.
-      const already = prev
-        .split("\n")
-        .some((l) =>
-          l
-            .trimStart()
-            .toLowerCase()
-            .startsWith(`${attr.label.toLowerCase()}:`),
-        );
-      if (already) return prev;
-      const prefix = prev.trim() ? `${prev.replace(/\s+$/, "")}\n\n` : "";
-      return `${prefix}${attr.label}: `;
-    });
-    setAttributes(
-      (prev) => prev?.filter((a) => a.label !== attr.label) ?? null,
-    );
-  }
 
   function refine() {
     if (!comment.trim()) {
@@ -101,7 +65,7 @@ export function EvaluationDrawer({
       return;
     }
     startRefine(async () => {
-      const result = await refineScorecardTextAction({ comment, candidateId });
+      const result = await refineScorecardTextAction({ comment, candidateId, applicationId: selected.applicationId });
       if (!result.ok) {
         toast.error(result.error ?? "Could not refine.");
         return;
@@ -118,10 +82,12 @@ export function EvaluationDrawer({
     }
     startTransition(async () => {
       const result = await createScorecard({
+        interviewId,
+        scorecard,
         candidateId,
         workspaceId,
-        applicationId,
-        stageId,
+        applicationId: selected.applicationId,
+        stageId: selected.applicationId === applicationId ? stageId : undefined,
         rating,
         comment: comment.trim() || undefined,
       });
@@ -133,7 +99,6 @@ export function EvaluationDrawer({
       setOpen(false);
       setRating(null);
       setComment("");
-      setAttributes(null);
       router.refresh();
     });
   }
@@ -141,10 +106,18 @@ export function EvaluationDrawer({
   return (
     <SidePanel
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={(value) => {
+        if (isPending) return;
+        if (value) {
+          setChosenApplicationId(applicationId);
+          setScorecard(undefined);
+          setRating(null); setComment("");
+        }
+        setOpen(value);
+      }}
       trigger={trigger}
-      title={`Add evaluation${stageName ? ` · ${stageName}` : ""}`}
-      description="Rate this candidate and leave feedback for the team."
+      title={`Fill out scorecard${selected.currentStageName ? ` · ${selected.currentStageName}` : ""}`}
+      description="Assess this candidate for the selected application."
       footer={
         <>
           <Button
@@ -154,38 +127,29 @@ export function EvaluationDrawer({
           >
             Cancel
           </Button>
-          <Button onClick={submit} disabled={isPending}>
-            {isPending ? "Saving…" : "Save evaluation"}
+          <Button onClick={submit} disabled={isPending || !scorecard}>
+            {isPending ? "Saving…" : "Save scorecard"}
           </Button>
         </>
       }
     >
       <div className="space-y-5">
         <div className="space-y-2">
+          <Label htmlFor="assessment-application">Application</Label>
+          <Select value={selected.applicationId} disabled={isPending || refining || Boolean(interviewId) || options.length === 1} onValueChange={(value) => {
+            setChosenApplicationId(value); setScorecard(undefined); setRating(null); setComment("");
+          }}>
+            <SelectTrigger id="assessment-application" className="w-full"><SelectValue /></SelectTrigger>
+            <SelectContent>{options.map((option) => <SelectItem key={option.applicationId} value={option.applicationId}>{option.clientName ? `${option.clientName} · ` : ""}{option.jobTitle}</SelectItem>)}</SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">{interviewId ? "This assessment belongs to the interview’s application." : "Changing applications clears the draft assessment."}</p>
+        </div>
+        {open ? <ScorecardFields key={selected.applicationId} applicationId={selected.applicationId} candidateId={candidateId} value={scorecard} onChange={setScorecard} disabled={isPending} /> : null}
+        <div className="space-y-2">
           <p className="text-[13px] font-medium tracking-tight text-foreground/90">
-            Overall rating
+            Overall recommendation
           </p>
-          <div className="grid grid-cols-3 gap-2">
-            {RATINGS.map((r) => {
-              const active = rating === r.key;
-              return (
-                <button
-                  key={r.key}
-                  type="button"
-                  onClick={() => setRating(r.key)}
-                  className={cn(
-                    "flex flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-sm font-medium transition-colors",
-                    active
-                      ? "border-primary/40 bg-accent text-accent-foreground"
-                      : "text-muted-foreground hover:bg-muted",
-                  )}
-                >
-                  <r.icon className="size-5" strokeWidth={1.8} />
-                  {r.label}
-                </button>
-              );
-            })}
-          </div>
+          <RatingChoices type="recommendation" value={rating} onChange={(value) => setRating(value as RatingKey)} label="Overall recommendation" disabled={isPending} clearable={false} />
         </div>
 
         <div className="space-y-2">
@@ -196,48 +160,7 @@ export function EvaluationDrawer({
             >
               Comments
             </label>
-            <button
-              type="button"
-              onClick={suggestAttributes}
-              disabled={suggesting}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border border-transparent px-2.5 py-1",
-                "text-xs font-medium text-pine transition-[transform,background-color,color]",
-                "duration-150 ease-out hover:bg-sage/50 active:scale-[0.97]",
-                "disabled:pointer-events-none disabled:opacity-60",
-              )}
-            >
-              {suggesting ? (
-                <SpinnerIcon className="size-3.5 animate-spin" />
-              ) : (
-                <SparkleFillIcon className="size-3.5" />
-              )}
-              {suggesting ? "Thinking…" : "Suggest attributes"}
-            </button>
           </div>
-
-          {attributes && attributes.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5 pb-0.5">
-              {attributes.map((attr, i) => (
-                <button
-                  key={attr.label}
-                  type="button"
-                  onClick={() => addAttribute(attr)}
-                  title={attr.whatGoodLooksLike}
-                  style={{ animationDelay: `${i * 40}ms` }}
-                  className={cn(
-                    "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1",
-                    "inline-flex items-center gap-1 rounded-full border bg-card px-2.5 py-1",
-                    "text-xs font-medium text-foreground/80 transition-[transform,background-color,border-color]",
-                    "duration-150 ease-out hover:border-pine/40 hover:bg-sage/40 active:scale-[0.97]",
-                  )}
-                >
-                  <span className="text-pine/70">+</span>
-                  {attr.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
 
           <div className="relative">
             <Textarea

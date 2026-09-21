@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { cn } from "@/lib/utils";
+import { googleCalendarEventHref, interviewCandidateHref } from "./links";
 
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
@@ -272,7 +273,7 @@ export function CalendarBoard({
                         return (
                           <Link
                             key={iv.id}
-                            href={`/dashboard/candidates/${iv.candidateId}`}
+                            href={interviewCandidateHref(iv)}
                             className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2.5 transition-colors hover:bg-accent/60"
                           >
                             <span className="w-14 shrink-0 text-xs font-medium tabular-nums text-muted-foreground">
@@ -350,9 +351,8 @@ export function CalendarBoard({
               });
 
               return (
-                <button
+                <div
                   key={key}
-                  type="button"
                   role="gridcell"
                   aria-label={
                     dayInterviews.length > 0
@@ -360,10 +360,6 @@ export function CalendarBoard({
                       : `${dateLabel}, no interviews${isToday ? ", today" : ""}`
                   }
                   aria-selected={selectedDay === key}
-                  onClick={() =>
-                    dayInterviews.length > 0 &&
-                    setSelectedDay(selectedDay === key ? null : key)
-                  }
                   className={cn(
                     "flex min-h-24 flex-col items-stretch gap-1 border-b border-r border-border p-1.5 text-left transition-colors last:border-r-0",
                     !isCurrentMonth && "bg-muted/20 text-muted-foreground/50",
@@ -371,24 +367,28 @@ export function CalendarBoard({
                     selectedDay === key && "bg-accent",
                   )}
                 >
-                  <span
-                    aria-hidden="true"
+                  <button
+                    type="button"
+                    aria-label={`View interviews for ${dateLabel}`}
+                    disabled={!dayInterviews.length}
+                    onClick={() => setSelectedDay(selectedDay === key ? null : key)}
                     className={cn(
                       "inline-flex size-6 items-center justify-center rounded-full text-xs font-medium tabular-nums",
                       isToday && "bg-pine text-primary-foreground",
                     )}
                   >
                     {date.getDate()}
-                  </span>
+                  </button>
                   <div
-                    aria-hidden="true"
                     className="flex flex-1 flex-col gap-1"
                   >
                     {visible.map((iv) => {
                       const ModeIcon = MODE_ICON[iv.mode];
                       return (
-                        <span
+                        <Link
                           key={iv.id}
+                          href={interviewCandidateHref(iv)}
+                          title={`Open interviews for ${iv.candidateName}`}
                           className={cn(
                             "flex items-center gap-1 truncate rounded px-1.5 py-0.5 text-[11px] font-medium",
                             MODE_TONE[iv.mode],
@@ -402,16 +402,16 @@ export function CalendarBoard({
                             })}{" "}
                             {iv.candidateName}
                           </span>
-                        </span>
+                        </Link>
                       );
                     })}
                     {overflow > 0 ? (
-                      <span className="px-1.5 text-[11px] font-medium text-muted-foreground">
+                      <button type="button" onClick={() => setSelectedDay(key)} className="px-1.5 text-left text-[11px] font-medium text-muted-foreground">
                         +{overflow} more
-                      </span>
+                      </button>
                     ) : null}
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
@@ -454,13 +454,9 @@ export function CalendarBoard({
                         className="rounded-lg border border-transparent transition-colors hover:border-border hover:bg-accent/60"
                       >
                         <div className="flex items-center gap-3 px-2 py-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setExpandedId(isExpanded ? null : iv.id)
-                            }
+                          <Link
+                            href={interviewCandidateHref(iv)}
                             className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                            aria-expanded={isExpanded}
                           >
                             <span className="w-16 shrink-0 text-xs font-medium tabular-nums text-muted-foreground">
                               {new Date(iv.scheduledAt).toLocaleTimeString(
@@ -499,17 +495,19 @@ export function CalendarBoard({
                             <Badge variant="neutral" className="shrink-0">
                               {iv.durationMins}m
                             </Badge>
-                          </button>
+                          </Link>
+                          {hasDetails || iv.gcalEventId ? <button type="button" onClick={() => setExpandedId(isExpanded ? null : iv.id)} aria-expanded={isExpanded} aria-label={`${isExpanded ? "Hide" : "Show"} interview details for ${iv.candidateName}`} className="shrink-0 text-xs text-muted-foreground hover:text-foreground">{isExpanded ? "Hide details" : "Details"}</button> : null}
                           <Link
-                            href={`/dashboard/candidates/${iv.candidateId}`}
+                            href={interviewCandidateHref(iv)}
                             className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
-                            title="Open candidate"
+                            title="Open candidate interviews"
+                            aria-label={`Open interviews for ${iv.candidateName}`}
                           >
                             <ArrowUpRightIcon className="size-4" />
                           </Link>
                         </div>
                         <AnimatePresence initial={false}>
-                          {isExpanded && hasDetails ? (
+                          {isExpanded && (hasDetails || iv.gcalEventId) ? (
                             <motion.div
                               initial={
                                 shouldReduceMotion
@@ -571,7 +569,7 @@ export function CalendarBoard({
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       window.open(
-                                        `https://calendar.google.com/calendar/r/search?q=${encodeURIComponent(iv.gcalEventId!)}`,
+                                        googleCalendarEventHref(iv.gcalEventId!),
                                         "_blank",
                                         "noopener,noreferrer",
                                       );

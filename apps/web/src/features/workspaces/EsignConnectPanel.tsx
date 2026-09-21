@@ -198,7 +198,7 @@ function ConnectForm({
             {status.hasToken ? "Manage connection" : "Connect DocuSeal"}
           </h2>
           <p className="text-sm text-muted-foreground">
-            Point Harly at your self-hosted DocuSeal instance. The API token is
+            Point Talmore at your self-hosted DocuSeal instance. The API token is
             encrypted at rest and never shown again.
           </p>
         </div>

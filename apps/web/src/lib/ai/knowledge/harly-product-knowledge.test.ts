@@ -25,11 +25,11 @@ describe("Harly product knowledge", () => {
   it("provides always-on identity and hard boundaries", () => {
     const context = getHarlyCoreProductContext();
     expect(context).toContain(
-      "self-hostable, open-source applicant tracking system",
+      "Talmore ATS is the recruitment agency's applicant tracking system",
     );
-    expect(context).toContain("not a generic recruiting chatbot");
+    expect(context).toContain("does not make final hiring decisions");
     expect(context).toContain(
-      "does not have a native LinkedIn Jobs publishing",
+      "does not have native LinkedIn Jobs publishing",
     );
   });
 });

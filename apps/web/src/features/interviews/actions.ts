@@ -874,7 +874,7 @@ export async function setInterviewStatus(input: {
       };
     }
     if (existing.source === "cal.com-personal" && parsed.data.status === "canceled") {
-      return { success: false, error: "Manage this booking in Cal.com. Its changes will sync back to Harly." };
+      return { success: false, error: "Manage this booking in Cal.com. Its changes will sync back to Talmore." };
     }
 
     const statusEvent: { current: PersistedDomainEvent | null } = {
@@ -1175,7 +1175,7 @@ export async function rescheduleInterview(input: {
       .limit(1);
 
     if (row?.source === "cal.com-personal") {
-      return { success: false, error: "Manage this booking in Cal.com. Its changes will sync back to Harly." };
+      return { success: false, error: "Manage this booking in Cal.com. Its changes will sync back to Talmore." };
     }
     if (!row) {
       return { success: false, error: "Interview not found." };
@@ -1721,7 +1721,7 @@ export async function updateInterview(input: {
       .limit(1);
 
     if (row?.source === "cal.com-personal") {
-      return { success: false, error: "Manage this booking in Cal.com. Its changes will sync back to Harly." };
+      return { success: false, error: "Manage this booking in Cal.com. Its changes will sync back to Talmore." };
     }
     if (!row) {
       return { success: false, error: "Interview not found." };

@@ -230,7 +230,7 @@ async function deliverAutomationEmail(row: OutboxRow): Promise<boolean> {
     subject: payload.subject,
     react: createElement(CustomTemplateEmail, {
       bodyHtml: payload.bodyHtml,
-      companyName: "Harly",
+      companyName: "Talmore",
     }),
     ...deliveryOptions(row),
   }, row.actorId ?? undefined);
@@ -266,7 +266,7 @@ async function deliverScheduledReport(row: OutboxRow): Promise<boolean> {
     subject: payload.subject,
     react: createElement(CustomTemplateEmail, {
       bodyHtml: payload.bodyHtml,
-      companyName: payload.companyName ?? "Harly",
+      companyName: payload.companyName ?? "Talmore",
     }),
     idempotencyKey: row.id,
   });
@@ -312,7 +312,7 @@ async function deliverNativeSignatureOtp(row: OutboxRow): Promise<boolean> {
   const code = decryptSecret(payload.code);
   const delivered = await sendWorkspaceEmail(row.workspaceId, {
     to: payload.recipientEmail,
-    subject: "Your Harly Signature verification code",
+    subject: "Your Talmore Signature verification code",
     react: createElement("div", null,
       createElement("p", null, `Hello ${payload.recipientName ?? "there"},`),
       createElement("p", null, "Use this one-time code to continue signing:"),

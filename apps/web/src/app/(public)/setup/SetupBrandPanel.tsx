@@ -7,14 +7,14 @@ import { GithubIcon } from "@/components/ui/icons/GithubIcon";
 
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
-const LANDING_URL = "https://harly.dev";
-const REPO_URL = "https://github.com/Vytral/harly";
+const LANDING_URL = "https://talmore.co";
+const REPO_URL = "https://github.com/talmore-co/harly-talmore";
 
 const POINTS = [
   {
     icon: ServerIcon,
     title: "Your ATS, your server",
-    body: "Self-hosted and open-source. Candidate data never leaves your infrastructure.",
+    body: "Self-hosted. Your team controls access to candidate data.",
   },
   {
     icon: WaypointsIcon,
@@ -78,19 +78,17 @@ export function SetupBrandPanel() {
         <a
           href={LANDING_URL}
           className="inline-flex rounded-sm outline-none ring-lime/60 transition focus-visible:ring-2"
-          aria-label="Harly , visit harly.dev"
+          aria-label="Talmore website"
         >
-          <motion.img
-            src="/harly-full-white.svg"
-            alt="Harly"
-            className="h-10 w-auto"
+          <motion.span
+            className="font-display text-3xl font-semibold text-white"
             animate={reduce ? undefined : { y: [0, -5, 0] }}
             transition={
               reduce
                 ? undefined
                 : { duration: 6, ease: "easeInOut", repeat: Infinity }
             }
-          />
+          >Talmore</motion.span>
         </a>
       </motion.div>
 
@@ -142,7 +140,7 @@ export function SetupBrandPanel() {
           target="_blank"
           rel="noreferrer noopener"
           className="inline-flex size-9 items-center justify-center rounded-lg text-white/55 outline-none ring-inset ring-lime/60 transition hover:bg-white/10 hover:text-white focus-visible:ring-2"
-          aria-label="Harly on GitHub"
+          aria-label="Talmore on GitHub"
         >
           <GithubIcon className="size-[1.125rem]" />
         </a>

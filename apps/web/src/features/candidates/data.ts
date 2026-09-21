@@ -24,6 +24,7 @@ import {
   applications,
   applicationQuestions,
   candidates,
+  clients,
   candidateFiles,
   candidateNotes,
   candidateReferrals,
@@ -816,6 +817,7 @@ export async function getCandidateProfile(candidateId: string) {
       workspaceId: applications.workspaceId,
       jobId: applications.jobId,
       jobTitle: jobs.title,
+      clientName: clients.name,
       currentStageId: applications.currentStageId,
       currentStageName: jobStages.name,
       status: applications.status,
@@ -827,6 +829,7 @@ export async function getCandidateProfile(candidateId: string) {
       jobs,
       and(eq(jobs.workspaceId, workspace.id), eq(jobs.id, applications.jobId)),
     )
+    .leftJoin(clients, and(eq(clients.workspaceId, workspace.id), eq(clients.id, jobs.clientId)))
     .leftJoin(
       jobStages,
       and(
@@ -942,6 +945,8 @@ export async function getCandidateProfile(candidateId: string) {
   const scorecardRows = await db
     .select({
       id: scorecards.id,
+      criteria: scorecards.criteria,
+      interviewId: scorecards.interviewId,
       applicationId: scorecards.applicationId,
       rating: scorecards.rating,
       comment: scorecards.comment,
@@ -1282,6 +1287,9 @@ export async function getCandidateProfile(candidateId: string) {
       };
     }
 
+    if (event.type === "interview.recorded") {
+      return { id: event.id, type: event.type, label: "Completed interview recorded", actorName: event.actorName, createdAt: event.createdAt };
+    }
     if (event.type === "candidate.merged") {
       return { id: event.id, type: event.type, label: "Duplicate candidate records merged", actorName: event.actorName, createdAt: event.createdAt };
     }
@@ -1415,6 +1423,8 @@ export async function getCandidateProfile(candidateId: string) {
     files,
     activity,
     scorecards: scorecardRows.map((row) => ({
+      criteria: row.criteria,
+      interviewId: row.interviewId,
       id: row.id,
       applicationId: row.applicationId,
       rating: row.rating,

@@ -3,17 +3,22 @@ import {
   attributionSchema,
 } from "@/features/applications/attribution";
 
-export function ApplicationAttributionDetails({ value }: { value: unknown }) {
+export function ApplicationAttributionDetails({ value, sourceLabel }: { value: unknown; sourceLabel?: string }) {
   const parsed = attributionSchema.safeParse(value);
-  if (!parsed.success) return null;
+  if (!parsed.success) return sourceLabel ? (
+    <section className="rounded-md border p-3 text-sm">
+      <p className="font-medium">Source: {sourceLabel}</p>
+      <p className="mt-2 text-xs text-muted-foreground">No tracked campaign or link details were saved with this application.</p>
+    </section>
+  ) : null;
   return (
-    <details className="mt-3 rounded-md border p-3 text-sm">
-      <summary className="cursor-pointer font-medium">
-        Attribution: {parsed.data.last.utm_source ?? "Tagged link"}
+    <section className="rounded-md border p-3 text-sm">
+      <p className="font-medium">
+        {sourceLabel ? `Source: ${sourceLabel} · ` : "Attribution: "}{parsed.data.last.utm_source ?? "Tagged link"}
         {parsed.data.last.utm_campaign
           ? ` · ${parsed.data.last.utm_campaign}`
           : ""}
-      </summary>
+      </p>
       <p className="my-2 text-xs text-muted-foreground">
         Saved with this application from consented, visitor-provided link
         parameters. Attribution is not independently verified by Meta.
@@ -53,6 +58,6 @@ export function ApplicationAttributionDetails({ value }: { value: unknown }) {
           </section>
         ))}
       </div>
-    </details>
+    </section>
   );
 }

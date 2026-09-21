@@ -1,4 +1,7 @@
 "use client";
+import { EvaluationDrawer } from "./EvaluationDrawer";
+import { ScorecardList } from "./candidate-profile/ScorecardList";
+import { countAssessments } from "./assessment-counts";
 import { QuestionnaireScoreDetails } from "./QuestionnaireScoreDetails";
 import { ApplicationAttributionDetails } from "./ApplicationAttributionDetails";
 
@@ -43,11 +46,16 @@ import { ApplicationStatusBadge } from "@/components/ui/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ShortDate } from "@/lib/date-hydration";
+import { PipelineScores } from "@/features/pipeline/PipelineScores";
+import { MetaAttributionBadge } from "@/features/pipeline/MetaAttributionBadge";
+import { AiScoreCard } from "./AiScoreCard";
+import type { CandidateAiEvaluationItem } from "./data";
 
 type Application = {
   id: string;
   jobId: string;
   jobTitle: string;
+  clientName?: string | null;
   currentStageName: string | null;
   status: string;
   appliedAt: string;
@@ -163,23 +171,38 @@ function DetailRow({
   );
 }
 
+type AssessmentContext = {
+  scorecards: import("./candidate-profile/types").Scorecard[];
+  interviews: import("@/features/interviews/shared").CandidateInterviewItem[];
+  candidateId: string;
+  workspaceId: string;
+};
+
 function ApplicationDisclosure({
   application,
+  evaluation,
+  aiConfigured,
+  scorecards, interviews, candidateId, workspaceId,
 }: {
   application: Application;
-}) {
+  evaluation?: CandidateAiEvaluationItem;
+  aiConfigured: boolean;
+} & AssessmentContext) {
   const [open, setOpen] = useState(false);
+  const [evaluationOpen, setEvaluationOpen] = useState(false);
+  const [sourceOpen, setSourceOpen] = useState(false);
+  const [assessmentsOpen, setAssessmentsOpen] = useState(false);
   const hasAnswers = application.answers.length > 0;
   const sourceMeta = application.source
     ? APPLICATION_SOURCE_META[application.source]
     : null;
 
   return (
-    <div className="group/app space-y-0 py-4 first:pt-0 last:pb-0">
-      <QuestionnaireScoreDetails snapshot={application.questionnaireScoreSnapshot} />
-      <ApplicationAttributionDetails value={application.attribution} />
-      <div className="flex items-center gap-3">
-        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+    <div className="py-4 first:pt-0 last:pb-0">
+      <div className="grid items-center gap-4 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto]">
+        <div className="min-w-0">
+        {application.clientName ? <p className="mb-1 truncate pl-[2.4rem] text-xs text-muted-foreground">{application.clientName}</p> : null}
+        <div className="flex min-w-0 flex-wrap items-center gap-2.5">
           <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/70 text-muted-foreground">
             <Briefcase className="size-3.5" strokeWidth={1.8} />
           </span>
@@ -188,39 +211,30 @@ function ApplicationDisclosure({
           </h3>
           <ApplicationStatusBadge status={application.status as never} />
         </div>
-        <Button
-          asChild
-          variant="ghost"
-          size="sm"
-          className="h-7 shrink-0 gap-1 px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
-        >
-          <Link href={`/dashboard/pipeline?job=${application.jobId}` as Route}>
-            <ExternalLink className="size-3.5" strokeWidth={1.8} />
-            Pipeline
-          </Link>
-        </Button>
-      </div>
-
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 pl-[2.4rem]">
-        {application.questionnaireScore != null && <span className="rounded bg-muted px-2 py-1 text-xs font-medium">Questionnaire {application.questionnaireScore}%</span>}
+        <div className="mt-1.5 flex items-center gap-1 pl-[2.4rem] text-xs text-muted-foreground">
+          <span>{sourceMeta?.label ?? application.source ?? "Source not recorded"}</span>
+          <MetaAttributionBadge value={application.attribution} />
+        </div>
+        </div>
+        <div className="flex flex-col items-start gap-1.5">
         {application.currentStageName ? (
           <ApplicationMetaItem icon={Layers}>
             {application.currentStageName}
           </ApplicationMetaItem>
         ) : null}
         <ApplicationMetaItem icon={Calendar}>
-          <ShortDate value={application.appliedAt} />
+          Applied <ShortDate value={application.appliedAt} />
         </ApplicationMetaItem>
-        {sourceMeta ? (
-          <ApplicationMetaItem icon={sourceMeta.icon}>
-            {sourceMeta.label}
-          </ApplicationMetaItem>
-        ) : null}
+        </div>
+        <PipelineScores application={{ questionnaireScore: application.questionnaireScore, aiScore: evaluation?.score, assessmentCounts: countAssessments(scorecards) }} />
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-4">
         {hasAnswers ? (
           <button
             type="button"
             onClick={() => setOpen((value) => !value)}
             aria-expanded={open}
+            aria-label={`${open ? "Hide" : "Show"} questionnaire answers for ${application.jobTitle}`}
             className="inline-flex items-center gap-1 rounded text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
           >
             <MessageSquareText className="size-3 shrink-0" strokeWidth={1.8} />
@@ -233,8 +247,32 @@ function ApplicationDisclosure({
             )}
           </button>
         ) : null}
+        <button type="button" onClick={() => setEvaluationOpen((value) => !value)} aria-expanded={evaluationOpen} aria-label={`${evaluationOpen ? "Hide" : "Show"} AI evaluation for ${application.jobTitle}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+          <Sparkles className="size-3" />AI evaluation{evaluationOpen ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+        </button>
+        <button type="button" onClick={() => setSourceOpen((value) => !value)} aria-expanded={sourceOpen} aria-label={`${sourceOpen ? "Hide" : "Show"} source for ${application.jobTitle}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+          <Globe className="size-3" />Source{sourceOpen ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+        </button>
+        <button type="button" onClick={() => setAssessmentsOpen((value) => !value)} aria-expanded={assessmentsOpen} aria-label={`${assessmentsOpen ? "Hide" : "Show"} team assessments for ${application.jobTitle}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+          <MessageSquareText className="size-3" />Team assessments ({scorecards.length}){assessmentsOpen ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+        </button>
+        <Button asChild variant="ghost" size="sm" className="ml-auto h-7 gap-1 px-2 text-xs text-muted-foreground">
+          <Link href={`/dashboard/pipeline?jobId=${application.jobId}` as Route}><ExternalLink className="size-3.5" />Pipeline</Link>
+        </Button>
       </div>
 
+      {sourceOpen ? <div className="mt-3">
+        <ApplicationAttributionDetails value={application.attribution} sourceLabel={sourceMeta?.label ?? application.source ?? "Not recorded"} />
+      </div> : null}
+      {assessmentsOpen ? <section className="mt-3 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-muted-foreground">{scorecards.length ? "Team assessments for this application" : "No team assessments for this application yet."}</p>
+          <EvaluationDrawer candidateId={candidateId} workspaceId={workspaceId} applicationId={application.id} jobTitle={application.jobTitle} clientName={application.clientName} stageName={application.currentStageName} trigger={<Button size="sm" variant="outline">Add assessment</Button>} />
+        </div>
+        <ScorecardList scorecards={scorecards} application={application} interviews={interviews} />
+      </section> : null}
+      {evaluationOpen ? <div className="mt-3"><AiScoreCard applications={[{ id: application.id, jobTitle: application.jobTitle }]} evaluations={evaluation ? [evaluation] : []} aiConfigured={aiConfigured} /></div> : null}
+      {open ? <QuestionnaireScoreDetails snapshot={application.questionnaireScoreSnapshot} /> : null}
       <div
         className="grid transition-[grid-template-rows] duration-200 ease-out"
         style={{ gridTemplateRows: open && hasAnswers ? "1fr" : "0fr" }}
@@ -259,11 +297,23 @@ function ApplicationDisclosure({
   );
 }
 
+export function CandidateApplicationsPanel({ applications, evaluations, aiConfigured, scorecards, interviews, candidateId, workspaceId }: { applications: Application[]; evaluations: CandidateAiEvaluationItem[]; aiConfigured: boolean } & AssessmentContext) {
+  return (
+    <section className="rounded-lg border border-border bg-card px-5 py-5 sm:px-6">
+      <SectionLabel meta={`${applications.length} total`}>Applications</SectionLabel>
+      {applications.length ? (
+        <div className="mt-4 divide-y divide-border/60">
+          {applications.map((application) => <ApplicationDisclosure key={application.id} application={application} evaluation={evaluations.find((item) => item.applicationId === application.id)} aiConfigured={aiConfigured} scorecards={scorecards.filter((item) => item.applicationId === application.id)} interviews={interviews} candidateId={candidateId} workspaceId={workspaceId} />)}
+        </div>
+      ) : <p className="mt-3 text-sm text-muted-foreground">No applications yet.</p>}
+    </section>
+  );
+}
+
 export type CandidateDetailsPanelProps = {
   candidateId: string;
   workspaceId: string;
   files: CandidateFileItem[];
-  applications: Application[];
   email: string;
   phone: string | null;
   address: string | null;
@@ -279,7 +329,6 @@ export function CandidateDetailsPanel({
   candidateId,
   workspaceId,
   files,
-  applications,
   email,
   phone,
   address,
@@ -302,9 +351,6 @@ export function CandidateDetailsPanel({
     experienceEntries.length > 0 ? experienceEntries : resumeExperience;
   const education = educationEntries.length > 0 ? educationEntries : resumeEducation;
   const educationFallback = latestFile?.parsedEducation ?? null;
-  const applicationsWithAnswers = applications.filter(
-    (application) => application.answers.length > 0,
-  );
   const hasContactDetails = Boolean(
     email || phone || address || linkedinUrl || githubUrl || websiteUrl,
   );
@@ -327,64 +373,6 @@ export function CandidateDetailsPanel({
 
       {open ? (
         <div className="divide-y divide-border/70 border-t bg-card">
-          <Section>
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <SectionLabel>Resume</SectionLabel>
-              <p className="text-xs text-muted-foreground">
-                {files.length} {files.length === 1 ? "file" : "files"}
-              </p>
-            </div>
-            <div className="mt-4">
-              <CandidateFileUpload
-                candidateId={candidateId}
-                workspaceId={workspaceId}
-                initialFiles={files}
-              />
-            </div>
-          </Section>
-
-          <Section hidden={!profileSummary}>
-            <SectionLabel>Profile summary</SectionLabel>
-            <p className="mt-3 max-w-4xl text-sm leading-6 text-foreground/85">
-              {profileSummary}
-            </p>
-          </Section>
-
-          <Section hidden={!summary || !resumeSummary || summary === resumeSummary}>
-            <SectionLabel>Resume summary</SectionLabel>
-            <p className="mt-3 max-w-4xl text-sm leading-6 text-foreground/85">
-              {resumeSummary}
-            </p>
-          </Section>
-
-          <Section hidden={experience.length === 0}>
-            <SectionLabel meta={`${experience.length} entries`}>
-              Work experience
-            </SectionLabel>
-            <div className="mt-4">
-              <ExperienceTimeline experience={experience} />
-            </div>
-          </Section>
-
-          <Section
-            hidden={education.length === 0 && !educationFallback && experienceYears === null}
-          >
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <SectionLabel>Education</SectionLabel>
-              <ExperienceHeadline years={experienceYears} />
-            </div>
-            <div className="mt-4">
-              <EducationList education={education} fallback={educationFallback} />
-            </div>
-          </Section>
-
-          <Section hidden={skills.length === 0}>
-            <SectionLabel>Skills</SectionLabel>
-            <div className="mt-4">
-              <SkillsList skills={skills} />
-            </div>
-          </Section>
-
           <Section hidden={!hasContactDetails}>
             <SectionLabel>Contact details</SectionLabel>
             <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-[11rem_minmax(0,1fr)]">
@@ -481,46 +469,35 @@ export function CandidateDetailsPanel({
             </dl>
           </Section>
 
-          {applications.length > 0 ? (
-            <section className="px-5 py-5 sm:px-6">
-              <SectionLabel meta={`${applications.length} total`}>
-                Applications
-              </SectionLabel>
-              <div className="mt-4 divide-y divide-border/60">
-                {applications.map((application) => (
-                  <ApplicationDisclosure key={application.id} application={application} />
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          <Section hidden={applicationsWithAnswers.length === 0}>
-            <SectionLabel
-              meta={`${applicationsWithAnswers.length} application${applicationsWithAnswers.length === 1 ? "" : "s"}`}
-            >
-              Application answers
-            </SectionLabel>
-            <div className="mt-4 divide-y divide-border/60">
-              {applicationsWithAnswers.map((application) => (
-                <div key={application.id} className="py-4 first:pt-0 last:pb-0">
-                  <p className="text-sm font-medium text-foreground">
-                    {application.jobTitle}
-                  </p>
-                  <dl className="mt-4 space-y-4">
-                    {application.answers.map((answer) => (
-                      <div key={answer.id} className="border-l border-border/70 pl-4">
-                        <dt className="text-sm text-muted-foreground">
-                          {answer.label}
-                        </dt>
-                        <dd className="mt-1 whitespace-pre-line text-sm leading-6 text-foreground/90">
-                          {answer.answer}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
-              ))}
+          <Section>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <SectionLabel>Resume</SectionLabel>
+              <p className="text-xs text-muted-foreground">{files.length} {files.length === 1 ? "file" : "files"}</p>
             </div>
+            <div className="mt-4"><CandidateFileUpload candidateId={candidateId} workspaceId={workspaceId} initialFiles={files} /></div>
+          </Section>
+          <Section hidden={!profileSummary}>
+            <SectionLabel>Profile summary</SectionLabel>
+            <p className="mt-3 max-w-4xl text-sm leading-6 text-foreground/85">{profileSummary}</p>
+          </Section>
+          <Section hidden={!summary || !resumeSummary || summary === resumeSummary}>
+            <SectionLabel>Resume summary</SectionLabel>
+            <p className="mt-3 max-w-4xl text-sm leading-6 text-foreground/85">{resumeSummary}</p>
+          </Section>
+          <Section hidden={experience.length === 0}>
+            <SectionLabel meta={`${experience.length} entries`}>Work experience</SectionLabel>
+            <div className="mt-4"><ExperienceTimeline experience={experience} /></div>
+          </Section>
+          <Section hidden={education.length === 0 && !educationFallback && experienceYears === null}>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <SectionLabel>Education</SectionLabel>
+              <ExperienceHeadline years={experienceYears} />
+            </div>
+            <div className="mt-4"><EducationList education={education} fallback={educationFallback} /></div>
+          </Section>
+          <Section hidden={skills.length === 0}>
+            <SectionLabel>Skills</SectionLabel>
+            <div className="mt-4"><SkillsList skills={skills} /></div>
           </Section>
         </div>
       ) : null}

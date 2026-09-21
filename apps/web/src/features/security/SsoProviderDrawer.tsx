@@ -364,7 +364,7 @@ export function SsoProviderDrawer({
                   rows={7}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Harly derives the issuer, SSO URL, and signing certificate from this document.
+                  Talmore derives the issuer, SSO URL, and signing certificate from this document.
                 </p>
               </div>
 

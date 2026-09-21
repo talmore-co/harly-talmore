@@ -83,7 +83,7 @@ export function EmailSettingsCard({
       {status.enabled ? "Connected" : "Disabled"}
     </StatusPill>
   ) : status.usingPlatformDefault ? (
-    <StatusPill tone="neutral">Harly default</StatusPill>
+    <StatusPill tone="neutral">Platform default</StatusPill>
   ) : (
     <StatusPill tone="neutral">Not connected</StatusPill>
   );
@@ -97,7 +97,7 @@ export function EmailSettingsCard({
             icon={EnvelopeIcon}
             title="Email delivery"
             badge={badge}
-            description="Send candidate and recruiter emails from your own domain via Resend or SMTP. Without it, Harly sends from a shared address."
+            description="Send candidate and recruiter emails from your own domain via Resend or SMTP. Otherwise, the configured platform sender is used."
             action={
               canEdit ? (
                 <>
@@ -363,7 +363,7 @@ export function EmailSettingsForm({ status }: {
           <div>
             <p className="text-sm font-medium">Enable</p>
             <p className="text-xs text-muted-foreground">
-              When off, Harly sends from its shared address instead.
+              When off, the configured platform sender is used instead.
             </p>
           </div>
           <Switch checked={enabled} onCheckedChange={setEnabled} />

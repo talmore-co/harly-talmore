@@ -34,6 +34,7 @@ import {
 } from "@/features/interviews/shared";
 
 export type ScheduleApplicationOption = {
+  clientName?: string | null;
   applicationId: string;
   jobTitle: string;
   currentStageName: string | null;

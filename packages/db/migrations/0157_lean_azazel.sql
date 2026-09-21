@@ -1,0 +1,1 @@
+ALTER TABLE "jobs" ADD COLUMN "scorecard_definition" jsonb DEFAULT '[]'::jsonb NOT NULL;

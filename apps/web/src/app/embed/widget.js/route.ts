@@ -473,7 +473,7 @@ const WIDGET = String.raw`(function () {
     injectStyles();
     if (!workspace && !pk) {
       container.innerHTML = "";
-      container.appendChild(el("div", "oh-error", "Harly widget is not configured."));
+      container.appendChild(el("div", "oh-error", "Talmore widget is not configured."));
       return;
     }
 

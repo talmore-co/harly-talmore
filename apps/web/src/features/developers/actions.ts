@@ -224,7 +224,7 @@ export async function testWebhookAction(
           event: "application.created",
           created: Math.floor(Date.now() / 1000),
           workspace: organization.id,
-          data: { test: true, message: "Harly webhook test ping." },
+          data: { test: true, message: "Talmore webhook test ping." },
         },
         status: "pending",
       })

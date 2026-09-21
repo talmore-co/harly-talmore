@@ -87,7 +87,7 @@ export async function scheduleAutoDuplicateCheck(
             actorId: null,
             type: "candidate.duplicate_detected",
             title: "Possible duplicate candidate",
-            body: `Harly AI found a possible match with ${names}.`,
+            body: `Talmore AI found a possible match with ${names}.`,
             href: `/dashboard/candidates/${candidateId}`,
             metadata: { candidateId, matches },
           })),

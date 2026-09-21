@@ -35,7 +35,7 @@ function robots(indexable: boolean) {
   return indexable ? { index: true, follow: true } : { index: false, follow: true };
 }
 
-const HARLY_FAVICON = "/favicon.svg";
+const HARLY_FAVICON = "/talmore-icon.svg";
 
 export function publicBoardMetadata(
   workspace: WorkspaceBoardBranding,

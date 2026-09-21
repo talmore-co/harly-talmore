@@ -33,11 +33,11 @@ export default async function McpConsent({
   return (
     <main className="mx-auto max-w-lg space-y-6 px-6 py-16">
       <h1 className="text-2xl font-semibold">
-        Connect {client.name || "AI assistant"} to Harly?
+        Connect {client.name || "AI assistant"} to Talmore?
       </h1>
       <p className="text-sm text-muted-foreground">
         Authorizing as {context.user.email} for {context.organization.name}.
-        Your current Harly permissions apply.
+        Your current Talmore permissions apply.
       </p>
       <McpConsentForm
         query={query.toString()}

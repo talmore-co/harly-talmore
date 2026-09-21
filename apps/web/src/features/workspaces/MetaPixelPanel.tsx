@@ -192,7 +192,7 @@ export function MetaPixelPanel({
           apply.
         </p>
         <p className="text-muted-foreground">
-          Only Harly-hosted public forms enqueue server conversions. Portal and
+          Only Talmore-hosted public forms enqueue server conversions. Portal and
           third-party embedded submissions are not tracked server-side.
           Transient failures retry automatically for up to 47 hours, with ten
           attempts maximum. The connection-test button sends a test event using

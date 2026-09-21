@@ -1,6 +1,6 @@
 import type { Job } from "@harly/db";
 
-export type PublicJob = Omit<Job, "experienceLevel" | "education" | "evaluationMode" | "clientId" | "takenOn">;
+export type PublicJob = Omit<Job, "experienceLevel" | "education" | "evaluationMode" | "clientId" | "takenOn" | "scorecardDefinition">;
 
 /** Strip internal evaluation guidance before sending jobs to public clients. */
 export function withoutEvaluationGuidance<T extends {
@@ -9,8 +9,10 @@ export function withoutEvaluationGuidance<T extends {
   evaluationMode?: unknown;
   clientId?: unknown;
   takenOn?: unknown;
-}>(job: T): Omit<T, "experienceLevel" | "education" | "evaluationMode" | "clientId" | "takenOn"> {
-  const { experienceLevel, education, evaluationMode, clientId, takenOn, ...publicJob } = job;
+  scorecardDefinition?: unknown;
+}>(job: T): Omit<T, "experienceLevel" | "education" | "evaluationMode" | "clientId" | "takenOn" | "scorecardDefinition"> {
+  const { experienceLevel, education, evaluationMode, clientId, takenOn, scorecardDefinition, ...publicJob } = job;
+  void scorecardDefinition;
   void takenOn;
   void clientId;
   void experienceLevel;

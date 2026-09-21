@@ -154,7 +154,7 @@ export function InboxActionsPanel({
 
         <section className="border-t border-border/70 pt-4" aria-labelledby={`${idPrefix}-ai-heading`}>
           <div className="mb-3 flex items-center justify-between gap-2">
-            <h3 id={`${idPrefix}-ai-heading`} className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">Harly AI</h3>
+            <h3 id={`${idPrefix}-ai-heading`} className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">Talmore AI</h3>
             <span className="text-[11px] text-muted-foreground">Review before using</span>
           </div>
           <div className="space-y-2">

@@ -5,18 +5,16 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { Route } from "next";
 import {
   CalendarClock,
-  ClipboardCheck,
   Mail,
   MessageSquare,
   Plus,
 } from "lucide-react";
 
-import { AiScoreCard } from "@/features/candidates/AiScoreCard";
-import { CandidateDetailsPanel } from "@/features/candidates/CandidateDetailsPanel";
+import { CandidateDetailsPanel, CandidateApplicationsPanel } from "@/features/candidates/CandidateDetailsPanel";
 import { EmailDrawer } from "@/features/candidates/EmailDrawer";
-import { EvaluationDrawer } from "@/features/candidates/EvaluationDrawer";
 import { NoteForm } from "@/features/candidates/NoteForm";
 import { ScheduleDrawer } from "@/features/candidates/ScheduleDrawer";
+import { RecordInterviewDialog } from "@/features/candidates/RecordInterviewDialog";
 import { AgencyApplicationPanel } from "@/features/clients/AgencyApplicationPanel";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,7 +24,6 @@ import { ConversationThread } from "./candidate-profile/ConversationThread";
 import { DocumentsSection } from "./candidate-profile/DocumentsSection";
 import { InterviewCard } from "./candidate-profile/InterviewCard";
 import { PrivacyRequestCard } from "./candidate-profile/PrivacyRequestCard";
-import { ScorecardList } from "./candidate-profile/ScorecardList";
 import { CandidateSignaturePanel } from "./candidate-profile/SignaturePanel";
 import { EmptySection, TabCount } from "./candidate-profile/shared";
 import type {
@@ -62,7 +59,6 @@ export function CandidateProfileTabs({
   candidateSummary,
   candidateEducationEntries,
   candidateExperienceEntries,
-  stageName,
   applications,
   notes,
   files,
@@ -91,8 +87,8 @@ export function CandidateProfileTabs({
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
-  const requestedTab = searchParams.get("tab") ?? "profile";
-  const tab = ["profile", "interviews", "communication", "evaluation", "offers", "activity", "documents", "privacy"].includes(requestedTab) ? requestedTab : "profile";
+  const requestedTab = searchParams.get("tab") === "evaluation" ? "applications" : searchParams.get("tab") ?? "profile";
+  const tab = ["profile", "applications", "interviews", "communication", "offers", "activity", "documents", "privacy"].includes(requestedTab) ? requestedTab : "profile";
   const setTab = (value: string) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", value);
@@ -121,6 +117,7 @@ export function CandidateProfileTabs({
         className="w-full justify-start gap-5 overflow-x-auto border-b border-hairline text-sm [&>button]:flex-none [&>button]:px-0.5"
       >
         <TabsTrigger value="profile">Profile</TabsTrigger>
+        <TabsTrigger value="applications">Applications<TabCount value={applications.length} /></TabsTrigger>
         <TabsTrigger value="interviews">
           Interviews
           <TabCount value={interviews.length} />
@@ -129,16 +126,12 @@ export function CandidateProfileTabs({
           Communication
           <TabCount value={messages.length} />
         </TabsTrigger>
-        <TabsTrigger value="evaluation">
-          Evaluation
-          <TabCount value={scorecards.length} />
-        </TabsTrigger>
         <TabsTrigger value="offers">
           Offers & hire
           <TabCount value={offers.length} />
         </TabsTrigger>
         <TabsTrigger value="activity">
-          Activity
+          Notes &amp; activity
           <TabCount value={activity.length + notes.length} />
         </TabsTrigger>
         <TabsTrigger value="documents">
@@ -153,21 +146,12 @@ export function CandidateProfileTabs({
         ) : null}
       </TabsList>
 
-      {/* ── Profile , AI match leads, single "Details" panel follows ── */}
+      {/* ── Profile ── */}
       <TabsContent value="profile" className="mt-5 space-y-4">
-        <AiScoreCard
-          applications={jobOptions}
-          evaluations={aiEvaluations}
-          aiConfigured={aiConfigured}
-          variant="condensed"
-          onViewDetailsAction={() => setTab("evaluation")}
-        />
-
         <CandidateDetailsPanel
           candidateId={candidateId}
           workspaceId={workspaceId}
           files={files}
-          applications={applications}
           email={candidateEmail}
           phone={candidatePhone}
           address={candidateAddress}
@@ -180,9 +164,14 @@ export function CandidateProfileTabs({
         />
       </TabsContent>
 
+      <TabsContent value="applications" className="mt-5 space-y-4">
+        <CandidateApplicationsPanel applications={applications} evaluations={aiEvaluations} aiConfigured={aiConfigured} scorecards={scorecards} interviews={interviews} candidateId={candidateId} workspaceId={workspaceId} />
+      </TabsContent>
+
       {/* ── Interviews ── */}
       <TabsContent value="interviews" className="mt-4 space-y-3">
-        <div className="flex justify-end">
+        <div className="flex flex-wrap justify-end gap-2">
+          <RecordInterviewDialog candidateId={candidateId} applications={scheduleApplications} members={scheduleMembers} currentUserId={currentUserId} />
           <ScheduleDrawer
             candidateId={candidateId}
             workspaceId={workspaceId}
@@ -203,7 +192,7 @@ export function CandidateProfileTabs({
           <EmptySection
             icon={CalendarClock}
             title="No interviews yet"
-            hint="Schedule one with the button above. The join link, the interviewer and the notes all stay on the card."
+            hint="Schedule an upcoming interview or record one that already happened."
           />
         ) : (
           <div className="space-y-3 duration-300 animate-in fade-in slide-in-from-bottom-1">
@@ -262,42 +251,6 @@ export function CandidateProfileTabs({
             ))}
           </div>
         )}
-      </TabsContent>
-
-      {/* ── Evaluation: automatic evaluation + scorecards ── */}
-      <TabsContent value="evaluation" className="mt-4 space-y-4">
-        <AiScoreCard
-          applications={jobOptions}
-          evaluations={aiEvaluations}
-          aiConfigured={aiConfigured}
-        />
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">
-            {scorecards.length === 0
-              ? "Nobody on the team has scored this candidate yet."
-              : `${scorecards.length} evaluation${scorecards.length === 1 ? "" : "s"} from the team.`}
-          </p>
-          {applications[0] ? (
-            <EvaluationDrawer
-              candidateId={candidateId}
-              workspaceId={workspaceId}
-              applicationId={applications[0].id}
-              stageName={stageName}
-              trigger={
-                <Button size="sm">
-                  <ClipboardCheck className="size-4" />
-                  Add evaluation
-                </Button>
-              }
-            />
-          ) : (
-            <Button size="sm" disabled title="This candidate has no application to score">
-              <ClipboardCheck className="size-4" />
-              Add evaluation
-            </Button>
-          )}
-        </div>
-        <ScorecardList scorecards={scorecards} />
       </TabsContent>
 
       {/* ── Offers ── */}

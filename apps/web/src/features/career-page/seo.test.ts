@@ -36,7 +36,7 @@ describe("career page SEO", () => {
     expect(metadata.icons).toEqual({ icon: "https://cdn.example.com/syntrix.svg" });
   });
 
-  it("uses the Harly favicon when workspace branding has no logo", () => {
+  it("uses the Talmore favicon when workspace branding has no logo", () => {
     const metadata = publicBoardMetadata(
       {
         name: "Syntrix",
@@ -57,6 +57,6 @@ describe("career page SEO", () => {
       normalizeCareerPageConfig({}),
     );
 
-    expect(metadata.icons).toEqual({ icon: "/favicon.svg" });
+    expect(metadata.icons).toEqual({ icon: "/talmore-icon.svg" });
   });
 });

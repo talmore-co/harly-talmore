@@ -155,7 +155,7 @@ export async function testWorkspaceMetaConnection() {
       user_data: {
         client_user_agent:
           requestHeaders.get("user-agent")?.slice(0, 1024) ??
-          "Harly connection test",
+          "Talmore connection test",
         ...(isIP(ip) ? { client_ip_address: ip } : {}),
       },
     },

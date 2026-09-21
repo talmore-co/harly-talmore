@@ -8,14 +8,14 @@ export type StaffMagicLinkEmailProps = {
 };
 
 export function staffMagicLinkSubject() {
-  return "Sign in to Harly";
+  return "Sign in to Talmore";
 }
 
 export function StaffMagicLinkEmail({ loginUrl }: StaffMagicLinkEmailProps) {
   return (
     <HarlyLayout preview="Your sign-in link is ready.">
       <Text className="text-[40px] leading-[1.05] tracking-[-1px] font-inter text-fg m-0 mb-3.5 font-medium">
-        Sign in to Harly
+        Sign in to Talmore
       </Text>
       <Text className="text-[14px] leading-[1.5] font-inter text-fg-2 m-0 mb-4">
         Click below to sign in. If you did not request this, you can safely
@@ -39,5 +39,5 @@ export function StaffMagicLinkEmail({ loginUrl }: StaffMagicLinkEmailProps) {
 }
 
 StaffMagicLinkEmail.PreviewProps = {
-  loginUrl: "https://app.harly.dev/api/auth/magic-link/verify?token=abc123",
+  loginUrl: "https://ats.example.test/api/auth/magic-link/verify?token=abc123",
 } satisfies StaffMagicLinkEmailProps;

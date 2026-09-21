@@ -50,7 +50,7 @@ const result = (value: unknown) => ({
 });
 
 export function createMcpServer(actor: McpActor) {
-  const server = new McpServer({ name: "Harly ATS", version: "1.0.0" });
+  const server = new McpServer({ name: "Talmore ATS", version: "1.0.0" });
   const context = actor.context;
   const workspaceId = context.organization.id;
   function register<T extends z.ZodRawShape>(
@@ -231,7 +231,7 @@ export function createMcpServer(actor: McpActor) {
   );
   register(
     "create_candidate",
-    "Create a candidate in Harly without applying to a job or sending email. Search first to avoid duplicates. Use add_candidate_to_pipeline afterward if requested. Requires workspace-wide candidate access.",
+    "Create a candidate in Talmore without applying to a job or sending email. Search first to avoid duplicates. Use add_candidate_to_pipeline afterward if requested. Requires workspace-wide candidate access.",
     {
       firstName: z.string().trim().min(1).max(100),
       lastName: z.string().trim().min(1).max(100),

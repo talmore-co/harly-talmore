@@ -157,7 +157,7 @@ export async function connectMyCalAccount(input: {
     return { ok: true };
   } catch (error) {
     if (stage === "storage") {
-      return { ok: false, error: "Cal.com accepted your key, but Harly could not save the connection. Check the database migrations and server encryption configuration." };
+      return { ok: false, error: "Cal.com accepted your key, but Talmore could not save the connection. Check the database migrations and server encryption configuration." };
     }
     if (error instanceof CalApiError) {
       if (error.status === 401 || error.status === 403) {
@@ -171,7 +171,7 @@ export async function connectMyCalAccount(input: {
     return {
       ok: false,
       error:
-        "Harly could not reach Cal.com or read your account details. Check the server's outbound connection and try again.",
+        "Talmore could not reach Cal.com or read your account details. Check the server's outbound connection and try again.",
     };
   }
 }
@@ -259,7 +259,7 @@ export async function saveMyCalEvent(input: {
       return {
         ok: false,
         error:
-          "Webhook setup requires a publicly reachable HTTPS Harly URL. Use the deployed instance or a development tunnel.",
+          "Webhook setup requires a publicly reachable HTTPS Talmore URL. Use the deployed instance or a development tunnel.",
       };
     // Commit the callback identity before contacting Cal.com. Failed/uncertain
     // remote requests can then be reconciled using the same URL and secret.
@@ -361,7 +361,7 @@ export async function saveMyCalEvent(input: {
     return {
       ok: false,
       error:
-        "Could not configure booking sync. Check your API key and public Harly URL, then retry.",
+        "Could not configure booking sync. Check your API key and public Talmore URL, then retry.",
     };
   }
 }

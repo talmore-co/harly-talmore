@@ -83,7 +83,7 @@ function AiFitNote({
         </span>
       </TooltipTrigger>
       <TooltipContent>
-        {source === "rules" ? "Harly Algorithm" : "Harly AI"} rates this a {score}/100 fit. A suggestion, not a decision.
+        {source === "rules" ? "Talmore Algorithm" : "Talmore AI"} rates this a {score}/100 fit. A suggestion, not a decision.
       </TooltipContent>
     </Tooltip>
   );

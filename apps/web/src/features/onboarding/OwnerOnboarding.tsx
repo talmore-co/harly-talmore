@@ -402,7 +402,7 @@ function StepAbout({ selfRole, onSelfRole, source, onSource, jobTitle, onJobTitl
       <StepField>
         <StepHeading
           title="Tell us about you"
-          subtitle="Helps us tailor Harly. Optional. Skip anything you'd rather not share."
+          subtitle="Helps us tailor Talmore. Optional. Skip anything you'd rather not share."
         />
       </StepField>
       <StepField className="mt-7 flex items-center gap-5">

@@ -178,7 +178,7 @@ export function CandidateSignaturePanel({
         </div>
 
         <p className="text-xs leading-5 text-muted-foreground">
-          The candidate receives a secure Harly Signature link. The workspace
+          The candidate receives a secure Talmore Signature link. The workspace
           security setting controls whether email OTP is required.
         </p>
       </div>

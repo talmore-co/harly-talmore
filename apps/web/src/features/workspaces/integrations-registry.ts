@@ -227,18 +227,18 @@ export const INTEGRATIONS: IntegrationDefinition[] = [
     category: "communication",
     description: "Publish jobs and receive applications.",
     detail:
-      "Publish jobs to LinkedIn and receive applications straight into Harly. This integration is on the way.",
+      "Publish jobs to LinkedIn and receive applications straight into Talmore. This integration is on the way.",
     // Solid-blue LinkedIn mark , light bg so the blue reads.
     tileClassName: "bg-gradient-to-br from-white via-sky-50 to-sky-200",
     comingSoon: true,
   },
   {
     slug: "harly-sign",
-    name: "Harly Sign",
+    name: "Talmore Signature",
     category: "signing",
     description: "Built-in e-signatures — no setup, always on.",
     detail:
-      "Harly's native signing engine — candidates draw or type a signature and place it on documents and offers right inside the portal. No external account, no API keys: it's built into Harly and connected by default. Choose it as your offer delivery channel, or connect DocuSeal below for hosted third-party signing instead.",
+      "Talmore's native signing engine lets candidates draw or type a signature on documents and offers inside the portal. It is connected by default and needs no external account or API keys. Choose it as your offer delivery channel, or connect DocuSeal for third-party signing.",
     // House feature (no brand) — Harly evergreen, same treatment as Webhooks.
     tileClassName:
       "bg-gradient-to-br from-emerald-500 via-pine to-emerald-900 text-white",
@@ -249,7 +249,7 @@ export const INTEGRATIONS: IntegrationDefinition[] = [
     category: "signing",
     description: "Send offers for e-signatures with self-hosted DocuSeal.",
     detail:
-      "Connect your self-hosted DocuSeal instance so candidates sign their offer inside the candidate portal. When you send an offer, Harly creates a DocuSeal submission and the candidate signs on DocuSeal's hosted page. The signed PDF and audit log land back on the offer and the status flips automatically. Bring your own instance URL and API token — no data leaves your infrastructure.",
+      "Connect your DocuSeal instance for offer signing. When you send an offer, Talmore creates a DocuSeal submission and the candidate signs on its hosted page. The signed PDF and audit log return to the offer, and its status updates automatically. Provide your instance URL and API token.",
     // DocuSeal mark is indigo on white — light neutral surface so it reads
     // (saturated mark -> light bg per the contrast rule).
     tileClassName: "bg-gradient-to-br from-white via-indigo-50 to-blue-100",
@@ -294,9 +294,9 @@ export const INTEGRATIONS: IntegrationDefinition[] = [
     slug: "zapier",
     name: "Zapier & Make",
     category: "automation",
-    description: "Send Harly events to the rest of your stack.",
+    description: "Send Talmore events to the rest of your stack.",
     detail:
-      "Trigger workflows in Zapier or Make from hiring events and connect Harly to thousands of apps.",
+      "Trigger workflows in Zapier or Make from hiring events and connect Talmore to other apps.",
     // Orange Zapier mark , cream surface (Zapier's own pairing).
     tileClassName: "bg-gradient-to-br from-white via-orange-50 to-orange-200",
     externalHref: "/settings/developers",

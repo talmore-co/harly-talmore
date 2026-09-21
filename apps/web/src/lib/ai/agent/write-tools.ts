@@ -27,13 +27,13 @@ export function buildWriteTools() {
     undoAgentAction: tool({
       strict: true,
       description:
-        "Propose undoing one recent reversible Harly action. WRITE action — requires user confirmation. Use only the receiptId returned by recentAgentActions after the user says undo, deshazlo, or deshaz lo último; never invent or expose receipt ids.",
+        "Propose undoing one recent reversible Talmore action. WRITE action — requires user confirmation. Use only the receiptId returned by recentAgentActions after the user says undo, deshazlo, or deshaz lo último; never invent or expose receipt ids.",
       inputSchema: z.object({
         summary,
         receiptId: z
           .string()
           .min(1)
-          .describe("The recent reversible action receipt selected by Harly."),
+          .describe("The recent reversible action receipt selected by Talmore."),
       }),
     }),
 

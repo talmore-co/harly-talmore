@@ -40,7 +40,7 @@ export function DiscoveryPanel({
           onCheckedChange={(value) => update((draft) => (draft.seo.indexable = value))}
         />
         <p className="text-xs leading-5 text-ink-soft">
-          When off, the careers page and every job use noindex and are removed from Harly&apos;s sitemap.
+          When off, the careers page and every job use noindex and are removed from the sitemap.
         </p>
         <Field label="SEO title">
           <Input value={config.seo.title} maxLength={70} onChange={(event) => update((draft) => (draft.seo.title = event.target.value))} placeholder={workspace.name || "Careers"} />

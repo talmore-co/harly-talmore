@@ -31,7 +31,7 @@ export async function createCompletionCertificate(
 
   page.drawRectangle({ x: 0, y: 790, width: 595, height: 52, color: navy });
   page.drawText("Completion Certificate", { x: 42, y: 808, size: 22, font: bold, color: rgb(1, 1, 1) });
-  page.drawText("Harly Signature", { x: 44, y: 765, size: 11, font: bold, color: navy });
+  page.drawText("Talmore Signature", { x: 44, y: 765, size: 11, font: bold, color: navy });
   page.drawText("Certificate version", { x: 410, y: 765, size: 8, font: regular, color: muted });
   page.drawText(String(NATIVE_CERTIFICATE_VERSION), { x: 510, y: 765, size: 10, font: bold, color: navy });
 

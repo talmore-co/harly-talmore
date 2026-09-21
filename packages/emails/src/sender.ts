@@ -139,7 +139,7 @@ function envConfig(): EmailProviderConfig | null {
     return null;
   }
 
-  const from = process.env.EMAIL_FROM ?? "Harly <noreply@harly.dev>";
+  const from = process.env.EMAIL_FROM ?? "Talmore <noreply@harly.dev>";
 
   return { provider: "resend", apiKey, from };
 }

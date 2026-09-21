@@ -105,7 +105,7 @@ const sections: SettingsSection[] = [
   },
   {
     href: "/settings/signature" as Route,
-    label: "Harly Signature",
+    label: "Talmore Signature",
     hint: "Native signing, remote links, OTP security, and evidence settings.",
     icon: PencilIcon,
   },

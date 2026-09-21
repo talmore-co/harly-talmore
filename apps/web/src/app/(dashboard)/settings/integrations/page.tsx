@@ -101,7 +101,7 @@ const IMPORTERS: Importer[] = [
   {
     id: "greenhouse",
     name: "Greenhouse",
-    description: "Move eligible candidates into a Harly pipeline.",
+    description: "Move eligible candidates into a Talmore pipeline.",
     logo: GreenhouseImportLogo,
     tileClassName:
       "bg-gradient-to-br from-lime-300 via-yellow-300 to-emerald-200",

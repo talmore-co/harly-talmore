@@ -1,18 +1,12 @@
 import { Img, Link, Text } from "@react-email/components";
 
-// Harly full wordmark served from the product CDN (raster PNG — Gmail and
-// Outlook won't render an inline SVG <img>, so the brand logo must be PNG).
-// Source asset is 1672×941; rendered at height 62 → width ≈ 110.
-const HARLY_LOGO_URL = "https://cdn.harly.dev/harly-full-logo-transparent-black.png";
-const HARLY_LOGO_WIDTH = 110;
-const HARLY_LOGO_HEIGHT = 62;
 
 type EmailLogoProps = {
   /** Absolute URL to a raster (PNG/JPG/WebP) logo. SVG won't render in Gmail. */
   logoUrl?: string | null;
   /** Display name shown as the typographic lockup when no logo image exists. */
   name: string;
-  /** When true, render the fixed Harly product logo regardless of name. */
+  /** Legacy variant accepted for compatibility; all headers use workspace branding. */
   variant?: "workspace" | "harly";
 };
 
@@ -25,7 +19,7 @@ type EmailLogoProps = {
  * Logo images must be raster — SVG is not supported by Gmail and many
  * Outlook clients, so we never render an inline SVG <img> here.
  */
-export function EmailLogo({ logoUrl, name, variant = "workspace" }: EmailLogoProps) {
+export function EmailLogo({ logoUrl, name }: EmailLogoProps) {
   if (logoUrl) {
     return (
       <Img
@@ -34,18 +28,6 @@ export function EmailLogo({ logoUrl, name, variant = "workspace" }: EmailLogoPro
         width={140}
         height={40}
         style={{ display: "block", maxHeight: "40px", objectFit: "contain" }}
-      />
-    );
-  }
-
-  if (variant === "harly") {
-    return (
-      <Img
-        src={HARLY_LOGO_URL}
-        alt="Harly"
-        width={HARLY_LOGO_WIDTH}
-        height={HARLY_LOGO_HEIGHT}
-        style={{ display: "block" }}
       />
     );
   }
@@ -98,14 +80,14 @@ export function poweredByHarlyInline() {
     <>
       Powered by{" "}
       <Link
-        href="https://harly.dev"
+        href="https://talmore.co"
         style={{
           color: "#44520f",
           fontWeight: 600,
           textDecoration: "underline",
         }}
       >
-        Harly
+        Talmore
       </Link>
     </>
   );

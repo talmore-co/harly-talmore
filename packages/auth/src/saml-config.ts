@@ -157,7 +157,7 @@ export function validateSamlRegistration(input: {
   const providerId = normalizeSsoProviderId(input.providerId);
   const issuer = requireUrl(metadata?.entityID || input.issuer, "SAML issuer", input.allowHttp ?? false);
   const entryPoint = requireUrl(metadata?.entryPoint || input.entryPoint, "SAML entry point", input.allowHttp ?? false);
-  const appUrl = requireUrl(input.appUrl, "Harly public URL", input.allowHttp ?? false).replace(/\/$/, "");
+  const appUrl = requireUrl(input.appUrl, "Talmore public URL", input.allowHttp ?? false).replace(/\/$/, "");
   const domain = normalizeSsoDomain(input.domain);
   const cert = normalizeSamlCertificate(metadata?.cert || input.cert);
   const privateKey = input.privateKey ? normalizeSamlPrivateKey(input.privateKey) : undefined;

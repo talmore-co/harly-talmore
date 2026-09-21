@@ -25,6 +25,7 @@ import {
   clients,
   jobs,
   jobStages,
+  scorecards,
 } from "@harly/db";
 import { getWorkspaceContext } from "@/features/workspaces/context";
 import { candidateAvatarFallbackSrcs } from "@/lib/candidate-avatar";
@@ -49,6 +50,7 @@ export type PipelineStage = {
 };
 
 export type PipelineApplication = {
+  assessmentCounts?: import("@/features/candidates/assessment-counts").AssessmentCounts;
   clientName?: string | null;
   id: string;
   workspaceId: string;
@@ -319,6 +321,18 @@ export async function getPipelineData(
   ]);
 
   const candidateIds = Array.from(new Set(jobApplications.map((a) => a.candidateId)));
+  const assessmentRows = jobApplications.length ? await db
+    .select({ applicationId: scorecards.applicationId, rating: scorecards.rating, count: count() })
+    .from(scorecards)
+    .where(and(eq(scorecards.workspaceId, workspace.id), inArray(scorecards.applicationId, jobApplications.map((application) => application.id))))
+    .groupBy(scorecards.applicationId, scorecards.rating) : [];
+  const assessmentsByApplication = new Map<string, { strong: number; mixed: number; weak: number }>();
+  for (const row of assessmentRows) {
+    if (!row.applicationId) continue;
+    const counts = assessmentsByApplication.get(row.applicationId) ?? { strong: 0, mixed: 0, weak: 0 };
+    counts[row.rating] = row.count;
+    assessmentsByApplication.set(row.applicationId, counts);
+  }
   const featuredReferralRows = candidateIds.length
     ? await db
         .select({ candidateId: candidateReferrals.candidateId })
@@ -342,6 +356,7 @@ export async function getPipelineData(
     selectedJob,
     applications: jobApplications.map(({ candidateGithubUrl, ...application }) => ({
       ...application,
+      assessmentCounts: assessmentsByApplication.get(application.id) ?? { strong: 0, mixed: 0, weak: 0 },
       isFeaturedReferral: featuredReferralCandidateIds.has(application.candidateId),
       evaluationSource:
         application.evaluationSource === "rules"

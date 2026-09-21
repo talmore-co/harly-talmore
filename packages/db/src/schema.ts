@@ -1271,6 +1271,7 @@ export const jobs = pgTable(
     clientId: uuid("client_id"),
     // Private client approval date; independent of draft creation/publication.
     takenOn: text("taken_on"),
+    scorecardDefinition: jsonb("scorecard_definition").default(sql`'[]'::jsonb`).notNull(),
     slug: text("slug").notNull(),
     department: text("department"),
     location: text("location"),
@@ -2392,6 +2393,9 @@ export const scorecards = pgTable(
       onDelete: "set null",
     }),
     stageName: text("stage_name"),
+    interviewId: uuid("interview_id").references(() => interviews.id, {
+      onDelete: "set null",
+    }),
     authorId: text("author_id")
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
@@ -2410,6 +2414,7 @@ export const scorecards = pgTable(
       table.createdAt,
     ),
     index("scorecards_application_idx").on(table.applicationId),
+    index("scorecards_interview_idx").on(table.interviewId),
     index("scorecards_author_idx").on(table.authorId),
   ],
 );
@@ -3658,7 +3663,9 @@ export const interviews = pgTable(
     durationMins: integer("duration_mins").default(45).notNull(),
     location: text("location"),
     notes: text("notes"),
-    // How this interview was created: in-app or synced from Cal.com.
+    // Staff-only feedback. Never use invitation/calendar notes for this content.
+    internalNotes: text("internal_notes"),
+    // How this interview was created: scheduled in-app, recorded, or synced from Cal.com.
     source: text("source").default("manual").notNull(),
     // Cal.com booking UID — set when the interview originates from / is synced
     // with a Cal.com booking. Lets the webhook upsert instead of duplicating.

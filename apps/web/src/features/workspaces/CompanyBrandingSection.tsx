@@ -145,7 +145,7 @@ export function CompanyBrandingSection({
         <SectionHeader
           icon={BuildingsIcon}
           title="Identity"
-          description="Logo and name shown across Harly and your careers page."
+          description="Logo and name shown across Talmore and your careers page."
         />
 
         <form
@@ -360,10 +360,10 @@ export function CompanyBrandingSection({
           <label className="flex items-start justify-between gap-4 rounded-xl border bg-card px-4 py-3.5">
             <span>
               <span className="block text-sm font-medium text-foreground">
-                Remove Harly branding from emails
+                Remove platform branding from emails
               </span>
               <span className="mt-0.5 block text-xs text-muted-foreground">
-                Hides the &quot;Powered by Harly&quot; footer credit on invite,
+                Hides the platform footer credit on invite,
                 notification and candidate emails.
               </span>
             </span>
@@ -371,7 +371,7 @@ export function CompanyBrandingSection({
               checked={hideHarlyBranding}
               onCheckedChange={setHideHarlyBranding}
               disabled={!canEdit || savingBranding}
-              aria-label="Remove Harly branding from emails"
+              aria-label="Remove platform branding from emails"
             />
           </label>
 

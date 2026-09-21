@@ -90,7 +90,7 @@ export function buildSlackPayload(event: WebhookEvent, data: Record<string, unkn
     text,
     blocks: [
       { type: "section", text: { type: "mrkdwn", text: mrkdwn } },
-      { type: "context", elements: [{ type: "mrkdwn", text: `<${APP_URL}/dashboard|Open Harly>` }] },
+      { type: "context", elements: [{ type: "mrkdwn", text: `<${APP_URL}/dashboard|Open Talmore>` }] },
     ],
   };
 }

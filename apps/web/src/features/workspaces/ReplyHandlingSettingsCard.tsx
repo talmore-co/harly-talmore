@@ -288,7 +288,7 @@ export function ReplyHandlingSettingsForm({
   return (
     <DrawerLayout
       title="Set up incoming candidate email"
-      description="Choose how Harly receives replies. A shared mailbox lets you read and send from Inbox; threaded replies import new messages through Resend or Postmark."
+      description="Choose how Talmore receives replies. A shared mailbox lets you read and send from Inbox; threaded replies import new messages through Resend or Postmark."
       surface="page"
       footer={
         <Button
@@ -627,7 +627,7 @@ function ThreadedReplyFields({
           className="font-mono text-xs"
         />
           <p className="text-xs text-muted-foreground">
-          Point an MX record here at your provider. Harly gives each application
+          Point an MX record here at your provider. Talmore gives each application
           its own reply address under this domain.
         </p>
       </Field>

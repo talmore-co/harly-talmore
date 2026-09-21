@@ -297,7 +297,7 @@ export async function POST(req: Request) {
     // Friendly, non-leaky message sent to the client if the stream fails
     // mid-flight (IA-05 / IA-11).
     onError: () =>
-      "Harly AI is temporarily unavailable. Please try again in a moment.",
+      "Talmore AI is temporarily unavailable. Please try again in a moment.",
     consumeSseStream: ({ stream }) => {
       void consumeSseStream(stream).catch((error) => {
         console.error("Failed to consume Harly AI SSE stream", error);

@@ -71,7 +71,7 @@ export async function notifyOutlookEvent(
         <p style="font-size: 16px;">${emoji} <strong>${title}</strong></p>
         ${detail ? `<p style="color: #666;">${detail}</p>` : ""}
         <p style="margin-top: 16px; font-size: 12px; color: #999;">
-          Sent by Harly ATS
+          Sent by Talmore ATS
         </p>
       </div>
     `;
@@ -81,7 +81,7 @@ export async function notifyOutlookEvent(
     // the workspace admin or configured recipients.
     await sendMail(config.accessToken, {
       to: [config.calendarId], // calendarId doubles as notification target
-      subject: `[Harly] ${subject}`,
+      subject: `[Talmore] ${subject}`,
       body,
     });
   } catch (error) {

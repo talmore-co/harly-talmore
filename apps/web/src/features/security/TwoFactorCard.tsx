@@ -102,7 +102,7 @@ export function TwoFactorCard({ enabled }: { enabled: boolean }) {
   function downloadBackupCodes() {
     const blob = new Blob(
       [
-        `Harly two-factor backup codes\nEach code works once.\n\n${backupCodes.join("\n")}\n`,
+        `Talmore two-factor backup codes\nEach code works once.\n\n${backupCodes.join("\n")}\n`,
       ],
       { type: "text/plain" },
     );

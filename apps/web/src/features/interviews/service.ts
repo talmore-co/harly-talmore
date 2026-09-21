@@ -352,7 +352,7 @@ export async function updateInterviewForApi(input: {
 }): Promise<Interview> {
   await assertWorkspaceMember(input.workspaceId, input.actorUserId);
   const current = await getInterviewForApi(input);
-  if (current.source === "cal.com-personal") throw ApiError.conflict("Manage this booking in Cal.com. Its changes will sync back to Harly.");
+  if (current.source === "cal.com-personal") throw ApiError.conflict("Manage this booking in Cal.com. Its changes will sync back to Talmore.");
   if (current.status !== "scheduled") {
     throw ApiError.conflict("Only scheduled interviews can be updated.");
   }
@@ -479,7 +479,7 @@ export async function setInterviewStatusForApi(input: {
 }): Promise<Interview> {
   await assertWorkspaceMember(input.workspaceId, input.actorUserId);
   const current = await getInterviewForApi(input);
-  if (current.source === "cal.com-personal" && input.status === "canceled") throw ApiError.conflict("Manage this booking in Cal.com. Its changes will sync back to Harly.");
+  if (current.source === "cal.com-personal" && input.status === "canceled") throw ApiError.conflict("Manage this booking in Cal.com. Its changes will sync back to Talmore.");
   if (current.status === input.status) return current;
   if (current.status !== "scheduled") {
     throw ApiError.conflict("Completed or canceled interviews cannot change status.");

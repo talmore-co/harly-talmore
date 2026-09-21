@@ -236,13 +236,13 @@ function InboxEmptyState({ status, filter }: { status: InboxMailboxStatus; filte
             <CheckCircleIcon className="size-5" />
           </span>
           <h2 className="mt-4 text-lg font-semibold tracking-[-0.02em]">Your inbox is ready</h2>
-          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">No candidate has replied yet. When they reply to a Harly email, the message appears here automatically.</p>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">No candidate has replied yet. When they reply to an email from Talmore, the message appears here automatically.</p>
         </div>
 
         <div className="mt-8 grid gap-3 sm:grid-cols-3">
           {[
-            ["1", "Send an email", "Contact a candidate from Harly."],
-            ["2", "Candidate replies", "Their reply goes to your Harly address."],
+            ["1", "Send an email", "Contact a candidate from Talmore."],
+            ["2", "Candidate replies", "Their reply goes to your connected address."],
             ["3", "Review here", "The conversation appears in this Inbox."],
           ].map(([step, title, description]) => (
             <div key={step} className="rounded-lg border border-border/70 bg-muted/20 px-4 py-3.5 text-left">

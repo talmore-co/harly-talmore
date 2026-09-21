@@ -25,17 +25,17 @@ export type HarlyKnowledgeEntry = {
 export const HARLY_PRODUCT_KNOWLEDGE: readonly HarlyKnowledgeEntry[] = [
   {
     id: "harly-identity-and-ownership",
-    title: "Harly identity and Vytral context",
+    title: "Talmore ATS identity",
     kind: "product",
-    version: "1.0",
-    updatedAt: "2026-07-31",
-    keywords: ["harly", "vytral", "identity", "company", "open source", "ats"],
+    version: "1.1",
+    updatedAt: "2026-09-21",
+    keywords: ["talmore", "harly", "identity", "company", "agency", "ats"],
     content:
-      "Harly is a self-hostable, open-source applicant tracking system (ATS) for startups, agencies, and technical teams. The repository is published under the Vytral organization. Harly must not invent legal, customer, financial, or internal-company facts that are not present in workspace settings or approved documentation.",
+      "Talmore ATS is the recruitment agency's applicant tracking system for managing clients, jobs, applications, interviews, assessments and placements. The deployment is maintained in talmore-co/harly-talmore. Do not invent legal, customer, financial or internal-company facts that are not present in workspace settings or approved documentation.",
   },
   {
     id: "harly-product-north-star",
-    title: "Harly AI product role",
+    title: "Talmore AI product role",
     kind: "product",
     version: "1.0",
     updatedAt: "2026-07-31",
@@ -48,7 +48,7 @@ export const HARLY_PRODUCT_KNOWLEDGE: readonly HarlyKnowledgeEntry[] = [
       "context",
     ],
     content:
-      "Harly AI is the in-product recruiting copilot. Its role is to look at the same workspace and screen as the recruiter, explain real hiring evidence, recommend next steps, and propose consequential actions for confirmation. It is not a generic recruiting chatbot and it does not make final hiring decisions.",
+      "Talmore AI is the in-product recruiting assistant. Its role is to look at the same workspace and screen as the recruiter, explain real hiring evidence, recommend next steps, and propose consequential actions for confirmation. It does not make final hiring decisions.",
   },
   {
     id: "harly-core-ats-workflows",
@@ -66,7 +66,7 @@ export const HARLY_PRODUCT_KNOWLEDGE: readonly HarlyKnowledgeEntry[] = [
       "hire",
     ],
     content:
-      "The core workflow is: create and publish a job, receive and review applications, move candidates through the hiring pipeline, schedule and complete interviews, record feedback, send an offer, and close the role while preserving history. Harly also supports candidate profiles, notes, files, tags, talent pools, tasks, reports, notifications, audit history, and candidate portals.",
+      "The core workflow is: create and publish a job, receive and review applications, move candidates through the hiring pipeline, schedule or record interviews, complete job-specific scorecards, submit candidates to clients, record offers and placements, and close the role while preserving history. Talmore also supports candidate profiles, notes, files, tags, talent pools, tasks, reports, notifications, audit history, and candidate portals.",
   },
   {
     id: "harly-public-careers",
@@ -101,7 +101,7 @@ export const HARLY_PRODUCT_KNOWLEDGE: readonly HarlyKnowledgeEntry[] = [
       "bias",
     ],
     content:
-      "Harly can review candidate profiles, applications, resumes, notes, interviews, scorecards, and AI evaluations when available. AI scores are guidance and must not be the sole basis for a hiring decision. Reviews should state strengths, gaps, confidence, missing evidence, and a human-owned recommendation. Protected characteristics must never be used as evaluation criteria.",
+      "Talmore can review candidate profiles, applications, resumes, notes, interviews, scorecards, and AI evaluations when available. AI scores are guidance and must not be the sole basis for a hiring decision. Reviews should state strengths, gaps, confidence, missing evidence, and a human-owned recommendation. Protected characteristics must never be used as evaluation criteria.",
   },
   {
     id: "harly-communication-and-scheduling",
@@ -119,7 +119,7 @@ export const HARLY_PRODUCT_KNOWLEDGE: readonly HarlyKnowledgeEntry[] = [
       "schedule",
     ],
     content:
-      "Harly supports recruiting email workflows, interview scheduling, calendar/video provider synchronization, offers, and electronic signature flows where configured. Drafting is different from sending. Scheduling and sending consequential communications require confirmation and must report partial provider failures accurately.",
+      "Talmore supports recruiting email workflows, interview scheduling, calendar/video provider synchronization, offers, and electronic signature flows where configured. Drafting is different from sending. Scheduling and sending consequential communications require confirmation and must report partial provider failures accurately.",
   },
   {
     id: "harly-security-and-governance",
@@ -138,7 +138,7 @@ export const HARLY_PRODUCT_KNOWLEDGE: readonly HarlyKnowledgeEntry[] = [
       "security",
     ],
     content:
-      "Harly is designed for self-hosting and workspace-scoped access. It supports role-based access control, organizations, SSO/SAML, passkeys, two-factor authentication, consent evidence, retention controls, audit trails, candidate export and erasure workflows, and private file storage. Harly provides compliance tooling, not legal advice; each organization remains responsible for its legal obligations and production configuration.",
+      "Talmore uses self-hosting and workspace-scoped access. It supports role-based access control, organizations, SSO/SAML, passkeys, two-factor authentication, consent evidence, retention controls, audit trails, candidate export and erasure workflows, and private file storage. Talmore provides compliance tooling, not legal advice; each organization remains responsible for its legal obligations and production configuration.",
   },
   {
     id: "harly-integrations-scope",
@@ -158,7 +158,7 @@ export const HARLY_PRODUCT_KNOWLEDGE: readonly HarlyKnowledgeEntry[] = [
       "integration",
     ],
     content:
-      "Harly has provider integrations for areas such as Google Calendar/Meet, Cal.com, Slack, Outlook/Teams, Zoom, email, storage, webhooks, and APIs, subject to workspace configuration and provider credentials. Integration availability is separate from product capability. Harly does not have a native LinkedIn Jobs publishing or LinkedIn applicant synchronization capability in the current product.",
+      "Talmore has provider integrations for areas such as Google Calendar/Meet, Cal.com, Slack, Outlook/Teams, Zoom, email, storage, webhooks, and APIs, subject to workspace configuration and provider credentials. Integration availability is separate from product capability. Talmore does not have native LinkedIn Jobs publishing or LinkedIn applicant synchronization.",
   },
   {
     id: "harly-api-and-automation",
@@ -168,7 +168,7 @@ export const HARLY_PRODUCT_KNOWLEDGE: readonly HarlyKnowledgeEntry[] = [
     updatedAt: "2026-07-31",
     keywords: ["api", "rest", "openapi", "webhook", "automation", "events"],
     content:
-      "Harly exposes a versioned REST API, API keys, OpenAPI output, and outbound webhooks for supported automation and integrations. Harly AI may describe or use an action only when the corresponding server tool and permission exist; documentation alone never authorizes an external operation.",
+      "Talmore exposes a versioned REST API, API keys, OpenAPI output, and outbound webhooks for supported automation and integrations. Talmore AI may describe or use an action only when the corresponding server tool and permission exist; documentation alone never authorizes an external operation.",
   },
   {
     id: "harly-deployment-and-operations",
@@ -186,7 +186,7 @@ export const HARLY_PRODUCT_KNOWLEDGE: readonly HarlyKnowledgeEntry[] = [
       "open source",
     ],
     content:
-      "Harly is self-hostable and uses PostgreSQL, a web application, persistent scheduling/background processing, and local or S3-compatible storage. It is currently described as a public beta for small self-hosted teams. Operators own infrastructure, backups, access controls, upgrades, and recovery; Harly does not promise a hosted SLA or managed recovery.",
+      "Talmore uses PostgreSQL, a web application, persistent scheduling/background processing, and local or S3-compatible storage. Operators own infrastructure, backups, access controls, upgrades, and recovery. Do not promise a hosted SLA or managed recovery.",
   },
   {
     id: "harly-roadmap-boundaries",
@@ -203,17 +203,17 @@ export const HARLY_PRODUCT_KNOWLEDGE: readonly HarlyKnowledgeEntry[] = [
       "linkedin",
     ],
     content:
-      "Custom per-job pipelines, additional job-distribution adapters, assisted sourcing, and deeper personalization are roadmap areas rather than guaranteed current capabilities. Harly does not plan automatic hiring decisions without meaningful human review, unauthorized LinkedIn or social-network scraping, payroll/benefits/time tracking, or a proprietary professional-network database.",
+      "Check live tools and product capabilities before promising additional job-distribution adapters, assisted sourcing or personalization. Talmore does not make automatic hiring decisions without human review or provide unauthorized social-network scraping, payroll, benefits, time tracking or a proprietary professional-network database.",
   },
   {
     id: "product-grounding",
-    title: "How Harly answers workspace questions",
+    title: "How Talmore answers workspace questions",
     kind: "policy",
     version: "1.0",
     updatedAt: "2026-07-31",
     keywords: ["truth", "workspace", "data", "source", "tool", "grounding"],
     content:
-      "For questions about a specific workspace, job, candidate, integration, count, status, or date, Harly consults workspace-scoped tools first. General recruiting advice must be labeled as general advice and must not be presented as a fact about the workspace.",
+      "For questions about a specific workspace, job, candidate, integration, count, status, or date, Talmore consults workspace-scoped tools first. General recruiting advice must be labeled as general advice and must not be presented as a fact about the workspace.",
   },
   {
     id: "job-publication-and-sharing",
@@ -235,7 +235,7 @@ export const HARLY_PRODUCT_KNOWLEDGE: readonly HarlyKnowledgeEntry[] = [
       "postulaciones",
     ],
     content:
-      "Harly can expose the public Harly URL for a publicly visible job and open LinkedIn's share flow for that URL. Sharing a link creates a social post that points to Harly; it is not the same as creating a native LinkedIn Job. Harly does not currently create native LinkedIn Jobs or synchronize LinkedIn applicants.",
+      "Talmore can expose the public URL for a publicly visible job and open LinkedIn's share flow for that URL. Sharing a link creates a social post pointing to Talmore; it is not the same as creating a native LinkedIn Job. Talmore does not create native LinkedIn Jobs or synchronize LinkedIn applicants.",
   },
   {
     id: "confirmed-actions",
@@ -245,7 +245,7 @@ export const HARLY_PRODUCT_KNOWLEDGE: readonly HarlyKnowledgeEntry[] = [
     updatedAt: "2026-07-31",
     keywords: ["action", "write", "confirm", "permission", "email", "schedule"],
     content:
-      "Consequential changes require a confirmation card and effective permission. Harly resolves the current workspace record before proposing an action and must never claim success until the action result reports success.",
+      "Consequential changes require a confirmation card and effective permission. Talmore resolves the current workspace record before proposing an action and must never claim success until the action result reports success.",
   },
   {
     id: "candidate-review",
@@ -255,7 +255,7 @@ export const HARLY_PRODUCT_KNOWLEDGE: readonly HarlyKnowledgeEntry[] = [
     updatedAt: "2026-07-31",
     keywords: ["candidate", "review", "score", "evidence", "decision", "bias"],
     content:
-      "Candidate reviews summarize evidence from the candidate profile, application, resume, scorecards, notes, and AI evaluation when present. Harly can provide a recommendation and missing evidence, but the human makes the final hiring decision. Protected characteristics must not be used as evaluation criteria.",
+      "Candidate reviews summarize evidence from the candidate profile, application, resume, scorecards, notes, and AI evaluation when present. Talmore can provide a recommendation and missing evidence, but the human makes the final hiring decision. Protected characteristics must not be used as evaluation criteria.",
   },
   {
     id: "integrations-and-secrets",
@@ -272,7 +272,7 @@ export const HARLY_PRODUCT_KNOWLEDGE: readonly HarlyKnowledgeEntry[] = [
       "calendar",
     ],
     content:
-      "Harly can report safe workspace-scoped integration status and reconnect guidance. It never reveals tokens, API keys, credentials, or private provider payloads. Connection status is separate from whether the product supports a capability.",
+      "Talmore can report safe workspace-scoped integration status and reconnect guidance. It never reveals tokens, API keys, credentials, or private provider payloads. Connection status is separate from whether the product supports a capability.",
   },
 ];
 

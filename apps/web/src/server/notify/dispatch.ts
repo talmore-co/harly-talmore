@@ -54,7 +54,7 @@ type Normalized = {
 };
 
 const DEFAULT_BRANDING: ChatBranding = {
-  name: "Harly",
+  name: "Talmore",
   logoUrl: null,
   primaryColor: "#2f6f4e",
   websiteUrl: null,
@@ -241,7 +241,7 @@ function slackPayload(n: Normalized): unknown {
       { type: "section", text: { type: "mrkdwn", text: line } },
       {
         type: "context",
-        elements: [{ type: "mrkdwn", text: `<${n.href}|Open in Harly>` }],
+        elements: [{ type: "mrkdwn", text: `<${n.href}|Open in Talmore>` }],
       },
     ],
   };
@@ -250,7 +250,7 @@ function slackPayload(n: Normalized): unknown {
 function discordPayload(n: Normalized): unknown {
   const brandingFooter = n.branding.hideHarlyBranding
     ? n.branding.name
-    : `${n.branding.name} · Powered by Harly`;
+    : `${n.branding.name} · Powered by Talmore`;
   return {
     username: n.branding.name.slice(0, 80),
     ...(n.branding.logoUrl ? { avatar_url: n.branding.logoUrl } : {}),
@@ -268,7 +268,7 @@ function discordPayload(n: Normalized): unknown {
     components: [
       {
         type: 1,
-        components: [{ type: 2, style: 5, label: "Open in Harly", url: n.href }],
+        components: [{ type: 2, style: 5, label: "Open in Talmore", url: n.href }],
       },
     ],
   };
@@ -346,7 +346,7 @@ function escapeHtml(value: string): string {
 export function telegramText(event: WebhookEvent, data: Record<string, unknown>): string {
   const n = normalize(event, data);
   const detail = n.detail ? ` , ${escapeHtml(n.detail)}` : "";
-  return `${n.emoji} <b>${escapeHtml(n.title)}</b>${detail}\n<a href="${n.href}">Open in Harly</a>`;
+  return `${n.emoji} <b>${escapeHtml(n.title)}</b>${detail}\n<a href="${n.href}">Open in Talmore</a>`;
 }
 
 /**

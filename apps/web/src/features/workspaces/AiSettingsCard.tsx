@@ -135,7 +135,7 @@ export function AiSettingsCard({
                 <StatusPill tone="neutral">Using heuristics</StatusPill>
               )
             }
-            description="Bring your own provider key to power resume parsing and job-description drafting. Without one, Harly falls back to fast built-in heuristics."
+            description="Bring your own provider key to power resume parsing and job-description drafting. Without one, Talmore falls back to built-in heuristics."
             action={
               canEdit ? (
                 <>
@@ -770,7 +770,7 @@ export function AiSettingsForm({ status }: { status: WorkspaceAiStatus }) {
           <div>
             <p className="text-sm font-medium">Enable AI</p>
             <p className="text-xs text-muted-foreground">
-              When off, Harly uses heuristics only.
+              When off, Talmore uses heuristics only.
             </p>
           </div>
           <Switch checked={enabled} onCheckedChange={setEnabled} />

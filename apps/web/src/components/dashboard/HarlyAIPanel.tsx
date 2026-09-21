@@ -188,7 +188,7 @@ const TOOL_LABELS: Record<string, string> = {
   "tool-detectDuplicates": "Checking for duplicates",
   "tool-compareCandidates": "Comparing candidates",
   "tool-bulkScoreJob": "Scoring all applicants",
-  "tool-recentAgentActions": "Checking recent Harly actions",
+  "tool-recentAgentActions": "Checking recent Talmore actions",
 };
 
 // Custom markdown renderers: internal links (candidate/job profiles) use the
@@ -410,7 +410,7 @@ function ToolResultCard({
         sendCandidateEmail: "Sent candidate email",
         undoAgentAction: "Undid an action",
       };
-      if (typeof name !== "string") return "Harly action";
+      if (typeof name !== "string") return "Talmore action";
       return labels[name] ?? name.replace(/([a-z])([A-Z])/g, "$1 $2");
     };
     const actions = o.actions as Array<Record<string, unknown>>;

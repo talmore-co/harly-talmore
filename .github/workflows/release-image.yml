@@ -54,7 +54,7 @@ jobs:
             type=sha,prefix=sha-,format=long
             type=raw,value=build-${{ github.run_id }}-${{ github.run_attempt }}
           labels: |
-            org.opencontainers.image.title=Harly
+            org.opencontainers.image.title=Talmore ATS
             org.opencontainers.image.description=Self-hosted applicant tracking system
             org.opencontainers.image.licenses=MIT
       - id: build

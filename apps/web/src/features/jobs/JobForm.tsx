@@ -55,6 +55,8 @@ type JobFormProps = {
   /** View job / Share job / status actions , rendered in the editor rail
    *  (desktop) and behind the title (mobile/tablet) instead of the top bar. */
   railActions?: ReactNode;
+  detailsExtras?: ReactNode;
+  scorecardSection?: ReactNode;
   previewWorkspace?: (WorkspaceBoardBranding & { id: string }) | null;
   previewConfig?: CareerPageConfig | null;
 };
@@ -113,6 +115,7 @@ const SECTIONS = [
     blurb:
       "Keywords improve search on your careers page. A custom slug keeps URLs clean.",
   },
+  { key: "scorecard", label: "Scorecard", blurb: "Define the dimensions your team assesses for this role. Internal only." },
   {
     key: "review",
     label: "Team & publish",
@@ -187,6 +190,8 @@ export function JobForm({
   statusBadge,
   headerActions,
   railActions,
+  detailsExtras,
+  scorecardSection,
   previewWorkspace,
   previewConfig,
 }: JobFormProps) {
@@ -501,6 +506,7 @@ export function JobForm({
                         workplace={workplace}
                         setWorkplace={setWorkplace}
                       />
+                      {detailsExtras ? <div className="mt-5 grid gap-5 border-t pt-5">{detailsExtras}</div> : null}
                     </div>
                   ) : null}
 
@@ -548,6 +554,7 @@ export function JobForm({
                     </div>
                   ) : null}
 
+                  {s.key === "scorecard" ? <div className="rounded-2xl border border-border/70 bg-card p-5">{scorecardSection ?? <p className="text-sm text-muted-foreground">Save this job first, then configure its scorecard.</p>}</div> : null}
                   {s.key === "review" ? (
                     <div ref={reviewSectionRef}>
                       <ReviewSection

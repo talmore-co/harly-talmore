@@ -10,7 +10,7 @@ export type WelcomeEmailProps = {
   branding?: WorkspaceEmailBranding;
 };
 
-export const welcomeEmailSubject = "Welcome to Harly";
+export const welcomeEmailSubject = "Welcome to Talmore";
 
 export function WelcomeEmail({
   userName,
@@ -18,7 +18,7 @@ export function WelcomeEmail({
   dashboardUrl,
   branding,
 }: WelcomeEmailProps) {
-  const displayName = workspaceName || branding?.name || "Harly";
+  const displayName = workspaceName || branding?.name || "Talmore";
 
   return (
     <HarlyLayout
@@ -48,5 +48,5 @@ export function WelcomeEmail({
 WelcomeEmail.PreviewProps = {
   userName: "Ava",
   workspaceName: "Acme Inc.",
-  dashboardUrl: "https://app.harly.dev/dashboard",
+  dashboardUrl: "https://ats.example.test/dashboard",
 } satisfies WelcomeEmailProps;

@@ -6,7 +6,7 @@ import { getHarlyPublicOrigin } from "@/lib/public-origin";
 
 const publicUrl = new URL(getHarlyPublicOrigin());
 const RP_ID = publicUrl.hostname;
-const RP_NAME = "Harly";
+const RP_NAME = "Talmore";
 const ORIGIN = publicUrl.origin;
 
 export { RP_ID, RP_NAME, ORIGIN };

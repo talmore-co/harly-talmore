@@ -24,13 +24,8 @@ export default async function SetupPage() {
     <div className="flex min-h-[100dvh] flex-col md:min-h-0 md:h-full">
       <header className="flex items-center px-6 py-6 sm:px-8">
         {/* Wordmark , mobile only; the brand panel carries it on desktop. */}
-        <a href="https://harly.dev" aria-label="Harly , visit harly.dev">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/harly-full-black.svg"
-            alt="Harly"
-            className="h-8 w-auto md:hidden"
-          />
+        <a href="https://talmore.co" aria-label="Talmore website">
+          <span className="font-display text-2xl font-semibold md:hidden">Talmore</span>
         </a>
       </header>
 
@@ -42,7 +37,7 @@ export default async function SetupPage() {
           </span>
 
           <h1 className="mt-5 font-display text-3xl tracking-tight text-foreground">
-            Set up your Harly
+            Set up Talmore
           </h1>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
             When you ran{" "}

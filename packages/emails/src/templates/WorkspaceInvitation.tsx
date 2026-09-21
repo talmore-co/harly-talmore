@@ -38,7 +38,7 @@ export function WorkspaceInvitation({
 
   return (
     <HarlyLayout
-      preview={`${inviterName} added you to ${workspaceName} on Harly.`}
+      preview={`${inviterName} added you to ${workspaceName} on Talmore.`}
       branding={branding}
     >
       <Text className="text-[40px] leading-[1.05] tracking-[-1px] font-inter text-fg m-0 mb-3.5 font-medium">
@@ -72,5 +72,5 @@ WorkspaceInvitation.PreviewProps = {
   inviterName: "Max",
   workspaceName: "Acme Inc.",
   role: "recruiter",
-  acceptUrl: "https://app.harly.dev/join?token=abc123",
+  acceptUrl: "https://ats.example.test/join?token=abc123",
 } satisfies WorkspaceInvitationProps;

@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 import type { WorkspaceOption } from "@/features/workspaces/data";
 
 const VERSION = "v0.1.0";
-const REPO_URL = "https://github.com/Vytral/harly";
+const REPO_URL = "https://github.com/talmore-co/harly-talmore";
 
 type UserMenuProps = {
   user: {

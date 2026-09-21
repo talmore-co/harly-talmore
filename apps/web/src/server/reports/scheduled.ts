@@ -82,9 +82,9 @@ export async function runDueScheduledReports(limit = 25) {
       for (const to of (Array.isArray(report.recipients) ? report.recipients : [])) {
         await enqueueEmailOutbox(report.workspaceId, "report.scheduled", {
           to,
-          subject: `${report.name} · Harly hiring report`,
+          subject: `${report.name} · Talmore hiring report`,
           bodyHtml,
-          companyName: "Harly",
+          companyName: "Talmore",
         }, `scheduled-report:${report.id}:${periodEnd.toISOString()}:${to}`);
       }
       await db.update(scheduledReportRuns).set({ status: "queued", sentAt: new Date() }).where(eq(scheduledReportRuns.id, run.id));

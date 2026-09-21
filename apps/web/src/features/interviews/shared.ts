@@ -33,6 +33,9 @@ export type InterviewSyncItem = {
 };
 
 export type CandidateInterviewItem = {
+  clientName?: string | null;
+  internalNotes?: string | null;
+  assessments?: Array<{ id: string; applicationId: string | null; criteria?: unknown; rating: "strong" | "mixed" | "weak"; comment: string | null; stageName: string | null; authorName: string | null; createdAt: string }>;
   hasRecordings?: boolean;
   source?: string;
   id: string;

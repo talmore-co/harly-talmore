@@ -56,7 +56,7 @@ export function HarlySignConnectPanel({
       <IntegrationHeader
       logo={PencilIcon}
         tileClassName={tileClassName}
-        name="Harly Sign"
+        name="Talmore Signature"
         description={description}
         statusLabel="Connected"
         statusTone="on"

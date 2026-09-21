@@ -110,7 +110,7 @@ export const GET = withApi(async (request) => {
   const document = {
     openapi: "3.1.0",
     info: {
-      title: "Harly API",
+      title: "Talmore API",
       version: process.env.HARLY_VERSION ?? "1.0.0",
     },
     servers: [{ url: baseUrl() }],
@@ -120,7 +120,7 @@ export const GET = withApi(async (request) => {
         bearerAuth: {
           type: "http",
           scheme: "bearer",
-          bearerFormat: "Harly API key",
+          bearerFormat: "Talmore API key",
         },
       },
       schemas: {},

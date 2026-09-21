@@ -721,7 +721,7 @@ function WebhooksSection({
             <Input
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com/webhooks/harly"
+              placeholder="https://example.com/webhooks/talmore"
               className="font-mono text-sm"
             />
           </div>
@@ -903,7 +903,7 @@ function WebhooksSection({
               <Input
                 value={editUrl}
                 onChange={(e) => setEditUrl(e.target.value)}
-                placeholder="https://example.com/webhooks/harly"
+                placeholder="https://example.com/webhooks/talmore"
                 className="font-mono text-sm"
               />
             </div>

@@ -133,7 +133,7 @@ export function DocumentFieldPlacementDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Send with Harly Signature</DialogTitle>
+            <DialogTitle>Send with Talmore Signature</DialogTitle>
             <DialogDescription>
               Send a secure signing link to any email address. The candidate
               only fills in the {placements.length} field

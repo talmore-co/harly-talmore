@@ -27,10 +27,14 @@ export type CandidateProfileApplication = {
   id: string;
   jobId: string;
   jobTitle: string;
+  clientName?: string | null;
   currentStageName: string | null;
   status: CandidateApplicationStatus;
   appliedAt: string;
   source: string | null;
+  questionnaireScore?: number | null;
+  questionnaireScoreSnapshot?: unknown;
+  attribution?: unknown;
   answers: Array<{ id: string; label: string; type: string; answer: string }>;
 };
 
@@ -54,6 +58,8 @@ export type CandidateFile = {
 };
 
 export type Scorecard = {
+  criteria?: unknown;
+  interviewId?: string | null;
   id: string;
   applicationId: string | null;
   rating: "strong" | "mixed" | "weak";

@@ -79,7 +79,7 @@ export function SignatureSettingsCard({ settings }: { settings: Settings }) {
       <Card className="gap-5 p-6">
         <SectionHeader
           icon={PencilIcon}
-          title="Harly Signature"
+          title="Talmore Signature"
           description="Control which native signing capabilities are available to this workspace. Native signing is compliance-ready and does not replace your legal policies."
           badge={
             <StatusPill tone={value.nativeSignEnabled ? "on" : "off"}>

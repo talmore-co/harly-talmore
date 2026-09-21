@@ -39,6 +39,13 @@ and team reviews below remain limited previews, and are not email counts.
 Scorecards only clear reviews for the matching application and stage. The
 selected-job pipeline overview remains a separate job-specific widget.
 
+In Today's interviews, candidate names open the candidate's Interviews tab with
+the interview's application selected. Google Calendar icons use the same
+event-search URL as the calendar details and candidate interview cards.
+Calendar event chips, agenda rows and candidate shortcuts also open that
+application's Interviews tab. Select a day or its overflow count to see the
+day's agenda; the Details button expands meeting and calendar links.
+
 Verification includes >50 applications across multiple jobs, incoming versus
 outgoing threads, closed jobs, deleted candidates, rejected applications,
 cross-job scorecards, local midnight boundaries, canceled interviews and a

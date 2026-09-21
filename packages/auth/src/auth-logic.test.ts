@@ -256,7 +256,7 @@ describe("sendMagicLinkEmail", () => {
       text: string;
     };
     expect(call.to).toBe("ada@example.com");
-    expect(call.subject).toBe("Sign in to Harly");
+    expect(call.subject).toBe("Sign in to Talmore");
     expect(call.text).toContain("https://example.com/magic");
   });
 
@@ -269,7 +269,7 @@ describe("sendMagicLinkEmail", () => {
       sendFn,
     });
     const call = sendFn.mock.calls[0][0] as { from: string };
-    expect(call.from).toBe("Harly <noreply@harly.dev>");
+    expect(call.from).toBe("Talmore <noreply@harly.dev>");
   });
 
   it("uses a custom from address when provided", async () => {

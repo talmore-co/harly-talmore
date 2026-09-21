@@ -207,15 +207,15 @@ export async function sendMagicLinkEmail(options: {
     return;
   }
 
-  const from = options.from ?? "Harly <noreply@harly.dev>";
+  const from = options.from ?? "Talmore <noreply@harly.dev>";
 
   try {
     if (options.sendFn) {
       await options.sendFn({
         from,
         to: email,
-        subject: "Sign in to Harly",
-        text: `Use this link to sign in to Harly:\n\n${url}\n\nIf you did not request this, you can ignore this email.`,
+        subject: "Sign in to Talmore",
+        text: `Use this link to sign in to Talmore:\n\n${url}\n\nIf you did not request this, you can ignore this email.`,
       });
     } else {
       const { Resend } = await import("resend");
@@ -223,8 +223,8 @@ export async function sendMagicLinkEmail(options: {
       await resend.emails.send({
         from,
         to: email,
-        subject: "Sign in to Harly",
-        text: `Use this link to sign in to Harly:\n\n${url}\n\nIf you did not request this, you can ignore this email.`,
+        subject: "Sign in to Talmore",
+        text: `Use this link to sign in to Talmore:\n\n${url}\n\nIf you did not request this, you can ignore this email.`,
       });
     }
   } catch (error) {

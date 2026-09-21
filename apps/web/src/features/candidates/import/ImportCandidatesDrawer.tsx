@@ -592,7 +592,7 @@ export function ImportCandidatesDrawer({
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Use an Admin-generated token with only the{" "}
-                  <code>r_candidates</code> scope. Harly reads complete profiles
+                  <code>r_candidates</code> scope. Talmore reads complete profiles
                   and never saves the token.
                 </p>
                 <Button
@@ -632,7 +632,7 @@ export function ImportCandidatesDrawer({
                 />
                 <p className="text-xs text-muted-foreground">
                   Use an Admin-generated key with the{" "}
-                  <code>candidatesRead</code> scope. Harly reads complete
+                  <code>candidatesRead</code> scope. Talmore reads complete
                   profiles and never saves the key.
                 </p>
                 <Button
@@ -666,7 +666,7 @@ export function ImportCandidatesDrawer({
                   placeholder="Lever API key"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Use a read-only key with access to Opportunities. Harly
+                  Use a read-only key with access to Opportunities. Talmore
                   imports candidate details and never saves the key.
                 </p>
                 <Button
@@ -701,7 +701,7 @@ export function ImportCandidatesDrawer({
                 />
                 <p className="text-xs text-muted-foreground">
                   Create it in JOIN under User Settings → API Credentials. Use
-                  a dedicated token with application access; Harly uses it
+                  a dedicated token with application access; Talmore uses it
                   once and never saves it. Candidate profiles are imported,
                   but CV attachments are not downloaded.
                 </p>

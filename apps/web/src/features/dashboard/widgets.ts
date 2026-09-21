@@ -178,6 +178,8 @@ export const getTodayInterviews = cache(async (requestedZone?: string | null, re
       interviewer: user.name,
       interviewerImage: user.image,
       gcalEventId: interviews.gcalEventId,
+      candidateId: interviews.candidateId,
+      applicationId: interviews.applicationId,
     })
     .from(interviews)
     .innerJoin(
@@ -217,6 +219,8 @@ export const getTodayInterviews = cache(async (requestedZone?: string | null, re
     interviewer: r.interviewer ?? null,
     interviewerImage: r.interviewerImage ?? null,
     gcalEventId: r.gcalEventId,
+    candidateId: r.candidateId,
+    applicationId: r.applicationId,
   }));
 });
 

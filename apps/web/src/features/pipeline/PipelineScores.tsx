@@ -1,6 +1,8 @@
 "use client";
 
 import { ScoreRing } from "@/features/candidates/AiScoreCard";
+import { AssessmentRing } from "./AssessmentRing";
+import type { AssessmentCounts } from "@/features/candidates/assessment-counts";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -11,11 +13,11 @@ import {
 } from "@/components/ui/select";
 
 export type ScoreSort = "manual" | "newest" | "oldest" | "questionnaireScore" | "aiScore";
-type Scores = { questionnaireScore?: number | null; aiScore?: number | null };
+type Scores = { questionnaireScore?: number | null; aiScore?: number | null; assessmentCounts?: AssessmentCounts };
 
 export function PipelineScores({ application }: { application: Scores }) {
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-start gap-4">
       {(
         [
           ["Questionnaire", application.questionnaireScore],
@@ -38,6 +40,7 @@ export function PipelineScores({ application }: { application: Scores }) {
           <span className="text-[10px] text-muted-foreground">{label}</span>
         </div>
       ))}
+      <AssessmentRing counts={application.assessmentCounts} />
     </div>
   );
 }

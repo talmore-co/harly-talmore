@@ -24,8 +24,8 @@ async function main() {
       url: "https://{instance}",
       variables: {
         instance: {
-          default: "app.harly.dev",
-          description: "Hostname of your Harly installation",
+          default: "ats.talmore.co",
+          description: "Hostname of your Talmore installation",
         },
       },
     },

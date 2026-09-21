@@ -35,7 +35,7 @@ describe("Harly AI system prompt", () => {
     expect(prompt).toContain("native job on an external platform");
     expect(prompt).toContain("reviewCandidate");
     expect(prompt).toContain("Canonical Harly identity: self-hostable ATS");
-    expect(prompt).toContain("Canonical Harly product knowledge");
+    expect(prompt).toContain("Canonical Talmore product knowledge");
     expect(prompt).not.toContain(
       "You have NO access to Settings , billing, integrations",
     );

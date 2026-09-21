@@ -288,6 +288,7 @@ export default async function CandidateDetailPage({
     }));
 
   const scheduleApplications = applications.map((application) => ({
+    clientName: application.clientName,
     applicationId: application.id,
     jobTitle: application.jobTitle,
     currentStageName: application.currentStageName,

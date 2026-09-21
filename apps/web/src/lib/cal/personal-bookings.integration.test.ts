@@ -353,7 +353,7 @@ integration("personal Cal.com booking database integration", () => {
       .select()
       .from(personalCalBookings)
       .where(eq(personalCalBookings.connectionId, connectionId));
-    expect(inbox!.reason).toContain("overlapping Harly interview");
+    expect(inbox!.reason).toContain("overlapping Talmore interview");
     expect(inbox!.applicationId).toBe(appIds[0]);
     expect(
       await db

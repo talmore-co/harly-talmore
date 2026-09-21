@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "@/lib/notification-island/toast";
+import { googleCalendarEventHref } from "@/features/interviews/links";
 
 import { AiButton } from "@/components/ui/AiButton";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +47,7 @@ import { cn } from "@/lib/utils";
 import { InterviewBriefSheet } from "./InterviewBriefSheet";
 import { SummarizeNotesSheet } from "./SummarizeNotesSheet";
 import { InterviewRecordings } from "./InterviewRecordings";
+import { ScorecardList } from "./ScorecardList";
 
 const INTERVIEW_MODE_ICON = {
   video: Video,
@@ -253,6 +255,8 @@ export function InterviewCard({
         })}
 
         {/* Notes */}
+        {interview.internalNotes ? <section className="space-y-1"><h4 className="text-xs font-semibold text-muted-foreground">Internal interview notes</h4><p className="whitespace-pre-wrap text-sm">{interview.internalNotes}</p></section> : null}
+        {interview.assessments?.length ? <section className="space-y-2"><h4 className="text-xs font-semibold text-muted-foreground">Interview assessment</h4><ScorecardList scorecards={interview.assessments} application={interview} /></section> : null}
         {interview.notes ? (
           <div className="flex items-start gap-2 text-sm text-muted-foreground">
             <FileText className="mt-0.5 size-4 shrink-0" strokeWidth={1.8} />
@@ -363,7 +367,7 @@ export function InterviewCard({
                 className="text-muted-foreground"
               >
                 <a
-                  href={`https://calendar.google.com/calendar/r/search?q=${encodeURIComponent(interview.gcalEventId)}`}
+                  href={googleCalendarEventHref(interview.gcalEventId)}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -407,6 +411,9 @@ export function InterviewCard({
                 candidateId={candidateId}
                 workspaceId={workspaceId}
                 applicationId={interview.applicationId}
+                interviewId={interview.id}
+                jobTitle={interview.jobTitle}
+                clientName={interview.clientName}
                 stageName={interview.title ?? interviewTypeLabel(interview.type)}
                 trigger={
                   <Button size="sm" variant="outline">

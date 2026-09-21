@@ -14,7 +14,7 @@ export default async function McpLogin({
   return (
     <main className="mx-auto max-w-sm space-y-6 px-6 py-16">
       <h1 className="text-2xl font-semibold">
-        Connect your assistant to Harly
+        Connect your assistant to Talmore
       </h1>
       <p className="text-sm text-muted-foreground">
         Sign in with your existing staff account to continue.

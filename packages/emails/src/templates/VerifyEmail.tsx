@@ -12,7 +12,7 @@ export const verifyEmailSubject = "Verify your email";
 
 export function VerifyEmail({ userName, verifyUrl }: VerifyEmailProps) {
   return (
-    <HarlyLayout preview="One click and you're in — verify your Harly email.">
+    <HarlyLayout preview="Verify your Talmore email.">
       <Text className="text-[40px] leading-[1.05] tracking-[-1px] font-inter text-fg m-0 mb-3.5 font-medium">
         Verify your email
       </Text>
@@ -34,7 +34,7 @@ export function VerifyEmail({ userName, verifyUrl }: VerifyEmailProps) {
       </Section>
       <Hr className="border-stroke border-t my-7" />
       <Text className="text-[13px] leading-[1.5] tracking-[-0.039px] font-inter text-fg-3 m-0">
-        Didn&apos;t sign up for Harly? You can safely ignore this email.
+        Didn&apos;t sign up for Talmore? You can safely ignore this email.
       </Text>
     </HarlyLayout>
   );
@@ -42,5 +42,5 @@ export function VerifyEmail({ userName, verifyUrl }: VerifyEmailProps) {
 
 VerifyEmail.PreviewProps = {
   userName: "Ava",
-  verifyUrl: "https://app.harly.dev/verify?token=abc123",
+  verifyUrl: "https://ats.example.test/verify?token=abc123",
 } satisfies VerifyEmailProps;

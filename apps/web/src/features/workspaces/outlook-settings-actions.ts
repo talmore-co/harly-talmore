@@ -197,7 +197,7 @@ export async function testOutlookAction(): Promise<OutlookActionResult> {
     if (!accessToken) return { ok: false, error: "Outlook not connected." };
     await sendMail(accessToken, {
       to: [context.user.email ?? ""],
-      subject: "Test from Harly",
+      subject: "Test from Talmore",
       body: "<p>Your Microsoft Outlook integration is working!</p>",
     });
     return { ok: true };

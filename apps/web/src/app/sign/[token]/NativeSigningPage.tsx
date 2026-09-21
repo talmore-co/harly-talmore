@@ -161,7 +161,7 @@ export function NativeSigningPage({ token }: { token: string }) {
       <header className="flex flex-col items-center border-b border-border/70 pb-5 text-center duration-500 animate-in fade-in slide-in-from-bottom-1">
         <div className="mb-1.5 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-primary">
           <PenLine className="size-3.5" />
-          Harly Signature
+          Talmore Signature
         </div>
         <h1 className="font-display text-2xl font-semibold tracking-tight">
           Review and sign

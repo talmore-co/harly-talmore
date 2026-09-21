@@ -532,6 +532,10 @@ export function CandidateActionBar({
       candidateId={candidate.id}
       workspaceId={candidate.workspaceId}
       applicationId={selectedApplication.applicationId}
+      key={selectedApplication.applicationId}
+      jobTitle={selectedApplication.jobTitle}
+      clientName={selectedApplication.clientName}
+      applications={applications}
       stageName={selectedApplication.currentStageName ?? stageName}
       trigger={
         variant === "compact" ? (

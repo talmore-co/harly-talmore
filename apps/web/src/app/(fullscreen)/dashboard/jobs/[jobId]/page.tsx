@@ -3,6 +3,7 @@ import { can } from "@/features/workspaces/permissions-server";
 import { listClientOptions } from "@/features/clients/actions";
 import { JobClientSelect } from "@/features/clients/JobClientSelect";
 import { RoleTakenOn } from "@/features/jobs/RoleTakenOn";
+import { JobScorecardEditor } from "@/features/jobs/JobScorecardEditor";
 import { ExternalLink } from "lucide-react";
 
 import { JobStatusBadge } from "@/components/ui/StatusBadge";
@@ -73,13 +74,16 @@ export default async function DashboardJobPage({
       statusBadge={<JobStatusBadge status={job.status} />}
       previewWorkspace={careerPageData?.workspace ?? null}
       previewConfig={careerPageData?.config ?? null}
+      detailsExtras={<>
+        {clientOptions ? <JobClientSelect jobId={job.id} clientId={job.clientId} options={clientOptions} /> : null}
+        <RoleTakenOn key={`${job.id}:${job.takenOn}`} jobId={job.id} takenOn={job.takenOn} today={new Date().toISOString().slice(0, 10)} canEdit={await can("jobs:edit")} />
+      </>}
+      scorecardSection={<JobScorecardEditor key={JSON.stringify(job.scorecardDefinition)} jobId={job.id} definition={job.scorecardDefinition} canEdit={await can("jobs:edit")} />}
       headerActions={
         <JobActionsMenu key="job-actions" jobId={job.id} slug={job.slug} redirectAfterTrash />
       }
       railActions={
         <>
-          {clientOptions ? <JobClientSelect jobId={job.id} clientId={job.clientId} options={clientOptions} /> : null}
-          <RoleTakenOn key={`${job.id}:${job.takenOn}`} jobId={job.id} takenOn={job.takenOn} today={new Date().toISOString().slice(0, 10)} canEdit={await can("jobs:edit")} />
           <Button asChild variant="outline" size="sm" className="w-full justify-start">
             <a href={`/jobs/${job.slug}`} target="_blank" rel="noreferrer">
               <ExternalLink className="size-4" />

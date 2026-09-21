@@ -331,14 +331,14 @@ export async function sendTestEmailAction(input: {
 
     await sender.send({
       to: context.user.email,
-      subject: "Harly test email",
+      subject: "Talmore test email",
       react: createElement(
         "div",
         { style: { fontFamily: "sans-serif", fontSize: 14, lineHeight: 1.6 } },
         createElement(
           "p",
           null,
-          `This is a test email from ${context.organization.name} via Harly.`,
+          `This is a test email from ${context.organization.name} via Talmore.`,
         ),
         createElement("p", null, "If you received this, your email settings are working."),
       ),

@@ -32,7 +32,7 @@ export default async function NoWorkspacePage() {
     <div className="flex min-h-screen flex-col">
       <header className="flex items-center justify-between px-8 py-6">
         <Link href="/" className="font-display text-lg tracking-tight text-pine">
-          Harly
+          Talmore
         </Link>
         <OnboardingSignOut />
       </header>
@@ -47,7 +47,7 @@ export default async function NoWorkspacePage() {
             You need an invitation
           </h1>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            This Harly workspace is already set up. Ask an admin to invite{" "}
+            This Talmore workspace is already set up. Ask an admin to invite{" "}
             <span className="font-medium text-foreground">
               {session.user.email}
             </span>{" "}

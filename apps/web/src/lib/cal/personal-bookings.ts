@@ -356,7 +356,7 @@ export async function syncPersonalCalBooking(
         await remember(
           application.id,
           existing?.id ?? null,
-          "This recruiter already has an overlapping Harly interview. Resolve the time in Cal.com, then match the booking again.",
+          "This recruiter already has an overlapping Talmore interview. Resolve the time in Cal.com, then match the booking again.",
         );
         return {
           matched: false,

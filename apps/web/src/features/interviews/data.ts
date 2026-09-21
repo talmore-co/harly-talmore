@@ -5,8 +5,10 @@ import { and, asc, between, desc, eq, gte, inArray, isNull, sql } from "drizzle-
 import { db } from "@harly/db";
 import {
   candidates,
+  clients,
   interviewSyncs,
   interviews,
+  scorecards,
   interviewRecordings,
   jobs,
   user as authUsers,
@@ -35,10 +37,12 @@ export async function listCandidateInterviews(
       title: interviews.title,
       location: interviews.location,
       notes: interviews.notes,
+      internalNotes: interviews.internalNotes,
       interviewerId: interviews.interviewerId,
       interviewerName: authUsers.name,
       interviewerImage: authUsers.image,
       jobTitle: jobs.title,
+      clientName: clients.name,
       gcalEventId: interviews.gcalEventId,
       source: interviews.source,
       meetLink: interviews.meetLink,
@@ -65,6 +69,7 @@ export async function listCandidateInterviews(
       ),
     )
     .leftJoin(authUsers, eq(authUsers.id, interviews.interviewerId))
+    .leftJoin(clients, and(eq(clients.id, jobs.clientId), eq(clients.workspaceId, workspace.id)))
     .where(
       and(
         eq(interviews.workspaceId, workspace.id),
@@ -97,6 +102,26 @@ export async function listCandidateInterviews(
         )
     : [];
   const syncsByInterview = new Map<string, typeof syncRows>();
+  const assessments = rows.length
+    ? await db.select({
+        id: scorecards.id,
+        criteria: scorecards.criteria,
+        interviewId: scorecards.interviewId,
+        applicationId: scorecards.applicationId,
+        rating: scorecards.rating,
+        comment: scorecards.comment,
+        stageName: scorecards.stageName,
+        authorName: authUsers.name,
+        createdAt: scorecards.createdAt,
+      })
+      .from(scorecards)
+      .leftJoin(authUsers, eq(authUsers.id, scorecards.authorId))
+      .where(and(
+        eq(scorecards.workspaceId, workspace.id),
+        inArray(scorecards.interviewId, rows.map((row) => row.id)),
+      ))
+      .orderBy(desc(scorecards.createdAt))
+    : [];
   for (const sync of syncRows) {
     const current = syncsByInterview.get(sync.interviewId) ?? [];
     current.push(sync);
@@ -115,10 +140,13 @@ export async function listCandidateInterviews(
     title: row.title,
     location: row.location,
     notes: row.notes,
+    internalNotes: row.internalNotes,
+    assessments: assessments.filter((item) => item.interviewId === row.id).map((item) => ({ ...item, createdAt: item.createdAt.toISOString() })),
     interviewerId: row.interviewerId,
     interviewerName: row.interviewerName,
     interviewerImage: row.interviewerImage,
     jobTitle: row.jobTitle,
+    clientName: row.clientName,
     gcalEventId: row.gcalEventId,
     source: row.source,
     meetLink: row.meetLink,

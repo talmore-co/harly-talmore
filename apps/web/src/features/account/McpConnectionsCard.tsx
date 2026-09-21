@@ -16,7 +16,7 @@ export function McpConnectionsCard({
     <section className="space-y-4 rounded-xl border p-6">
       <h2 className="font-semibold">AI assistants</h2>
       <p className="text-sm text-muted-foreground">
-        Add this MCP URL in Claude or ChatGPT, then sign in to Harly and
+        Add this MCP URL in Claude or ChatGPT, then sign in to Talmore and
         authorize access.
       </p>
       <code className="block break-all text-sm">{endpoint}</code>

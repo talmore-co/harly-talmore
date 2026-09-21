@@ -13,7 +13,7 @@ export async function createSignaturePreview(input: {
   const digest = createHash("sha256").update(input.signedDocumentSha256).digest("hex").slice(0, 16);
   const svg = `<svg width="${input.width}" height="${Math.round(input.width * 1.414)}" viewBox="0 0 400 566" xmlns="http://www.w3.org/2000/svg">
     <rect width="400" height="566" fill="#ffffff"/><rect width="400" height="62" fill="#111827"/>
-    <text x="28" y="38" fill="#ffffff" font-family="Arial" font-size="18" font-weight="700">Harly Signature</text>
+    <text x="28" y="38" fill="#ffffff" font-family="Arial" font-size="18" font-weight="700">Talmore Signature</text>
     <text x="28" y="104" fill="#111827" font-family="Arial" font-size="16" font-weight="700">${title}</text>
     <text x="28" y="136" fill="#6b7280" font-family="Arial" font-size="11">Signed document preview</text>
     <rect x="28" y="192" width="344" height="180" rx="8" fill="#f3f4f6"/>

@@ -46,7 +46,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: page ? { default: `Talmore ATS | ${page}`, template: "Talmore ATS | %s" } : "Talmore ATS",
     description: "Talmore applicant tracking system.",
     icons: {
-      icon: "/favicon.svg",
+      icon: "/talmore-icon.svg",
     },
   };
 }

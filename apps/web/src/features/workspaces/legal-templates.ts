@@ -755,7 +755,7 @@ Estos términos se interpretan conforme a las leyes de Chile, sin perjuicio de l
 
 Preguntas: [{{ENTITY_EMAIL}}](mailto:{{ENTITY_EMAIL}})
 
-> Este documento es un borrador informativo generado por Harly y no constituye asesoría legal.
+> Este documento es un borrador informativo generado por Talmore y no constituye asesoría legal.
 `,
   cookiePolicy: `# Política de Cookies
 
@@ -767,7 +767,7 @@ Puedes cambiar tus preferencias mediante el banner de cookies o la configuració
 
 Preguntas: [{{ENTITY_EMAIL}}](mailto:{{ENTITY_EMAIL}})
 
-> Este documento es un borrador informativo generado por Harly y no constituye asesoría legal.
+> Este documento es un borrador informativo generado por Talmore y no constituye asesoría legal.
 `,
   privacyPolicy: `# Política de Privacidad
 
@@ -775,7 +775,7 @@ Preguntas: [{{ENTITY_EMAIL}}](mailto:{{ENTITY_EMAIL}})
 
 Esta política explica cómo **{{ENTITY_NAME}}**, con domicilio en {{ENTITY_ADDRESS}}, trata tus datos personales cuando postulas a un empleo o utilizas nuestro sitio de carreras.
 
-> Este documento es un borrador informativo generado por Harly y no constituye asesoría legal. Debe ser revisado y adaptado por la entidad responsable antes de su publicación.
+> Este documento es un borrador informativo generado por Talmore y no constituye asesoría legal. Debe ser revisado y adaptado por la entidad responsable antes de su publicación.
 
 ---
 
@@ -863,7 +863,7 @@ Puedes solicitar acceso, rectificación, supresión, oposición, portabilidad o 
 
 Podemos usar herramientas de IA para extraer información del currículum y organizar datos. Estas herramientas no toman decisiones de contratación: toda decisión relevante es revisada por personas.
 
-> Este documento es un borrador informativo generado por Harly y no constituye asesoría legal.
+> Este documento es un borrador informativo generado por Talmore y no constituye asesoría legal.
 `,
   aiTransparencyNotice: `# Aviso de Transparencia sobre IA
 
@@ -876,7 +876,7 @@ Podemos usar herramientas de IA para extraer información del currículum y orga
 - No usamos la IA para inferir características sensibles o protegidas.
 - Puedes solicitar información sobre el uso de IA en tu postulación escribiendo a [{{ENTITY_EMAIL}}](mailto:{{ENTITY_EMAIL}}).
 
-> Este documento es un borrador informativo generado por Harly y no constituye asesoría legal.
+> Este documento es un borrador informativo generado por Talmore y no constituye asesoría legal.
 `,
 };
 
@@ -897,7 +897,7 @@ Estes termos serão interpretados conforme as leis do Brasil, sem prejuízo dos 
 
 Dúvidas: [{{ENTITY_EMAIL}}](mailto:{{ENTITY_EMAIL}})
 
-> Este documento é um rascunho informativo gerado pela Harly e não constitui aconselhamento jurídico.
+> Este documento é um rascunho informativo gerado pela Talmore e não constitui aconselhamento jurídico.
 `,
   cookiePolicy: `# Política de Cookies
 
@@ -909,7 +909,7 @@ Você pode alterar suas preferências pelo banner de cookies ou pelas configura�
 
 Dúvidas: [{{ENTITY_EMAIL}}](mailto:{{ENTITY_EMAIL}})
 
-> Este documento é um rascunho informativo gerado pela Harly e não constitui aconselhamento jurídico.
+> Este documento é um rascunho informativo gerado pela Talmore e não constitui aconselhamento jurídico.
 `,
   privacyPolicy: `# Política de Privacidade
 
@@ -917,7 +917,7 @@ Dúvidas: [{{ENTITY_EMAIL}}](mailto:{{ENTITY_EMAIL}})
 
 Esta política explica como a **{{ENTITY_NAME}}**, com endereço em {{ENTITY_ADDRESS}}, trata dados pessoais quando você se candidata a uma vaga ou utiliza nosso site de carreiras.
 
-> Este documento é um rascunho informativo gerado pela Harly e não constitui aconselhamento jurídico. A organização responsável deve revisá-lo e adaptá-lo antes da publicação.
+> Este documento é um rascunho informativo gerado pela Talmore e não constitui aconselhamento jurídico. A organização responsável deve revisá-lo e adaptá-lo antes da publicação.
 
 ---
 
@@ -1005,7 +1005,7 @@ Você pode solicitar confirmação, acesso, correção, eliminação, portabilid
 
 Podemos usar ferramentas de IA para extrair informações do currículo e organizar dados. A IA não toma decisões de contratação; todas as decisões relevantes são revisadas por pessoas.
 
-> Este documento é um rascunho informativo gerado pela Harly e não constitui aconselhamento jurídico.
+> Este documento é um rascunho informativo gerado pela Talmore e não constitui aconselhamento jurídico.
 `,
   aiTransparencyNotice: `# Aviso de Transparência sobre IA
 
@@ -1018,7 +1018,7 @@ A **{{ENTITY_NAME}}** pode utilizar ferramentas de IA para extrair informações
 - Não usamos IA para inferir características sensíveis ou protegidas.
 - Você pode solicitar informações sobre o uso de IA na sua candidatura pelo e-mail [{{ENTITY_EMAIL}}](mailto:{{ENTITY_EMAIL}}).
 
-> Este documento é um rascunho informativo gerado pela Harly e não constitui aconselhamento jurídico.
+> Este documento é um rascunho informativo gerado pela Talmore e não constitui aconselhamento jurídico.
 `,
 };
 

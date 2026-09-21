@@ -8,6 +8,6 @@ export async function GET() {
     authorization_servers: [`${origin}/api/auth`],
     scopes_supported: MCP_SCOPES,
     bearer_methods_supported: ["header"],
-    resource_name: "Harly ATS",
+    resource_name: "Talmore ATS",
   });
 }

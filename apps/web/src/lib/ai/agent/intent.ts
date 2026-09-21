@@ -30,8 +30,8 @@ export function classifyHarlyIntent(message: string): HarlyIntent {
   }
 
   if (
-    /\b(c[oó]mo funciona|documentaci[oó]n).*\b(harly|vytral)\b/i.test(text) ||
-    /\b(harly|vytral)\b.*\b(funciona|soporta|documentaci[oó]n)\b/i.test(text)
+    /\b(c[oó]mo funciona|documentaci[oó]n).*\b(talmore|harly|vytral)\b/i.test(text) ||
+    /\b(talmore|harly|vytral)\b.*\b(funciona|soporta|documentaci[oó]n)\b/i.test(text)
   ) {
     return "product_docs";
   }

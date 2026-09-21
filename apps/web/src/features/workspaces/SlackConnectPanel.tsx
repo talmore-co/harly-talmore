@@ -473,7 +473,7 @@ function SlackConfigForm({
             <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border p-2">
               {channels.length === 0 ? (
                 <p className="py-2 text-center text-sm text-muted-foreground">
-                  No channels found. Invite the Harly bot to a channel first.
+                  No channels found. Invite the connected bot to a channel first.
                 </p>
               ) : (
                 channels.map((ch) => (
