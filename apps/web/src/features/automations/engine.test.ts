@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 import { z } from "zod";
+vi.mock("./access", () => ({ automationActorAllowed: vi.fn().mockResolvedValue(true) }));
 
 const dbState: {
   runs: Record<string, unknown>[];
@@ -137,6 +138,7 @@ import { getRolePermissions } from "@/features/workspaces/permissions-server";
 import { db } from "@harly/db";
 
 const baseRun = {
+  definitionVersion: 1,
   id: "run-1",
   workspaceId: "ws-1",
   workflowId: "wf-1",
@@ -147,12 +149,14 @@ const baseRun = {
 };
 
 const baseDefinition = {
+  status: "published",
+  definitionVersion: 1,
   id: "wf-1",
   workspaceId: "ws-1",
   name: "Auto-reject juniors",
   enabled: true,
   triggerEvent: "application.created",
-  trigger: { event: "application.created" },
+  trigger: { event: "application.created", runtimeVersion: 2 },
   createdById: "user-1",
 };
 

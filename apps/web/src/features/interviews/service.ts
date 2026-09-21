@@ -27,6 +27,7 @@ import {
 
 import { findWorkspaceMember } from "./core";
 import { lockInterviewerSchedule } from "./booking-lock";
+import { hasBookingReservation } from "@/lib/cal/booking-reservations";
 
 /** Workspace-scoped, session-free interview service for REST API handlers. */
 
@@ -139,7 +140,7 @@ async function assertNoInterviewerConflict(
       ),
     )
     .limit(1);
-  if (conflict) {
+  if (conflict || await hasBookingReservation(executor, { ...input, interviewerId: input.interviewerId, when: input.scheduledAt })) {
     throw ApiError.conflict("This interviewer already has an overlapping interview.");
   }
 }

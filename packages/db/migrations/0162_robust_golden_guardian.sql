@@ -1,0 +1,1 @@
+ALTER TABLE "workspace_settings" ADD COLUMN "interview_reminders" jsonb DEFAULT '{}'::jsonb NOT NULL;

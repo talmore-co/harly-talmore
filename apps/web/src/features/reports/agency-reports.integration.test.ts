@@ -12,6 +12,9 @@ import {
   jobHiringTeam,
   jobs,
   jobStages,
+  interviews,
+  scorecards,
+  member,
   organization,
   user,
 } from "@harly/db";
@@ -43,6 +46,21 @@ integration("agency report queries and scope", () => {
       user: { id: userId },
       roleKey: "owner",
     });
+  it("attributes recruiter interviews and assessments and respects selected jobs", async () => {
+    owner();
+    await db.insert(member).values({ id: randomUUID(), organizationId: workspaceId, userId, role: "owner", createdAt: new Date() });
+    const interviewId = randomUUID();
+    await db.insert(interviews).values({ id: interviewId, workspaceId, applicationId: appIds[0], candidateId: candidateIds[0], jobId: jobIds[0], interviewerId: userId, type: "screening", mode: "phone", status: "completed", scheduledAt: new Date(`${yesterday}T12:00:00Z`) });
+    const initial = await getAgencyReports({ tab: "recruiters", job: jobIds[0] });
+    expect(initial.recruiters.find((row) => row.id === userId)).toMatchObject({ interviews: 1, assessments: 0, missingAssessments: [{ id: interviewId }] });
+    await db.insert(scorecards).values({ workspaceId, applicationId: appIds[0], candidateId: candidateIds[0], authorId: userId, interviewId, rating: "strong" });
+    const assessed = await getAgencyReports({ tab: "recruiters", job: jobIds[0] });
+    expect(assessed.recruiters.find((row) => row.id === userId)).toMatchObject({ interviews: 1, assessments: 1, missingAssessments: [] });
+    const otherJob = await getAgencyReports({ tab: "recruiters", job: jobIds[1] });
+    expect(otherJob.recruiters.every((row) => row.interviews === 0 && row.assessments === 0)).toBe(true);
+    const otherWorkspace = await getAgencyReports({ tab: "recruiters", job: jobIds[3] });
+    expect(otherWorkspace.recruiters).toEqual([]);
+  });
   beforeAll(async () => {
     const url = new URL(process.env.DATABASE_URL!);
     if (

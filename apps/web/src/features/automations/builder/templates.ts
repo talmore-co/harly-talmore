@@ -1,211 +1,48 @@
-/**
- * Starter workflow templates — full `WorkflowDefinitionInput` values a recruiter
- * can spin up in one click from the empty state or the "New from template"
- * picker. Each is a complete WHEN → IF → DO definition, valid against the Zod
- * schemas in `./schema`.
- *
- * Templates are intentionally generic: stage names ("Phone screen", "Offer")
- * and tag labels are placeholders the user edits after creating. They showcase
- * the shape of each construct (trigger, condition tree, action list) without
- * referencing real record ids.
- */
-
 import type { WorkflowDefinitionInput } from "../schema";
+import { BOOKING_INVITATION_MESSAGE } from "./message-defaults";
 
 export type WorkflowTemplate = {
-  id: string;
-  name: string;
-  description: string;
-  /** Emoji-free category tag for the gallery. */
+  id: string; name: string; description: string;
   category: "Pipeline" | "Notification" | "Triage" | "Onboarding";
   build: () => WorkflowDefinitionInput;
 };
 
+/** Starters only. Every trigger, condition and action remains editable in the builder. */
 export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   {
-    id: "notify-slack-on-apply",
-    name: "Notify chat on new application",
-    description: "Post a message to your Slack/Discord channel every time a candidate applies.",
-    category: "Notification",
-    build: () => ({
-      name: "Notify chat on new application",
-      description: "Posts to the workspace chat channel when a candidate applies.",
-      enabled: true,
-      trigger: { event: "application.created" },
-      conditions: [],
-      actions: [
-        {
-          type: "send_slack",
-          config: { message: "New application received for {{job.title}} — {{candidate.firstName}} {{candidate.lastName}}." },
-          continueOnError: true,
-        },
-      ],
-    }),
-  },
-  {
-    id: "auto-reject-juniors",
-    name: "Auto-reject under-qualified applicants",
-    description: "When a candidate applies, if the job seniority is 'junior' and the AI score is low, reject them.",
-    category: "Triage",
-    build: () => ({
-      name: "Auto-reject under-qualified applicants",
-      description: "Rejects junior-role applicants with a low AI match score.",
-      enabled: false,
-      trigger: { event: "application.created" },
+    id: "questionnaire-progression", name: "Advance applicants by questionnaire score", category: "Pipeline",
+    description: "Start with a 70% questionnaire threshold and advance to Screening. Change the score, job and stage before publishing.",
+    build: () => ({ name: "Advance applicants by questionnaire score", enabled: false, trigger: { event: "application.created" },
       conditions: [
-        {
-          type: "and",
-          children: [
-            { type: "leaf", field: { kind: "job", path: "seniority" }, op: "eq", value: "junior" },
-            { type: "leaf", field: { kind: "ai", path: "score" }, op: "lt", value: 40 },
-          ],
-        },
+        { type: "leaf", field: { kind: "application", path: "questionnaireScore" }, op: "gte", value: 70 },
+        { type: "leaf", field: { kind: "application", path: "stage" }, op: "eq", value: "Applied" },
       ],
-      actions: [
-        {
-          type: "set_status",
-          config: { status: "rejected" },
-          continueOnError: false,
-        },
-        {
-          type: "add_tag",
-          config: { label: "auto-rejected" },
-          continueOnError: true,
-        },
-      ],
+      actions: [{ type: "move_stage", config: { toStageName: "Screening" }, continueOnError: false }],
     }),
   },
   {
-    id: "screening-task-on-stage",
-    name: "Create screening task on stage change",
-    description: "When an application moves to 'Phone screen', assign a screening task to the owner.",
-    category: "Pipeline",
-    build: () => ({
-      name: "Create screening task on stage change",
-      description: "Assigns a phone-screen task when an application reaches the Phone screen stage.",
-      enabled: true,
-      trigger: { event: "application.stage_changed" },
-      conditions: [
-        { type: "leaf", field: { kind: "trigger", path: "stageId" }, op: "eq", value: "phone-screen" },
-      ],
-      actions: [
-        {
-          type: "create_task",
-          config: { title: "Phone screen candidate", priority: "high" },
-          continueOnError: false,
-        },
-      ],
-    }),
-  },
-  {
-    id: "tag-vip-candidates",
-    name: "Tag high-fit candidates",
-    description: "When a candidate applies with an AI score above 80, tag them 'vip'.",
-    category: "Triage",
-    build: () => ({
-      name: "Tag high-fit candidates",
-      description: "Tags strong applicants as 'vip' based on AI score.",
-      enabled: true,
-      trigger: { event: "application.created" },
+    id: "score-to-booking", name: "Invite high-fit applicants to book", category: "Pipeline",
+    description: "After AI evaluation, check AI and questionnaire scores, advance to Interview and email a booking link. Choose your interviewer.",
+    build: () => ({ name: "Invite high-fit applicants to book", enabled: false, trigger: { event: "application.evaluated" },
       conditions: [
         { type: "leaf", field: { kind: "ai", path: "score" }, op: "gte", value: 80 },
+        { type: "leaf", field: { kind: "ai", path: "source" }, op: "eq", value: "ai" },
+        { type: "leaf", field: { kind: "application", path: "questionnaireScore" }, op: "gte", value: 70 },
+        { type: "leaf", field: { kind: "application", path: "stage" }, op: "in", value: ["Applied", "Screening"] },
       ],
       actions: [
-        {
-          type: "add_tag",
-          config: { label: "vip" },
-          continueOnError: true,
-        },
-        {
-          type: "send_slack",
-          config: { message: "⭐ High-fit candidate applied: {{candidate.firstName}} {{candidate.lastName}} (score {{ai.score}})." },
-          continueOnError: true,
-        },
+        { type: "move_stage", config: { toStageName: "Interview" }, continueOnError: false },
+        { type: "send_booking_invitation", config: { interviewerIds: [], ...BOOKING_INVITATION_MESSAGE }, continueOnError: false },
       ],
     }),
   },
   {
-    id: "note-on-reject",
-    name: "Log a note on rejection",
-    description: "When a candidate is rejected, add an internal note for the team.",
-    category: "Pipeline",
-    build: () => ({
-      name: "Log a note on rejection",
-      description: "Adds a timestamped note when an application is rejected.",
-      enabled: true,
-      trigger: { event: "application.rejected" },
-      conditions: [],
-      actions: [
-        {
-          type: "add_note",
-          config: { body: "Application rejected. Review the stage history for context." },
-          continueOnError: true,
-        },
-      ],
-    }),
-  },
-  {
-    id: "interview-prep-task",
-    name: "Prep task on interview scheduled",
-    description: "When an interview is scheduled, create a prep task for the interviewer.",
-    category: "Onboarding",
-    build: () => ({
-      name: "Prep task on interview scheduled",
-      description: "Creates an interview-prep task when an interview is booked.",
-      enabled: true,
-      trigger: { event: "interview.scheduled" },
-      conditions: [],
-      actions: [
-        {
-          type: "create_task",
-          config: { title: "Prepare for upcoming interview", priority: "medium" },
-          continueOnError: false,
-        },
-      ],
-    }),
-  },
-  {
-    id: "notify-hire",
-    name: "Celebrate hires in chat",
-    description: "When a candidate is hired, post a celebratory message to the team channel.",
-    category: "Notification",
-    build: () => ({
-      name: "Celebrate hires in chat",
-      description: "Posts to the team channel when an application is marked hired.",
-      enabled: true,
-      trigger: { event: "application.hired" },
-      conditions: [],
-      actions: [
-        {
-          type: "send_slack",
-          config: { message: "🎉 {{candidate.firstName}} {{candidate.lastName}} accepted — welcome aboard!" },
-          continueOnError: true,
-        },
-      ],
-    }),
-  },
-  {
-    id: "tag-new-candidate",
-    name: "Tag new candidates by source",
-    description: "When a candidate is created, tag them with their source for downstream filtering.",
-    category: "Triage",
-    build: () => ({
-      name: "Tag new candidates by source",
-      description: "Adds a 'new' tag to every freshly created candidate.",
-      enabled: false,
-      trigger: { event: "candidate.created" },
-      conditions: [],
-      actions: [
-        {
-          type: "add_tag",
-          config: { label: "new" },
-          continueOnError: true,
-        },
-      ],
+    id: "booking-followup", name: "Follow up on unanswered booking invitations", category: "Notification",
+    description: "After 48 hours, resend the booking link if no interview exists and the application has stayed in the invitation stage.",
+    build: () => ({ name: "Follow up on unanswered booking invitations", enabled: false, trigger: { event: "booking.followup_due", offsetHours: 48 }, conditions: [],
+      actions: [{ type: "send_booking_followup", config: { subject: "Choose your interview time for {{job.title}}", body: "Hi {{candidate.firstName}},\n\nWe are following up on your interview invitation for {{job.title}}. If you are still interested, please choose a time using the button below.\n\nThe Talmore team" }, continueOnError: false }],
     }),
   },
 ];
 
-export function getTemplate(id: string): WorkflowTemplate | undefined {
-  return WORKFLOW_TEMPLATES.find((t) => t.id === id);
-}
+export function getTemplate(id: string) { return WORKFLOW_TEMPLATES.find((template) => template.id === id); }

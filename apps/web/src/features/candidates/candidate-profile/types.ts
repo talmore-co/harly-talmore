@@ -82,6 +82,7 @@ export type CandidateMessage = {
   status: "queued" | "sent" | "failed";
   read: boolean;
   authorName: string | null;
+  origin?: "member" | "system" | "automation" | null;
   attachments: Array<{
     filename: string;
     contentType: string;
@@ -144,6 +145,7 @@ export type CandidateProfileTabsProps = {
   activity: CandidateActivityRow[];
   scorecards: Scorecard[];
   messages: CandidateMessage[];
+  calls?: import("../CallLog").CandidateCall[];
   interviews: CandidateInterviewItem[];
   members: NoteMention[];
   aiEvaluations: CandidateAiEvaluationItem[];

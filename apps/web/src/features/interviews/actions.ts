@@ -73,6 +73,7 @@ import {
 } from "@/lib/email/outbox-processor";
 import { findWorkspaceMember } from "./core";
 import { lockInterviewerSchedule } from "./booking-lock";
+import { hasBookingReservation } from "@/lib/cal/booking-reservations";
 import { serializeInterview } from "./service";
 
 const log = createLogger("interviews");
@@ -157,7 +158,7 @@ async function hasInterviewerConflict(
     .from(interviews)
     .where(and(...conditions))
     .limit(1);
-  return Boolean(conflict);
+  return Boolean(conflict) || await hasBookingReservation(executor, input);
 }
 
 function formatInterviewWhen(when: Date, timeZone?: string | null): string {

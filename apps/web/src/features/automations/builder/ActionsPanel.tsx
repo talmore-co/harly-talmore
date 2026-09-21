@@ -3,10 +3,14 @@
 import { useState, type ComponentType, type SVGProps } from "react";
 
 import { cn } from "@/lib/utils";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 import type { Action, ActionType } from "../schema";
 import { actionMeta, pickableActions, type ConfigField } from "./catalog";
 import { describeAction } from "./preview";
+import { BOOKING_INVITATION_MESSAGE, prefillBookingMessage } from "./message-defaults";
 import { ChevronDownIcon, ChevronUpIcon, CloseIcon } from "./builder-icons";
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
@@ -55,7 +59,7 @@ export function ActionsPanel({
   }
   function addAction(type: ActionType) {
     if (value.length >= MAX_ACTIONS) return;
-    onChange([...value, { type, config: {}, continueOnError: false }]);
+    onChange([...value, prefillBookingMessage({ type, config: {}, continueOnError: false })]);
     setPickerOpen(false);
   }
 
@@ -197,11 +201,12 @@ function ActionCard({
 
           {/* Config fields */}
           <div className="mt-2.5 space-y-2">
+            {action.type === "send_booking_invitation" && <button type="button" className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground" onClick={() => onUpdate({ config: { ...action.config, ...BOOKING_INVITATION_MESSAGE } })}>Use suggested wording</button>}
             {meta?.config.map((field) => (
               <ConfigEditor
                 key={field.key}
                 field={field}
-                value={action.config[field.key]}
+                value={field.kind === "recruiters" && !action.config[field.key] && action.config.interviewerId ? [action.config.interviewerId] : action.config[field.key]}
                 stageNames={stageNames}
                 members={members}
                 onChange={(v) => onConfig(field.key, v)}
@@ -275,16 +280,7 @@ function ConfigEditor({
     return (
       <div>
         <Label field={field} />
-        <select value={String(value ?? "")} onChange={(e) => onChange(e.target.value)} className={base}>
-          <option value="">Select a stage…</option>
-          {stageNames.length === 0 ? (
-            <option value="" disabled>No stages defined yet</option>
-          ) : (
-            stageNames.map((name) => (
-              <option key={name} value={name}>{name}</option>
-            ))
-          )}
-        </select>
+        <Select value={String(value ?? "")} onValueChange={onChange}><SelectTrigger className="w-full" aria-label={field.label}><SelectValue placeholder="Select a stage…" /></SelectTrigger><SelectContent>{[...new Set([...stageNames, ...(typeof value === "string" && value ? [value] : [])])].filter((name) => name === value || !/^(hired|rejected|rejected by client)$/i.test(name)).map((name) => <SelectItem key={name} value={name} disabled={/^(hired|rejected|rejected by client)$/i.test(name)}>{name}</SelectItem>)}</SelectContent></Select>
         {stageNames.length === 0 && (
           <p className="mt-1 text-[11px] text-ink-soft">Stages are per-job; create stages on a job first.</p>
         )}
@@ -296,15 +292,20 @@ function ConfigEditor({
     return (
       <div>
         <Label field={field} />
-        <select value={String(value ?? "")} onChange={(e) => onChange(e.target.value)} className={base}>
-          <option value="">Assign to the workflow owner</option>
-          {members.map((m) => (
-            <option key={m.id} value={m.id}>{m.name}</option>
-          ))}
-        </select>
+        <Select value={String(value || "default")} onValueChange={(id) => onChange(id === "default" ? "" : id)}><SelectTrigger className="w-full" aria-label={field.label}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="default">{field.key === "interviewerId" ? "Choose an interviewer" : "Assign to workflow owner"}</SelectItem>{members.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent></Select>
       </div>
     );
   }
+
+  if (field.kind === "recruiters") {
+    const selected = Array.isArray(value) ? value.filter((id): id is string => typeof id === "string") : [];
+    return <fieldset className="space-y-2"><legend className="mb-2 text-xs font-medium">{field.label}</legend>
+      <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-3">{members.map((member) => <label key={member.id} className="flex items-center gap-2 text-sm"><Checkbox checked={selected.includes(member.id)} disabled={!selected.includes(member.id) && selected.length >= 10} onCheckedChange={(checked) => onChange(checked ? [...selected, member.id] : selected.filter((id) => id !== member.id))} />{member.name}</label>)}</div>
+      <p className="text-xs text-muted-foreground">One personal link shows times when any selected recruiter is free. Use the same duration and interview format in each recruiter&apos;s default Cal.com event. Among available recruiters, Talmore selects the least recently assigned.</p>
+    </fieldset>;
+  }
+
+  if (field.kind === "date") return <div><Label field={field} /><DatePicker value={String(value ?? "")} onChange={onChange} /></div>;
 
   if (field.kind === "keyval") {
     return (

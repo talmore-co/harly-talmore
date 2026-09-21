@@ -13,9 +13,10 @@ import {
 } from "@harly/db";
 
 import { getWorkspaceContext } from "@/features/workspaces/context";
+import { requireAutomationAccess } from "./access";
 import { createLogger } from "@/lib/logger";
 
-import { loadConditionContext, evaluateConditions, type ConditionEvaluation } from "./conditions";
+import { loadConditionContext, evaluateConditions, matchesTriggerFilter, type ConditionEvaluation } from "./conditions";
 import {
   conditionsSchema,
   triggerSchema,
@@ -37,10 +38,10 @@ const log = createLogger("automations");
  * queries the DB itself.
  */
 export async function getBuilderData() {
-  const context = await getWorkspaceContext();
+  const context = await requireAutomationAccess();
   const workspaceId = context.organization.id;
 
-  const [members, stageRows, candidateRows] = await Promise.all([
+  const [members, stageRows, candidateRows, jobRows] = await Promise.all([
     db
       .select({
         id: authUsers.id,
@@ -61,22 +62,26 @@ export async function getBuilderData() {
       .where(eq(jobStages.workspaceId, workspaceId))
       .orderBy(asc(jobStages.name)),
     db
-      .select({ id: candidates.id, firstName: candidates.firstName, lastName: candidates.lastName, email: candidates.email })
-      .from(candidates)
-      .where(and(eq(candidates.workspaceId, workspaceId), isNull(candidates.deletedAt)))
+      .select({ id: applications.id, firstName: candidates.firstName, lastName: candidates.lastName, email: candidates.email, jobTitle: jobs.title })
+      .from(applications)
+      .innerJoin(candidates, and(eq(candidates.id, applications.candidateId), eq(candidates.workspaceId, workspaceId)))
+      .innerJoin(jobs, and(eq(jobs.id, applications.jobId), eq(jobs.workspaceId, workspaceId)))
+      .where(and(eq(applications.workspaceId, workspaceId), isNull(candidates.deletedAt), isNull(candidates.anonymizedAt), isNull(jobs.deletedAt)))
       .orderBy(desc(candidates.updatedAt))
       .limit(100),
+    db.select({ id: jobs.id, title: jobs.title }).from(jobs).where(and(eq(jobs.workspaceId, workspaceId), isNull(jobs.deletedAt))).orderBy(asc(jobs.title)),
   ]);
 
   // Distinct stage names (a name can recur across jobs).
   const stageNames = Array.from(new Set(stageRows.map((r) => r.name))).sort();
 
   return {
+    jobs: jobRows,
     members: members.map((m) => ({ id: m.id, name: m.name || m.email })),
     stageNames,
     candidates: candidateRows.map((candidate) => ({
       id: candidate.id,
-      name: `${candidate.firstName} ${candidate.lastName}`.trim() || candidate.email,
+      name: `${candidate.firstName} ${candidate.lastName} · ${candidate.jobTitle}`,
       email: candidate.email,
     })),
   };
@@ -85,11 +90,12 @@ export async function getBuilderData() {
 export type BuilderData = Awaited<ReturnType<typeof getBuilderData>>;
 
 export async function previewWorkflowPayload(input: {
+  applicationId?: string;
   candidateId?: string;
   trigger: Trigger;
 }): Promise<Record<string, unknown>> {
   const context = await getWorkspaceContext();
-  const sample = await resolveSample(context.organization.id, input.candidateId);
+  const sample = await resolveSample(context.organization.id, input.candidateId, input.applicationId);
   if (!sample) throw new Error("No candidate found to preview.");
 
   const [candidate] = await db
@@ -153,9 +159,9 @@ function formatValue(value: unknown): string {
  * application + job + ai context all populate when available). Falls back to
  * the candidate alone when they have no applications yet.
  */
-async function resolveSample(workspaceId: string, candidateId?: string) {
+async function resolveSample(workspaceId: string, candidateId?: string, applicationId?: string) {
   let candId = candidateId;
-  if (!candId) {
+  if (!candId && !applicationId) {
     const [latest] = await db
       .select({ id: candidates.id })
       .from(candidates)
@@ -168,7 +174,7 @@ async function resolveSample(workspaceId: string, candidateId?: string) {
 
   // Latest application for this candidate, to load full context.
   const [app] = await db
-    .select({ id: applications.id, jobId: applications.jobId })
+    .select({ id: applications.id, jobId: applications.jobId, candidateId: applications.candidateId })
     .from(applications)
     .innerJoin(
       candidates,
@@ -189,13 +195,15 @@ async function resolveSample(workspaceId: string, candidateId?: string) {
     .where(
       and(
         eq(applications.workspaceId, workspaceId),
-        eq(applications.candidateId, candId),
+        candId ? eq(applications.candidateId, candId) : undefined,
+        applicationId ? eq(applications.id, applicationId) : undefined,
       ),
     )
     .orderBy(desc(applications.updatedAt))
     .limit(1);
 
-  return { candidateId: candId, applicationId: app?.id ?? null, jobId: app?.jobId ?? null };
+  if (applicationId && !app) return null;
+  return { candidateId: app?.candidateId ?? candId!, applicationId: app?.id ?? null, jobId: app?.jobId ?? null };
 }
 
 /**
@@ -209,6 +217,7 @@ async function resolveSample(workspaceId: string, candidateId?: string) {
  * breakdown for the timeline UI. Errors become `{ matched: false, error }`.
  */
 export async function dryRunWorkflow(input: {
+  applicationId?: string;
   trigger: Trigger;
   conditions?: Conditions;
   candidateId?: string;
@@ -238,15 +247,8 @@ export async function dryRunWorkflow(input: {
     };
   }
 
-  if (conditions.length === 0) {
-    return {
-      matched: true,
-      evaluated: [{ text: "No conditions — always matches.", matched: true }],
-    };
-  }
-
   try {
-    const sample = await resolveSample(context.organization.id, input.candidateId);
+    const sample = await resolveSample(context.organization.id, input.candidateId, input.applicationId);
     if (!sample) {
       return {
         matched: false,
@@ -262,13 +264,14 @@ export async function dryRunWorkflow(input: {
       jobId: sample.jobId,
       // The draft's trigger.event isn't a real emission here; the trigger
       // bucket is empty so trigger.* fields read as unset (honest, not faked).
-      trigger: {},
+      trigger: { application: { id: sample.applicationId, jobId: sample.jobId }, candidateId: sample.candidateId, jobId: sample.jobId },
     });
 
     const result = evaluateConditions(conditions, ctx);
+    const filterMatched = matchesTriggerFilter(input.trigger.filter, ctx.trigger);
     return {
-      matched: result.matched,
-      evaluated: result.evaluated.map(summarizeEval),
+      matched: result.matched && filterMatched,
+      evaluated: [{ text: "Trigger job and filters", matched: filterMatched }, ...result.evaluated.map(summarizeEval)],
     };
   } catch (error) {
     log.error(error, "[automations] dryRunWorkflow failed");

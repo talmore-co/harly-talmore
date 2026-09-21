@@ -251,9 +251,9 @@ function LeafEditor({
   return (
     <div className="rounded-lg border border-mist-border bg-paper-raised p-3 shadow-soft">
       <div className="flex items-start gap-2">
-        <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_1fr]">
+        <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
           {/* Field */}
-          <div className="flex gap-1.5">
+          <div className="grid min-w-0 grid-cols-1 gap-2 sm:col-span-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
             <select
               value={field.kind}
               onChange={(e) => {
@@ -261,7 +261,8 @@ function LeafEditor({
                 if (kind === "literal") setField({ kind, value: "" } as FieldRef);
                 else setField({ kind, path: fieldKindMeta(kind).paths[0] ?? "" } as FieldRef);
               }}
-              className="h-9 w-[42%] rounded-md border border-mist-border bg-kraft/40 px-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
+              aria-label="Condition source"
+              className="h-10 w-full min-w-0 rounded-md border border-mist-border bg-background px-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
             >
               {FIELD_KIND_CATALOG.map((f) => (
                 <option key={f.kind} value={f.kind}>{f.label}</option>
@@ -278,10 +279,11 @@ function LeafEditor({
               <select
                 value={(field as Extract<FieldRef, { kind: "candidate" }>).path}
                 onChange={(e) => setField({ path: e.target.value } as FieldRef)}
-                className="h-9 flex-1 rounded-md border border-mist-border bg-kraft/40 px-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
+                aria-label="Condition field"
+                className="h-10 w-full min-w-0 rounded-md border border-mist-border bg-background px-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
               >
                 {(fieldKindMeta(field.kind).paths.length ? fieldKindMeta(field.kind).paths : ["custom"]).map((p) => (
-                  <option key={p} value={p}>{p}</option>
+                  <option key={p} value={p}>{p === "questionnaireScore" ? "Questionnaire score" : field.kind === "ai" && p === "score" ? "AI fit score" : p.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (letter) => letter.toUpperCase())}</option>
                 ))}
                 {/* Allow a free-text path if the user typed one not in the quick-picks */}
                 {(field as Extract<FieldRef, { kind: "candidate" }>).path &&
@@ -297,8 +299,9 @@ function LeafEditor({
           {/* Operator */}
           <select
             value={node.op}
+            aria-label="Condition comparison"
             onChange={(e) => setOp(e.target.value as Operator)}
-            className="h-9 rounded-md border border-mist-border bg-kraft/40 px-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
+            className="h-9 w-full min-w-0 rounded-md border border-mist-border bg-background px-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
           >
             {OPERATORS.map((op) => (
               <option key={op} value={op}>{operatorMeta(op).label}</option>

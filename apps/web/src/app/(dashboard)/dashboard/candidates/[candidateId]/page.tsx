@@ -31,6 +31,7 @@ import { CandidateActivityRail } from "@/features/candidates/CandidateActivityRa
 import { CandidatePager } from "@/features/candidates/CandidatePager";
 import { CandidateStickyHeader } from "@/features/candidates/CandidateStickyHeader";
 import { CandidateProfileTabs } from "@/features/candidates/CandidateProfileTabs";
+import { listCandidateCalls } from "@/features/candidates/call-actions";
 import { ApplicationTasks } from "@/features/tasks/ApplicationTasks";
 import { listTasks, listWorkspaceMembers as listTaskMembers } from "@/features/tasks/data";
 import { filterApplicationScopedItems } from "@/features/candidates/profile-scope";
@@ -134,6 +135,7 @@ export default async function CandidateDetailPage({
       listDocumentRequestsForCandidate(candidateId),
       listDocumentsForSigning(),
     ]);
+  const calls = await listCandidateCalls(candidateId);
 
   if (!profile) {
     notFound();
@@ -592,6 +594,7 @@ export default async function CandidateDetailPage({
             activity={serializedActivity}
             scorecards={scorecards}
             messages={messages}
+            calls={calls}
             interviews={interviews}
             members={members}
             aiEvaluations={aiEvaluations}

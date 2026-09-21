@@ -2,6 +2,7 @@ import type { Job } from "@harly/db";
 
 import { FieldBox, fieldBoxControlClassName, fieldBoxSelectTriggerClassName } from "@/components/ui/field-box";
 import { Input } from "@/components/ui/input";
+import { CurrencyPicker } from "@/components/ui/currency-picker";
 import {
   Select,
   SelectContent,
@@ -10,7 +11,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const currencies = ["USD", "EUR", "GBP", "CLP", "MXN", "ARS", "BRL", "COP"];
 
 export function CompensationSection({ job }: { job?: Job }) {
   return (
@@ -37,18 +37,7 @@ export function CompensationSection({ job }: { job?: Job }) {
           />
         </FieldBox>
         <FieldBox label="Currency" htmlFor="currency">
-          <Select name="currency" defaultValue={job?.currency ?? "USD"}>
-            <SelectTrigger id="currency" className={fieldBoxSelectTriggerClassName}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {currencies.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <CurrencyPicker id="currency" name="currency" defaultValue={job?.currency ?? "USD"} className={fieldBoxSelectTriggerClassName} />
         </FieldBox>
         <FieldBox label="Period" htmlFor="salaryPeriod">
           <Select name="salaryPeriod" defaultValue={job?.salaryPeriod ?? "annual"}>

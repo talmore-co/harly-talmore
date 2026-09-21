@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, avg, count, desc, eq, isNotNull, isNull, lt, ne, or, sql, sum } from "drizzle-orm";
+import { and, avg, count, desc, eq, isNull, lt, or, sql, sum } from "drizzle-orm";
 
 import {
   ApiError,
@@ -10,6 +10,7 @@ import {
 } from "@harly/api";
 import {
   db,
+  automationBookingInvitations,
   workflowDefinitions,
   workflowDefinitionVersions,
   workflowRunSteps,
@@ -296,7 +297,7 @@ export async function updateWorkflow(input: {
   if (patch.name !== undefined) set.name = patch.name;
   if (patch.description !== undefined)
     set.description = patch.description ?? null;
-  if (patch.enabled !== undefined) set.enabled = patch.enabled;
+  // Saving a draft always pauses execution until it is explicitly published.
 
   if (patch.trigger !== undefined) {
     const trigger = triggerSchema.parse(patch.trigger);
@@ -412,13 +413,23 @@ export async function publishWorkflow(input: {
   id: string;
   publisherId: string;
 }): Promise<WorkflowDefinition> {
+  // Resolve provider settings before taking row locks. Publication still checks
+  // that the definition did not change while those remote requests ran.
+  const [snapshot] = await db.select().from(workflowDefinitions).where(and(eq(workflowDefinitions.id, input.id), eq(workflowDefinitions.workspaceId, input.workspaceId), isNull(workflowDefinitions.deletedAt)));
+  if (!snapshot?.createdById) throw ApiError.notFound("Workflow not found.");
+  const { validatePublishedWorkflow } = await import("./validation");
+  const { bookingPool } = await validatePublishedWorkflow(input.workspaceId, snapshot.createdById, { ...snapshot, description: snapshot.description ?? undefined, trigger: snapshot.trigger, conditions: snapshot.conditions, actions: snapshot.actions } as WorkflowDefinitionInput);
   return db.transaction(async (tx) => {
+    const [current] = await tx.select().from(workflowDefinitions).where(and(eq(workflowDefinitions.id, input.id), eq(workflowDefinitions.workspaceId, input.workspaceId), isNull(workflowDefinitions.deletedAt))).for("update");
+    if (!current || !current.createdById) throw ApiError.notFound("Workflow not found.");
+    if (current.definitionVersion !== snapshot.definitionVersion || current.updatedAt.getTime() !== snapshot.updatedAt.getTime() || current.status !== snapshot.status || current.enabled !== snapshot.enabled || current.createdById !== snapshot.createdById) throw ApiError.conflict("The workflow changed during validation. Refresh and publish again.");
     const publishedAt = new Date();
     const [row] = await tx
       .update(workflowDefinitions)
       .set({
         status: "published",
         enabled: true,
+        trigger: { ...(current.trigger as Record<string, unknown>), runtimeVersion: 2 },
         publishedById: input.publisherId,
         publishedAt,
         updatedAt: publishedAt,
@@ -427,17 +438,19 @@ export async function publishWorkflow(input: {
         and(
           eq(workflowDefinitions.id, input.id),
           eq(workflowDefinitions.workspaceId, input.workspaceId),
-          eq(workflowDefinitions.status, "draft"),
-          isNotNull(workflowDefinitions.approvedAt),
-          ne(workflowDefinitions.approvedById, input.publisherId),
           isNull(workflowDefinitions.deletedAt),
         ),
       )
       .returning();
-    if (!row) throw ApiError.conflict("Workflow needs approval from another member before publishing.");
+    if (!row) throw ApiError.conflict("Workflow could not be published.");
+    if (bookingPool) {
+      // Keep already-sent personal URLs when the pool changes. In-flight bookings
+      // retain their original host and version until reconciliation finishes.
+      await tx.update(automationBookingInvitations).set({ ...bookingPool, definitionVersion: row.definitionVersion, updatedAt: publishedAt }).where(and(eq(automationBookingInvitations.workspaceId, input.workspaceId), eq(automationBookingInvitations.workflowId, row.id), eq(automationBookingInvitations.bookingState, "open"), sql`${automationBookingInvitations.tokenSecret} is not null`));
+    }
     await tx
       .update(workflowDefinitionVersions)
-      .set({ publishedById: input.publisherId, publishedAt })
+      .set({ publishedById: input.publisherId, publishedAt, trigger: row.trigger })
       .where(
         and(
           eq(workflowDefinitionVersions.workflowId, row.id),

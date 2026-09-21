@@ -17,6 +17,9 @@ import {
 import { createLogger } from "@/lib/logger";
 import { getRolePermissions } from "@/features/workspaces/permissions-server";
 import { roleIsAllPowerful } from "@/features/workspaces/permissions";
+import { AUTOMATIONS_ENABLED } from "./status";
+import { automationActorAllowed } from "./access";
+import { renderWorkflowText } from "./message-template";
 
 import {
   evaluateConditions,
@@ -387,6 +390,7 @@ export async function runWorkflow(
   options: RunWorkflowOptions = {},
 ): Promise<RunOutcome> {
   const { dryRun = false } = options;
+  if (!AUTOMATIONS_ENABLED) throw new Error("Automations are disabled.");
   const workerId = options.workerId ?? `workflow-worker:${randomUUID()}`;
 
   if (!(await claimRun(runId, workerId))) {
@@ -409,6 +413,9 @@ export async function runWorkflow(
     .limit(1);
   if (!definition) {
     return finishRun(run, "failed", undefined, "Workflow definition was deleted.");
+  }
+  if (!definition.enabled || definition.status !== "published" || definition.deletedAt || definition.definitionVersion !== run.definitionVersion || (definition.trigger as { runtimeVersion?: number }).runtimeVersion !== 2) {
+    return finishRun(run, "cancelled", undefined, "Workflow paused, edited, deleted or requires republication.");
   }
 
   const snapshot =
@@ -435,7 +442,8 @@ export async function runWorkflow(
     trigger: payload,
   });
 
-  const conditionResult: ConditionsResult = evaluateConditions(conditions, ctx);
+  const previousMatch = run.conditionResult as ConditionsResult | null;
+  const conditionResult: ConditionsResult = run.attemptCount > 1 && previousMatch?.matched ? previousMatch : evaluateConditions(conditions, ctx);
   await db
     .update(workflowRuns)
     .set({ conditionResult: conditionResult as unknown as Record<string, unknown>, heartbeatAt: new Date() })
@@ -475,13 +483,14 @@ export async function runWorkflow(
   }
 
   const actionCtx: ActionContext = {
+    definitionVersion: run.definitionVersion,
     workspaceId: run.workspaceId,
     actorUserId:
       typeof snapshot.createdById === "string"
         ? snapshot.createdById
         : definition.createdById ?? "",
     triggerEvent: run.triggerEvent as WorkflowEvent,
-    triggerPayload: payload,
+    triggerPayload: { ...payload, ...(ctx.application ? { application: { id: ctx.application.id, jobId: ctx.application.jobId } } : {}), ...(ctx.candidate ? { candidateId: ctx.candidate.id } : {}), ...(ctx.job ? { jobId: ctx.job.id } : {}) },
     effectKey: "",
     runId,
     workflowId: run.workflowId,
@@ -494,10 +503,24 @@ export async function runWorkflow(
   if (!actionCtx.actorUserId) {
     return finishRun(run, "failed", conditionResult, "Workflow has no creator (cannot run as anyone).");
   }
+  if (!await automationActorAllowed(run.workspaceId, actionCtx.actorUserId)) return finishRun(run, "failed", conditionResult, "Workflow creator no longer has workspace automation access.");
 
   let failedAction: ActionResult | null = null;
   for (let index = run.startStepIndex ?? 0; index < actions.length; index += 1) {
-    const action = actions[index]!;
+    let action = actions[index]!;
+    if (["add_note", "create_task", "add_tag", "remove_tag"].includes(action.type)) {
+      const config = { ...action.config };
+      try {
+      for (const key of ["body", "title", "description", "label"]) {
+        if (typeof config[key] === "string") config[key] = renderWorkflowText(config[key], ctx as unknown as Record<string, unknown>);
+      }
+      } catch (error) {
+        return finishRun(run, "failed", conditionResult, error instanceof Error ? error.message : "Could not render action text.");
+      }
+      action = { ...action, config };
+    }
+    const [live] = await db.select({ enabled: workflowDefinitions.enabled, definitionVersion: workflowDefinitions.definitionVersion }).from(workflowDefinitions).where(eq(workflowDefinitions.id, definition.id)).limit(1);
+    if (!live?.enabled || live.definitionVersion !== run.definitionVersion) return finishRun(run, "cancelled", conditionResult, "Workflow changed during execution.");
     const [cancelRequested] = await db
       .select({ cancelRequestedAt: workflowRuns.cancelRequestedAt })
       .from(workflowRuns)

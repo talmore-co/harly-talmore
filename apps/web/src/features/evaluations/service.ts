@@ -207,6 +207,14 @@ export async function persistCandidateEvaluation(input: PersistEvaluationInput) 
       await tx.insert(evaluationCriterionResults).values(criterionRows);
     }
 
+    const { persistDomainEvent } = await import("@/server/events/emit");
+    await persistDomainEvent(tx, {
+      workspaceId: input.workspaceId,
+      name: "application.evaluated",
+      aggregateType: "application",
+      aggregateId: input.applicationId,
+      payload: { application: { id: input.applicationId, jobId: input.jobId }, candidateId: input.candidateId, jobId: input.jobId },
+    });
     return { id: evaluation.id, inputHash, outputHash };
   });
 }

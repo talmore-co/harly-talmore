@@ -309,6 +309,16 @@ integration("Inbox tenant and active-job isolation", () => {
     );
     expect(replies.find((reply) => reply.subject === "Deleted application")?.jobTitle).toBeNull();
   });
+  it("filters jobs before loading messages, including an out-of-filter selected thread", async () => {
+    const matching = await getInboxData({ jobId: activeJobId, threadId: deletedJobThreadId });
+    expect(matching.threads.map((thread) => thread.id)).toContain(activeThreadId);
+    expect(matching.threads.every((thread) => thread.jobId === activeJobId)).toBe(true);
+    expect(matching.messages[deletedJobThreadId]).toBeUndefined();
+    const unlinked = await getInboxData({ jobId: "none" });
+    expect(unlinked.threads.every((thread) => !thread.jobId)).toBe(true);
+    const invalid = await getInboxData({ jobId: "invalid" });
+    expect(invalid.threads).toHaveLength(0);
+  });
 
   it("rejects linking an application whose job is in the trash", async () => {
     await expect(

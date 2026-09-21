@@ -180,6 +180,8 @@ async function deliverRow(row: OutboxRow): Promise<boolean> {
       case "interview.rescheduled":
       case "interview.canceled":
         return await deliverInterviewEmail(row);
+      case "interview.reminder":
+        return await deliverInterviewReminder(row);
       case "offer.withdrawn":
         return await deliverOfferWithdrawn(row);
       case "native.signature.invitation":
@@ -190,6 +192,8 @@ async function deliverRow(row: OutboxRow): Promise<boolean> {
         return await deliverScheduledReport(row);
       case "automation.email":
         return await deliverAutomationEmail(row);
+      case "automation.candidate":
+        return await deliverCandidateWorkflowEmail(row);
       default:
         log.warn({ kind: row.kind }, "unknown email_outbox kind");
         await db
@@ -247,6 +251,39 @@ async function deliverAutomationEmail(row: OutboxRow): Promise<boolean> {
     outboxRowId: row.id,
     candidateId: payload.candidateId,
   });
+  return true;
+}
+
+async function deliverCandidateWorkflowEmail(row: OutboxRow): Promise<boolean> {
+  const { AUTOMATIONS_ENABLED } = await import("@/features/automations/status");
+  const { prepareCandidateWorkflowMessage } = await import("@/features/automations/candidate-messages");
+  const message = AUTOMATIONS_ENABLED && row.actorId ? await prepareCandidateWorkflowMessage(row.workspaceId, row.actorId, row.payload as import("@/features/automations/candidate-messages").CandidateMessagePayload) : null;
+  if (!message) {
+    await db.update(emailOutbox).set({ status: "canceled", lastError: "Workflow or candidate message is no longer eligible.", lockedAt: null, lockedBy: null }).where(eq(emailOutbox.id, row.id));
+    return true;
+  }
+  const branding = await getWorkspaceEmailBranding(row.workspaceId);
+  const delivered = await sendWorkspaceEmail(row.workspaceId, { to: message.to, subject: message.subject, react: createElement(CustomTemplateEmail, { bodyHtml: message.bodyHtml, companyName: branding.name, companyLogoUrl: branding.logoUrl ?? undefined, accentColor: branding.primaryColor ?? undefined, socialLinks: branding.socialLinks, hideBranding: true }), ...deliveryOptions(row) }, row.actorId ?? undefined);
+  if (!delivered) { await markFailed(row.id, "No configured workspace email sender."); return false; }
+  await markSent(row.id, delivered);
+  await recordOutboundConversation({ workspaceId: row.workspaceId, toEmail: message.to, subject: message.subject, textBody: message.text, outboxRowId: row.id, candidateId: message.candidateId });
+  return true;
+}
+
+async function deliverInterviewReminder(row: OutboxRow): Promise<boolean> {
+  const { prepareInterviewReminder } = await import("@/features/interviews/reminders");
+  const { getInboundReplyTo } = await import("@/lib/email/inbound-token");
+  const message = await prepareInterviewReminder(row.workspaceId, row.payload);
+  if (!message) {
+    await db.update(emailOutbox).set({ status: "canceled", lastError: "Interview reminder is no longer eligible.", lockedAt: null, lockedBy: null }).where(eq(emailOutbox.id, row.id));
+    return true;
+  }
+  const branding = await getWorkspaceEmailBranding(row.workspaceId);
+  const replyTo = await getInboundReplyTo(row.workspaceId, message.applicationId);
+  const delivered = await sendWorkspaceEmail(row.workspaceId, { to: message.to, subject: message.subject, replyTo: replyTo ?? undefined, react: createElement(CustomTemplateEmail, { bodyHtml: message.bodyHtml, companyName: branding.name, companyLogoUrl: branding.logoUrl ?? undefined, accentColor: branding.primaryColor ?? undefined, socialLinks: branding.socialLinks, hideBranding: true }), ...deliveryOptions(row) });
+  if (!delivered) { await markFailed(row.id, "No configured workspace email sender."); return false; }
+  await markSent(row.id, delivered);
+  await recordOutboundConversation({ workspaceId: row.workspaceId, toEmail: message.to, subject: message.subject, textBody: message.text, outboxRowId: row.id, candidateId: message.candidateId, applicationId: message.applicationId });
   return true;
 }
 
@@ -412,7 +449,10 @@ async function recordOutboundConversation(input: {
 
     const config = await getWorkspaceEmailConfig(input.workspaceId);
     const fromEmail = config?.from ?? process.env.EMAIL_FROM ?? "noreply@harly.local";
+    const [outbox] = await db.select({ actorId: emailOutbox.actorId, kind: emailOutbox.kind }).from(emailOutbox).where(and(eq(emailOutbox.id, input.outboxRowId), eq(emailOutbox.workspaceId, input.workspaceId))).limit(1);
     await insertCanonicalMessage({
+      authorId: outbox?.actorId ?? null,
+      origin: outbox?.kind.startsWith("automation.") ? "automation" : "system",
       workspaceId: input.workspaceId,
       source: "provider",
       mailboxId: null,

@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 
-const CURRENCIES = ["USD", "EUR", "GBP", "CLP", "MXN", "ARS", "BRL"];
+import { CurrencyPicker } from "@/components/ui/currency-picker";
 
 /** Date input value (yyyy-mm-dd) → ISO datetime, or null. */
 function dateToIso(value: string): string | null {
@@ -251,18 +251,7 @@ export function OfferDrawer({
             </div>
             <div className="space-y-2">
               <Label>Currency</Label>
-              <Select value={currency} onValueChange={setCurrency}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CURRENCIES.map((code) => (
-                    <SelectItem key={code} value={code}>
-                      {code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CurrencyPicker value={currency} onChange={setCurrency} />
             </div>
             <div className="space-y-2">
               <Label>Period</Label>

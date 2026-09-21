@@ -1115,6 +1115,9 @@ export async function getCandidateProfile(candidateId: string) {
       };
     }
 
+    if (event.type === "candidate.call_logged") {
+      return { id: event.id, type: event.type, label: "Phone call logged", actorName: event.actorName, createdAt: event.createdAt };
+    }
     if (event.type === "note.added") {
       return {
         id: event.id,
@@ -1314,7 +1317,7 @@ export async function getCandidateProfile(candidateId: string) {
     })();
     return {
       ...mapped,
-      applicationId: event.entityType === "application" ? event.entityId : null,
+      applicationId: event.entityType === "application" ? event.entityId : event.type === "candidate.call_logged" ? textFromMetadata(event.metadata, "applicationId") : null,
     };
   });
 

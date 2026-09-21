@@ -344,5 +344,6 @@ export const SETTINGS_SECTION_PERMISSION: Record<
   "/settings/security": "security:manage",
   "/settings/legal": ["settings:edit", "dsar:manage"],
   "/settings/portal": "settings:edit",
+  "/settings/interviews": "settings:edit",
   "/settings/signature": "settings:edit",
 };

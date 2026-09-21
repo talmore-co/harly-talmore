@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql, getTableColumns } from "drizzle-orm";
 import {
   db,
   candidateMessages,
@@ -8,6 +8,8 @@ import {
   mailThreads,
   mailAttachments,
   mailUnificationMigrations,
+  emailOutbox,
+  user,
 } from "@harly/db";
 import { isMailUnificationEnabled } from "@/lib/mail/feature-flag";
 
@@ -30,6 +32,7 @@ type CommunicationMessage = {
   status: "sent" | "queued" | "failed";
   read: boolean;
   authorName: string | null;
+  origin: "member" | "system" | "automation" | null;
   attachments: Attachment[];
   createdAt: string;
 };
@@ -54,8 +57,26 @@ export async function listCandidateCommunication(
       threadId: mailMessages.threadId,
       applicationId: mailMessages.applicationId,
       readAt: mailMessages.readAt,
+      authorName: user.name,
+      authorId: mailMessages.authorId,
+      origin: mailMessages.origin,
+      outboxKind: emailOutbox.kind,
     })
     .from(mailMessages)
+    .leftJoin(
+      emailOutbox,
+      and(
+        eq(emailOutbox.workspaceId, workspaceId),
+        sql`${mailMessages.messageId} = '<' || ${emailOutbox.id}::text || '@harly.local>'`,
+      ),
+    )
+    .leftJoin(
+      user,
+      eq(
+        user.id,
+        sql`coalesce(${mailMessages.authorId}, ${emailOutbox.actorId})`,
+      ),
+    )
     .innerJoin(
       mailThreads,
       and(
@@ -110,15 +131,23 @@ export async function listCandidateCommunication(
     fromEmail: message.fromEmail,
     status: "sent",
     read: message.readAt !== null,
-    authorName: null,
+    authorName: message.authorName,
+    origin:
+      message.origin ??
+      (message.outboxKind
+        ? message.outboxKind.startsWith("automation.")
+          ? "automation"
+          : "system"
+        : message.authorId
+          ? "member"
+          : null),
     attachments: attachmentsByMessage.get(message.id) ?? [],
     createdAt: message.createdAt.toISOString(),
   }));
-  if (unified) return messages;
-
   const legacy = await db
-    .select()
+    .select({ ...getTableColumns(candidateMessages), authorName: user.name })
     .from(candidateMessages)
+    .leftJoin(user, eq(user.id, candidateMessages.authorId))
     .where(
       and(
         eq(candidateMessages.workspaceId, workspaceId),
@@ -131,6 +160,7 @@ export async function listCandidateCommunication(
       ? await db
           .select({
             legacyId: mailUnificationMigrations.candidateMessageId,
+            canonicalId: mailUnificationMigrations.mailMessageId,
           })
           .from(mailUnificationMigrations)
           .where(
@@ -146,6 +176,31 @@ export async function listCandidateCommunication(
           )
       : [];
   const migratedIds = new Set(mappings.map((mapping) => mapping.legacyId));
+  const legacyById = new Map(legacy.map((message) => [message.id, message]));
+  const legacyByProvider = new Map(
+    legacy
+      .filter((message) => message.providerMessageId)
+      .map((message) => [message.providerMessageId, message]),
+  );
+  const migratedByCanonical = new Map(
+    mappings.map((mapping) => [
+      mapping.canonicalId,
+      legacyById.get(mapping.legacyId),
+    ]),
+  );
+  for (const message of messages) {
+    if (message.origin || message.direction === "inbound") continue;
+    const original =
+      migratedByCanonical.get(message.id) ??
+      legacyByProvider.get(
+        canonical.find((row) => row.id === message.id)?.messageId ?? "",
+      );
+    if (original?.authorId) {
+      message.authorName = original.authorName;
+      message.origin = "member";
+    }
+  }
+  if (unified) return messages;
   const providerIds = new Set(
     canonical.map((message) => message.messageId).filter(Boolean),
   );
@@ -167,7 +222,8 @@ export async function listCandidateCommunication(
       fromEmail: message.fromEmail,
       status: message.status,
       read: message.readAt !== null,
-      authorName: null,
+      authorName: message.authorName,
+      origin: message.authorId ? "member" : null,
       attachments: Array.isArray(message.attachments)
         ? (message.attachments as Attachment[])
         : [],

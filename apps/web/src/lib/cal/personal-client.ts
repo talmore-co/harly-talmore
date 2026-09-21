@@ -17,9 +17,11 @@ export async function personalCalFetch(
   method = "GET",
   body?: unknown,
   version = "2024-06-14",
+  responseMode: "data" | "envelope" = "data",
 ): Promise<unknown> {
   const response = await safeFetchHttp(`https://api.cal.com/v2${path}`, {
     method,
+    cache: "no-store",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "cal-api-version": version,
@@ -35,7 +37,7 @@ export async function personalCalFetch(
   if (!response.ok || json?.status === "error" || !json || !("data" in json)) {
     throw new CalApiError(response.status);
   }
-  return json.data;
+  return responseMode === "envelope" ? json : json.data;
 }
 
 const profileSchema = z.object({

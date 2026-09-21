@@ -420,6 +420,7 @@ export async function moveApplicationStageForApi(input: {
   actorId?: string;
   retryOnConflict?: boolean;
   automationRunId?: string;
+  automationForwardOnly?: boolean;
 }): Promise<Application> {
   const attemptMove = async (): Promise<Application> => {
     const application = await getApplicationForApi({
@@ -432,7 +433,7 @@ export async function moveApplicationStageForApi(input: {
     }
 
     const [stage] = await db
-      .select({ id: jobStages.id, name: jobStages.name })
+      .select({ id: jobStages.id, name: jobStages.name, order: jobStages.order })
       .from(jobStages)
       .where(
         and(
@@ -444,6 +445,11 @@ export async function moveApplicationStageForApi(input: {
       .limit(1);
     if (!stage) {
       throw ApiError.unprocessable("Target stage does not belong to this job.");
+    }
+    if (input.automationForwardOnly) {
+      const [current] = await db.select({ order: jobStages.order }).from(jobStages).where(eq(jobStages.id, application.currentStageId));
+      const [job] = await db.select({ status: jobs.status }).from(jobs).where(and(eq(jobs.id, application.jobId), eq(jobs.workspaceId, input.workspaceId), isNull(jobs.deletedAt)));
+      if (application.status !== "active" || job?.status !== "open" || !current || current.order >= stage.order || statusForStageName(stage.name) !== "active") return application;
     }
 
     const fromStageId = application.currentStageId;

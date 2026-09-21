@@ -17,7 +17,7 @@ export type ReportFilters = {
   to: string;
   client: string;
   job: string;
-  tab: "overview" | "clients" | "sources";
+  tab: "overview" | "clients" | "sources" | "recruiters";
   aging: number;
 };
 export function reportFilters(
@@ -70,7 +70,7 @@ export function reportFilters(
     client: params.client || "all",
     job: params.job || "all",
     tab:
-      params.tab === "clients" || params.tab === "sources"
+      params.tab === "clients" || params.tab === "sources" || params.tab === "recruiters"
         ? params.tab
         : "overview",
     aging: [7, 14, 30].includes(Number(params.aging))

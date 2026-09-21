@@ -438,6 +438,12 @@ function MembersPanel({
                     <p className="truncate text-xs text-muted-foreground">
                       {member.email}
                     </p>
+                    {member.connections && <div className="mt-2 flex flex-wrap gap-1.5">
+                      {([['cal', 'Cal.com'], ['google', 'Google Calendar'], ['fathom', 'Fathom']] as const).map(([key, label]) => <Badge key={key} variant={member.connections![key] === "Connected" ? "secondary" : "outline"} className="gap-1.5 text-[11px] font-normal" title="Saved connection setup status. Recruiters manage connections under Account → Connections.">
+                        <span className={cn("size-1.5 rounded-full", member.connections![key] === "Connected" ? "bg-emerald-600" : member.connections![key] === "Needs setup" ? "bg-amber-500" : "bg-muted-foreground/40")} />
+                        {label}: {member.connections![key]}
+                      </Badge>)}
+                    </div>}
                     {member.status !== "active" ? (
                       <Badge variant={member.status === "suspended" ? "warning" : "outline"} className="mt-1 text-[10px]">
                         {member.status === "suspended" ? "Suspended" : "Inactive"}

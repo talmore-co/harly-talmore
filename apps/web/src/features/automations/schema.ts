@@ -24,6 +24,9 @@ import { z } from "zod";
  */
 export const WORKFLOW_EVENTS = [
   "application.created",
+  "application.evaluated",
+  "interview.reminder_due",
+  "booking.followup_due",
   "application.stage_changed",
   "application.hired",
   "application.rejected",
@@ -54,6 +57,8 @@ const triggerFilterSchema = z
 export const triggerSchema = z.object({
   event: z.enum(WORKFLOW_EVENTS),
   filter: triggerFilterSchema,
+  offsetHours: z.coerce.number().min(0.25).max(720).optional(),
+  runtimeVersion: z.literal(2).optional(),
 });
 
 export type Trigger = z.infer<typeof triggerSchema>;
@@ -195,6 +200,9 @@ export type Conditions = z.infer<typeof conditionsSchema>;
  * handler. v1 ships a subset; the catalog is append-only.
  */
 export const ACTION_TYPES = [
+  "send_booking_invitation",
+  "send_booking_followup",
+  "send_interview_reminder",
   // Pipeline
   "move_stage",
   "set_status",

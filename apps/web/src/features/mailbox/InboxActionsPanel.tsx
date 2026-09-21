@@ -92,7 +92,7 @@ export function InboxActionsPanel({
           <div className="flex items-start gap-3">
             <UserAvatar name={thread.candidateName ?? thread.participantEmail ?? "Unknown sender"} src={thread.candidateAvatarUrl} size="md" className="shrink-0" />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">{thread.candidateName ?? "Unknown sender"}</p>
+              <p className="truncate text-sm font-semibold">{thread.candidateId ? <Link href={`/dashboard/candidates/${thread.candidateId}`} className="underline-offset-4 hover:underline focus-visible:underline">{thread.candidateName ?? thread.participantEmail ?? "Candidate profile"}</Link> : thread.candidateName ?? "Unknown sender"}</p>
               <p className="mt-0.5 truncate text-xs text-muted-foreground">{thread.participantEmail ?? "No reply address"}</p>
               {stageLabel ? <Badge variant={stageVariant} className="mt-2">{stageLabel}</Badge> : null}
             </div>

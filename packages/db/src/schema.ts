@@ -608,6 +608,7 @@ export const invitationRelations = relations(invitation, ({ one }) => ({
 
 // Workspace branding settings (satellite of the Better Auth organization)
 export const workspaceSettings = pgTable("workspace_settings", {
+  interviewReminders: jsonb("interview_reminders").default(sql`'{}'::jsonb`).notNull(),
     metaPixelId: text("meta_pixel_id"),
     metaCapiToken: jsonb("meta_capi_token").$type<{ ciphertext: string; iv: string; tag: string }>(),
     metaCapiEnabled: boolean("meta_capi_enabled").notNull().default(false),
@@ -1144,6 +1145,8 @@ export const mailMessages = pgTable(
     threadId: uuid("thread_id")
       .notNull()
       .references(() => mailThreads.id, { onDelete: "cascade" }),
+    authorId: text("author_id").references(() => user.id, { onDelete: "set null" }),
+    origin: text("origin").$type<"member" | "system" | "automation">(),
     candidateId: uuid("candidate_id").references(() => candidates.id, {
       onDelete: "set null",
     }),
@@ -4986,6 +4989,33 @@ export const workflowDefinitionVersions = pgTable(
  * with `status = 'running'` before the engine runs, so a crashed process leaves
  * a reclaimable row (same pattern as webhook_deliveries, trade-off T3).
  */
+/** One booking invitation per application and Cal.com subscription, shared across workflow retries. */
+export const automationBookingInvitations = pgTable("automation_booking_invitations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: text("workspace_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  applicationId: uuid("application_id").notNull().references(() => applications.id, { onDelete: "cascade" }),
+  eventId: uuid("event_id").references(() => personalCalEvents.id, { onDelete: "set null" }),
+  workflowId: uuid("workflow_id").notNull().references(() => workflowDefinitions.id, { onDelete: "cascade" }),
+  outboxId: uuid("outbox_id").references(() => emailOutbox.id, { onDelete: "set null" }),
+  stageId: uuid("stage_id").notNull().references(() => jobStages.id, { onDelete: "cascade" }),
+  eventIds: jsonb("event_ids").$type<string[]>().default(sql`'[]'::jsonb`).notNull(),
+  tokenSecret: text("token_secret"),
+  locationFormat: text("location_format"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  definitionVersion: integer("definition_version"),
+  durationMins: integer("duration_mins"),
+  bookingState: text("booking_state").$type<"open" | "booking" | "confirmed" | "review" | "canceled">().default("open").notNull(),
+  selectedEventId: uuid("selected_event_id").references(() => personalCalEvents.id, { onDelete: "set null" }),
+  bookingRequestId: uuid("booking_request_id"),
+  bookingAttemptAt: timestamp("booking_attempt_at", { withTimezone: true }),
+  bookingStartAt: timestamp("booking_start_at", { withTimezone: true }),
+  bookingUid: text("booking_uid"),
+  ...timestamps(),
+}, (table) => [
+  uniqueIndex("automation_booking_application_event_idx").on(table.workspaceId, table.applicationId, table.eventId),
+  uniqueIndex("automation_booking_pool_application_idx").on(table.workspaceId, table.applicationId).where(sql`${table.tokenSecret} is not null`),
+]);
+
 export const workflowRuns = pgTable(
   "workflow_runs",
   {

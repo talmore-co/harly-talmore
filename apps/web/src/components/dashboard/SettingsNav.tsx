@@ -3,7 +3,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, Globe, FolderCog } from "lucide-react";
+import { FileText, Globe, FolderCog, CalendarClock } from "lucide-react";
 
 import {
   BuildingsIcon,
@@ -31,24 +31,6 @@ type SettingsSection = {
 
 const sections: SettingsSection[] = [
   {
-    href: "/settings/career-page" as Route,
-    label: "Career page",
-    hint: "Public job board, layout and branding.",
-    icon: Globe,
-  },
-  {
-    href: "/settings/templates" as Route,
-    label: "Templates",
-    hint: "Reusable recruiting messages.",
-    icon: FileText,
-  },
-  {
-    href: "/settings/documents" as Route,
-    label: "Documents",
-    hint: "Categories and document configuration.",
-    icon: FolderCog,
-  },
-  {
     href: "/settings" as Route,
     label: "Company & brand",
     hint: "Logo, colors, careers page, and other organization-wide settings.",
@@ -68,16 +50,16 @@ const sections: SettingsSection[] = [
     icon: ShieldIcon,
   },
   {
-    href: "/settings/portal" as Route,
-    label: "Candidate Portal",
-    hint: "Self-service portal for candidates to view applications and update their profile.",
-    icon: IdentificationCardDuotoneIcon,
+    href: "/settings/security" as Route,
+    label: "Security",
+    hint: "2FA, SSO, passkeys, and access audit logs.",
+    icon: ShieldIcon,
   },
   {
-    href: "/settings/ai" as Route,
-    label: "AI",
-    hint: "Parsing & drafting models, AI features, and usage insights.",
-    icon: RobotDuotoneIcon,
+    href: "/settings/legal" as Route,
+    label: "Legal & Compliance",
+    hint: "Legal entity, retention policies, privacy policy, and terms.",
+    icon: SealCheckDuotoneIcon,
   },
   {
     href: "/settings/email" as Route,
@@ -92,16 +74,40 @@ const sections: SettingsSection[] = [
     icon: PlugIcon,
   },
   {
-    href: "/settings/security" as Route,
-    label: "Security",
-    hint: "2FA, SSO, passkeys, and access audit logs.",
-    icon: ShieldIcon,
+    href: "/settings/ai" as Route,
+    label: "AI",
+    hint: "Parsing & drafting models, AI features, and usage insights.",
+    icon: RobotDuotoneIcon,
   },
   {
-    href: "/settings/legal" as Route,
-    label: "Legal & Compliance",
-    hint: "Legal entity, retention policies, privacy policy, and terms.",
-    icon: SealCheckDuotoneIcon,
+    href: "/settings/career-page" as Route,
+    label: "Career page",
+    hint: "Public job board, layout and branding.",
+    icon: Globe,
+  },
+  {
+    href: "/settings/portal" as Route,
+    label: "Candidate Portal",
+    hint: "Self-service portal for candidates to view applications and update their profile.",
+    icon: IdentificationCardDuotoneIcon,
+  },
+  {
+    href: "/settings/interviews" as Route,
+    label: "Interviews",
+    hint: "Candidate reminders and timing.",
+    icon: CalendarClock,
+  },
+  {
+    href: "/settings/templates" as Route,
+    label: "Templates",
+    hint: "Reusable recruiting messages.",
+    icon: FileText,
+  },
+  {
+    href: "/settings/documents" as Route,
+    label: "Documents",
+    hint: "Categories and document configuration.",
+    icon: FolderCog,
   },
   {
     href: "/settings/signature" as Route,

@@ -29,7 +29,7 @@ import {
 } from "./data";
 import { workflowInputSchema, type WorkflowDefinitionInput } from "./schema";
 import { dryRunWorkflow, previewWorkflowPayload } from "./builder-data";
-import { requirePermission } from "@/features/workspaces/permissions-server";
+import { requireAutomationAccess } from "./access";
 import { createLogger } from "@/lib/logger";
 import { logAuditEvent } from "@/lib/audit-log";
 import {
@@ -60,7 +60,7 @@ function assertAutomationsEnabled() {
 
 async function requireAutomationsPermission() {
   assertAutomationsEnabled();
-  return requirePermission("automations:manage");
+  return requireAutomationAccess();
 }
 
 // ----- Reads (the list page + builder + run history) -----------------------
@@ -399,6 +399,7 @@ export async function deleteWorkflowAction(id: string): Promise<AutomationsActio
  * automations:manage (you must be able to edit to test-drive).
  */
 export async function dryRunWorkflowAction(input: {
+  applicationId?: string;
   trigger: WorkflowDefinitionInput["trigger"];
   conditions?: WorkflowDefinitionInput["conditions"];
   candidateId?: string;
@@ -416,6 +417,7 @@ export async function dryRunWorkflowAction(input: {
 }
 
 export async function previewWorkflowPayloadAction(input: {
+  applicationId?: string;
   trigger: WorkflowDefinitionInput["trigger"];
   candidateId?: string;
 }): Promise<AutomationsActionResult & { payload?: Record<string, unknown> }> {

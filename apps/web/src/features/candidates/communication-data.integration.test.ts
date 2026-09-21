@@ -9,6 +9,8 @@ import {
   mailThreads,
   mailUnificationMigrations,
   workspaceSettings,
+  user,
+  emailOutbox,
 } from "@harly/db";
 import { insertCanonicalMessage } from "@/lib/mail/canonical";
 import { listCandidateCommunication } from "./communication-data";
@@ -23,6 +25,7 @@ integration("candidate communication read/write compatibility", () => {
   const candidateId = randomUUID();
   const otherCandidateId = randomUUID();
   const outsideCandidateId = randomUUID();
+  const authorId = randomUUID();
   let seeded = false;
   beforeAll(async () => {
     const url = new URL(process.env.DATABASE_URL!);
@@ -32,6 +35,7 @@ integration("candidate communication read/write compatibility", () => {
     )
       throw new Error("Use the isolated local evaluation database.");
     seeded = true;
+    await db.insert(user).values({ id: authorId, name: "Fictional recruiter", email: `${authorId}@example.test` });
     await db
       .insert(organization)
       .values(
@@ -89,6 +93,7 @@ integration("candidate communication read/write compatibility", () => {
       await db
         .delete(organization)
         .where(inArray(organization.id, [workspaceId, otherWorkspaceId]));
+    await db.delete(user).where(eq(user.id, authorId));
   });
   function canonical(
     overrides: Partial<Parameters<typeof insertCanonicalMessage>[0]> = {},
@@ -143,6 +148,26 @@ integration("candidate communication read/write compatibility", () => {
         body: "Test correspondence only",
       },
     ]);
+  });
+  it("preserves member attribution and distinguishes workflow and system mail", async () => {
+    const member = await canonical({ authorId });
+    const automated = await canonical({ origin: "automation", authorId });
+    const [outbox] = await db.insert(emailOutbox).values({ workspaceId, kind: "application.received.candidate", payload: {}, dedupeKey: randomUUID() }).returning();
+    const system = await canonical({ messageId: `<${outbox.id}@harly.local>` });
+    const unknown = await canonical();
+    const messages = await listCandidateCommunication(workspaceId, candidateId);
+    expect(messages.find((message) => message.id === member.messageId)).toMatchObject({ origin: "member", authorName: "Fictional recruiter" });
+    expect(messages.find((message) => message.id === automated.messageId)).toMatchObject({ origin: "automation", authorName: "Fictional recruiter" });
+    expect(messages.find((message) => message.id === system.messageId)).toMatchObject({ origin: "system", authorName: null });
+    expect(messages.find((message) => message.id === unknown.messageId)).toMatchObject({ origin: null, authorName: null });
+  });
+  it("recovers legacy sender identity by exact message ID without duplicating mail", async () => {
+    const messageId = `<${randomUUID()}@example.test>`;
+    const sent = await canonical({ messageId });
+    await legacy({ providerMessageId: messageId, authorId });
+    const messages = await listCandidateCommunication(workspaceId, candidateId);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatchObject({ id: sent.messageId, origin: "member", authorName: "Fictional recruiter" });
   });
   it("preserves legacy history alongside newer outgoing mail in chronological order", async () => {
     const old = await legacy({ status: "queued" });

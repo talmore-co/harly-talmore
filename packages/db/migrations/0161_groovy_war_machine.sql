@@ -1,0 +1,1 @@
+ALTER TABLE "automation_booking_invitations" ADD COLUMN "booking_attempt_at" timestamp with time zone;

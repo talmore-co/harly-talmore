@@ -4,9 +4,12 @@ import { useState } from "react";
 
 import { cn } from "@/lib/utils";
 
-import type { Trigger } from "../schema";
-import { WORKFLOW_EVENTS } from "../schema";
-import { triggerMeta } from "./catalog";
+import type { Trigger, WorkflowEvent } from "../schema";
+import { Inbox, Sparkles, Bell, MailQuestion, ArrowRightLeft, UserCheck, UserX, UserPlus, UserRoundPen, CalendarPlus, CalendarCheck, BriefcaseBusiness } from "lucide-react";
+import { TRIGGER_CATALOG, triggerMeta } from "./catalog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 /**
  * The WHEN panel: pick the trigger event from a visual grid, and optionally add
@@ -16,9 +19,11 @@ import { triggerMeta } from "./catalog";
 export function TriggerPanel({
   value,
   onChange,
+  jobs = [],
 }: {
   value: Trigger;
   onChange: (t: Trigger) => void;
+  jobs?: { id: string; title: string }[];
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const meta = triggerMeta(value.event);
@@ -44,7 +49,7 @@ export function TriggerPanel({
         )}
       >
         <span className="flex items-center gap-3">
-          <ToneIcon tone={meta.tone} active />
+          <ToneIcon event={value.event} active />
           <span>
             <span className="block text-sm font-medium text-foreground">{meta.label}</span>
             <span className="block text-xs text-ink-soft">{meta.blurb}</span>
@@ -55,7 +60,7 @@ export function TriggerPanel({
 
       {pickerOpen && (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {WORKFLOW_EVENTS.map((event) => {
+          {TRIGGER_CATALOG.map(({ event }) => {
             const m = triggerMeta(event);
             const active = value.event === event;
             return (
@@ -63,7 +68,7 @@ export function TriggerPanel({
                 key={event}
                 type="button"
                 onClick={() => {
-                  onChange({ event, filter: value.filter });
+                  onChange({ event, filter: value.filter, ...(event === "booking.followup_due" ? { offsetHours: 24 } : {}) });
                   setPickerOpen(false);
                 }}
                 className={cn(
@@ -73,10 +78,10 @@ export function TriggerPanel({
                     : "border-mist-border bg-paper-raised hover:border-foreground/15 hover:bg-row-wash/50",
                 )}
               >
-                <ToneIcon tone={m.tone} active={active} />
+                <ToneIcon event={event} active={active} />
                 <span className="min-w-0">
                   <span className="block text-sm font-medium text-foreground">{m.label}</span>
-                  <span className="block truncate text-xs text-ink-soft">{m.blurb}</span>
+                  <span className="mt-0.5 block text-xs leading-relaxed text-ink-soft">{m.blurb}</span>
                 </span>
               </button>
             );
@@ -84,13 +89,26 @@ export function TriggerPanel({
         </div>
       )}
 
+      <div className="space-y-2">
+        <Label>Job</Label>
+        <Select value={String(value.filter?.jobId ?? "all")} onValueChange={(id) => setFilterEntry("jobId", id === "all" ? "" : id)}>
+          <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="all">All open jobs</SelectItem>{jobs.map((job) => <SelectItem key={job.id} value={job.id}>{job.title}</SelectItem>)}</SelectContent>
+        </Select>
+      </div>
+      {value.event === "booking.followup_due" && <div className="space-y-2">
+        <Label htmlFor="workflow-offset">Hours after the invitation email is sent</Label>
+        <OffsetHoursInput key={`${value.event}:${value.offsetHours ?? 24}`} value={value.offsetHours ?? 24} onCommit={(offsetHours) => onChange({ ...value, offsetHours })} />
+        <p className="text-xs text-muted-foreground">Runs once per matching booking invitation. Create another workflow for an additional follow-up.</p>
+      </div>}
+      {value.event === "application.created" && <p className="text-xs text-muted-foreground">Questionnaire scores are available on application. For AI score conditions, choose “AI evaluation completed” so the result is ready.</p>}
       {/* Trigger filter */}
       <div className="rounded-xl border border-mist-border bg-kraft/40 p-3">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">Run only when</span>
           <button
             type="button"
-            onClick={() => setFilterEntry(`key${filterEntries.length}`, "")}
+             onClick={() => onChange({ ...value, filter: { ...value.filter, [`field${filterEntries.length}`]: "" } })}
             className="text-xs font-medium text-foreground hover:underline"
           >
             + add filter
@@ -143,10 +161,10 @@ export function TriggerPanel({
 
 /** Neutral icon tile for a trigger category — chrome stays quiet, glyph carries the meaning. */
 function ToneIcon({
-  tone,
+  event,
   active,
 }: {
-  tone: "apply" | "stage" | "outcome" | "candidate" | "interview" | "job";
+  event: WorkflowEvent;
   active?: boolean;
 }) {
   return (
@@ -156,45 +174,23 @@ function ToneIcon({
         active ? "bg-paper-raised text-foreground shadow-soft" : "bg-kraft text-ink-soft",
       )}
     >
-      <ToneGlyph tone={tone} />
+      <TriggerGlyph event={event} />
     </span>
   );
 }
 
-function ToneGlyph({ tone }: { tone: "apply" | "stage" | "outcome" | "candidate" | "interview" | "job" }) {
-  const common = {
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.7,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-    className: "size-4",
-  };
-  switch (tone) {
-    case "apply":
-      return (
-        <svg {...common}><path d="M16 3h5v5" /><path d="M21 3l-7 7" /><path d="M3 21l6-6" /><rect x="3" y="3" width="11" height="11" rx="2" /></svg>
-      );
-    case "stage":
-      return (
-        <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>
-      );
-    case "outcome":
-      return (
-        <svg {...common}><path d="M20 6L9 17l-5-5" /></svg>
-      );
-    case "candidate":
-      return (
-        <svg {...common}><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></svg>
-      );
-    case "interview":
-      return (
-        <svg {...common}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M8 12l3 2 3-2" /></svg>
-      );
-    case "job":
-      return (
-        <svg {...common}><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" /></svg>
-      );
-  }
+function OffsetHoursInput({ value, onCommit }: { value: number; onCommit: (hours: number) => void }) {
+  const [draft, setDraft] = useState(String(value));
+  return <Input id="workflow-offset" type="number" min={0.25} max={720} step={0.25} value={draft} onChange={(event) => setDraft(event.target.value)} onBlur={() => {
+    const parsed = draft.trim() ? Number(draft) : NaN;
+    const hours = Number.isFinite(parsed) ? Math.min(720, Math.max(0.25, parsed)) : value;
+    setDraft(String(hours));
+    onCommit(hours);
+  }} />;
+}
+
+function TriggerGlyph({ event }: { event: WorkflowEvent }) {
+  const icons = { "application.created": Inbox, "application.evaluated": Sparkles, "interview.reminder_due": Bell, "booking.followup_due": MailQuestion, "application.stage_changed": ArrowRightLeft, "application.hired": UserCheck, "application.rejected": UserX, "candidate.created": UserPlus, "candidate.updated": UserRoundPen, "interview.scheduled": CalendarPlus, "interview.completed": CalendarCheck, "job.published": BriefcaseBusiness };
+  const Icon = icons[event];
+  return <Icon className="size-4" strokeWidth={1.75} aria-hidden="true" />;
 }

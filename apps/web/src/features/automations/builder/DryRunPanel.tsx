@@ -23,12 +23,12 @@ export function DryRunPanel({
   trigger: Trigger;
   conditions: Conditions;
   candidates: Array<{ id: string; name: string; email: string }>;
-  preview: (input: { trigger: Trigger; candidateId?: string }) => Promise<{
+  preview: (input: { trigger: Trigger; applicationId?: string }) => Promise<{
     ok: boolean;
     error?: string;
     payload?: Record<string, unknown>;
   }>;
-  run: (input: { trigger: Trigger; conditions: Conditions; candidateId?: string }) => Promise<{
+  run: (input: { trigger: Trigger; conditions: Conditions; applicationId?: string }) => Promise<{
     ok: boolean;
     error?: string;
     matched?: boolean;
@@ -46,7 +46,7 @@ export function DryRunPanel({
 
   function handleRun() {
     startRun(async () => {
-      const r = await run({ trigger, conditions, candidateId: candidateId || undefined });
+      const r = await run({ trigger, conditions, applicationId: candidateId || undefined });
       if (r.ok) {
         setResult({ matched: Boolean(r.matched), evaluated: r.evaluated ?? [], error: r.error });
       } else {
@@ -57,7 +57,7 @@ export function DryRunPanel({
 
   function handlePreview() {
     startRun(async () => {
-      const r = await preview({ trigger, candidateId: candidateId || undefined });
+      const r = await preview({ trigger, applicationId: candidateId || undefined });
       setPayload(r.ok ? r.payload ?? null : { error: r.error ?? "Could not preview payload." });
     });
   }
@@ -72,7 +72,7 @@ export function DryRunPanel({
           <span className="font-semibold text-foreground">If</span> {describeConditions(conditions)}.
         </p>
         <p className="text-ink-soft">
-          <span className="font-semibold text-foreground">Then</span> the actions would run (skipped in dry-run).
+          <span className="font-semibold text-foreground">Then</span> preview condition matching only. Timing, booking availability and message delivery are checked during execution. This test sends nothing.
         </p>
       </div>
 
@@ -89,7 +89,7 @@ export function DryRunPanel({
       </button>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <label className="text-xs font-medium text-ink-soft" htmlFor="dry-run-candidate">Test candidate</label>
+        <label className="text-xs font-medium text-ink-soft" htmlFor="dry-run-candidate">Test application</label>
         <select id="dry-run-candidate" value={candidateId} onChange={(event) => setCandidateId(event.target.value)} className="min-w-56 rounded-lg border border-border bg-paper px-2.5 py-1.5 text-xs text-foreground">
           <option value="">Most recently updated</option>
           {candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name} · {candidate.email}</option>)}
@@ -117,7 +117,7 @@ export function DryRunPanel({
                 )}
               >
                 {result.matched ? <CheckCircleIcon className="size-4" /> : <XCircleIcon className="size-4" />}
-                {result.matched ? "Conditions would match — the workflow would run." : "Conditions would not match — the workflow would skip."}
+                {result.matched ? "Conditions match this application." : "Conditions do not match this application."}
               </div>
               {result.evaluated.length > 0 && (
                 <div className="space-y-1 rounded-lg border border-border bg-kraft/20 p-3">

@@ -36,6 +36,8 @@ export type CanonicalThreadInput = {
 };
 
 export type CanonicalMessageInput = CanonicalThreadInput & {
+  authorId?: string | null;
+  origin?: "member" | "system" | "automation" | null;
   messageId?: string | null;
   imapUid?: number | null;
   direction: "inbound" | "outbound";
@@ -187,6 +189,8 @@ export async function insertCanonicalMessage(input: CanonicalMessageInput) {
 
   const thread = await findOrCreateCanonicalThread(input);
   const values: NewMailMessage = {
+    authorId: input.authorId ?? null,
+    origin: input.origin ?? (input.authorId ? "member" : null),
     workspaceId: input.workspaceId,
     threadId: thread.id,
     candidateId: input.candidateId ?? null,

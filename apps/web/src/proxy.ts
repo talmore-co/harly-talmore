@@ -29,6 +29,8 @@ const PUBLIC_PATHS = [
   "/api/setup",
   "/api/webhooks",
   "/api/public",
+  "/api/booking/interview",
+  "/book/interview",
   "/api/v1",
   // SCIM authenticates with its workspace-scoped bearer token in the route;
   // never redirect an IdP to the browser login page.

@@ -117,6 +117,7 @@ export function normalizeInboxFilter(value: string | undefined): InboxFilter {
 
 
 export async function getInboxData(input: {
+  jobId?: string;
   filter?: string;
   page?: number;
   threadId?: string;
@@ -138,6 +139,7 @@ export async function getInboxData(input: {
   // pages up to it so "Load more" appends from the user's perspective instead
   // of replacing the current list with only the next slice.
   const limit = (page + 1) * PAGE_SIZE + 1;
+  const jobFilter = input.jobId === "none" ? isNull(jobs.id) : input.jobId && input.jobId !== "all" ? /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(input.jobId) ? eq(jobs.id, input.jobId) : sql`false` : undefined;
   const activeCandidateLink = or(
     isNull(mailThreads.candidateId),
     isNotNull(candidates.id),
@@ -221,9 +223,9 @@ export async function getInboxData(input: {
       .leftJoin(jobs, and(eq(jobs.id, applications.jobId), eq(jobs.workspaceId, organization.id), isNull(jobs.deletedAt)))
       .leftJoin(jobStages, and(eq(jobStages.id, applications.currentStageId), eq(jobStages.workspaceId, organization.id)))
       .where(
-        input.threadId
+        and(jobFilter, input.threadId
           ? or(threadWhere, and(eq(mailThreads.workspaceId, organization.id), eq(mailThreads.id, input.threadId), activeCandidateLink))
-          : threadWhere,
+          : threadWhere),
       )
       .orderBy(desc(mailThreads.lastMessageAt))
       .limit(limit),
@@ -254,8 +256,8 @@ export async function getInboxData(input: {
     getWorkspaceEmailSender(organization.id),
   ]);
 
-  const hasMore = threadRows.length > PAGE_SIZE;
-  const threads: InboxThread[] = threadRows.slice(0, PAGE_SIZE).map((row) => ({
+  const hasMore = threadRows.length > limit - 1;
+  const threads: InboxThread[] = threadRows.slice(0, limit - 1).map((row) => ({
     id: row.id,
     source: "mailbox",
     transport: row.transport,

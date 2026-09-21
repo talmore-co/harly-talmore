@@ -1,4 +1,5 @@
 import "server-only";
+import { loadRecruiterReport, type RecruiterReportRow } from "./recruiter-data";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
   applications,
@@ -115,6 +116,7 @@ export async function getAgencyReports(params: ReportParams = {}) {
         now,
       }),
       options,
+      recruiters: [] as RecruiterReportRow[],
     };
   const jobIds = selected.map((job) => job.id);
   const visibleApplication = and(
@@ -252,6 +254,7 @@ export async function getAgencyReports(params: ReportParams = {}) {
       now,
     }),
     options,
+    recruiters: filters.tab === "recruiters" ? await loadRecruiterReport(ws, jobIds, filters, now, policy.scope.jobAccess === "all" && !policy.scope.departments.length && !policy.scope.regions.length && filters.job === "all" && filters.client === "all") : [],
   };
 }
 export type AgencyReportsData = Awaited<ReturnType<typeof getAgencyReports>>;

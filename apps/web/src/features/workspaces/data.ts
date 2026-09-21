@@ -62,6 +62,7 @@ export type SidebarBranding = {
 };
 
 export type WorkspaceMemberItem = {
+  connections?: import("./member-connections").MemberConnections;
   id: string;
   userId: string;
   name: string;

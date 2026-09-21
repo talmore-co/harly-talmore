@@ -4,6 +4,9 @@ import { authorizeCron } from "@/server/cron-auth";
 import { dispatchDomainEventOutbox } from "@/server/events/outbox";
 import { dispatchWorkflowEventsFromOutbox } from "@/features/automations/dispatch";
 import { startCronRun } from "@/server/cron-runs";
+import { dispatchWorkflowTimers } from "@/features/automations/timers";
+import { reconcilePooledBookings } from "@/lib/cal/pooled-booking";
+import { dispatchInterviewReminders } from "@/features/interviews/reminders";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +21,10 @@ export async function POST(request: NextRequest) {
   try {
     const result = await dispatchDomainEventOutbox();
     const automations = await dispatchWorkflowEventsFromOutbox();
-    const counters = { ...result, automations };
+    const timers = await dispatchWorkflowTimers();
+    const bookings = await reconcilePooledBookings();
+    const interviewReminders = await dispatchInterviewReminders();
+    const counters = { ...result, automations, timers, bookings, interviewReminders };
     await run.finish("succeeded", counters);
     return NextResponse.json({ ok: true, ...counters });
   } catch (error) {

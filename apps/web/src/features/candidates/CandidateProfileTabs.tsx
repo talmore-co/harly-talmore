@@ -15,6 +15,7 @@ import { EmailDrawer } from "@/features/candidates/EmailDrawer";
 import { NoteForm } from "@/features/candidates/NoteForm";
 import { ScheduleDrawer } from "@/features/candidates/ScheduleDrawer";
 import { RecordInterviewDialog } from "@/features/candidates/RecordInterviewDialog";
+import { CallHistory, LogCallDialog } from "./CallLog";
 import { AgencyApplicationPanel } from "@/features/clients/AgencyApplicationPanel";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -69,6 +70,7 @@ export function CandidateProfileTabs({
   activity,
   scorecards,
   messages,
+  calls = [],
   interviews,
   members,
   aiEvaluations,
@@ -124,7 +126,7 @@ export function CandidateProfileTabs({
         </TabsTrigger>
         <TabsTrigger value="communication">
           Communication
-          <TabCount value={messages.length} />
+          <TabCount value={messages.length + calls.length} />
         </TabsTrigger>
         <TabsTrigger value="offers">
           Offers & hire
@@ -213,7 +215,8 @@ export function CandidateProfileTabs({
 
       {/* ── Communication ── */}
       <TabsContent value="communication" className="mt-4 space-y-3">
-        <div className="flex justify-end">
+        <div className="flex flex-wrap justify-end gap-2">
+          <LogCallDialog candidateId={candidateId} applications={jobOptions.map((app) => ({ id: app.id, title: app.jobTitle }))} selectedApplicationId={searchParams.get("applicationId")} />
           <EmailDrawer
             candidateId={candidateId}
             workspaceId={workspaceId}
@@ -230,11 +233,12 @@ export function CandidateProfileTabs({
             }
           />
         </div>
-        {messages.length === 0 ? (
+        <CallHistory calls={calls} applications={jobOptions.map((app) => ({ id: app.id, title: app.jobTitle }))} />
+        {messages.length === 0 && calls.length === 0 ? (
           <EmptySection
             icon={Mail}
-            title={`You haven't emailed ${candidateName.split(" ")[0]} yet`}
-            hint="Write the first message above. Their replies arrive in the Inbox and thread back here automatically."
+            title={`No communications with ${candidateName.split(" ")[0]} yet`}
+            hint="Send a message or log a phone call above. Email replies arrive in the Inbox and appear here automatically."
           />
         ) : (
           <div className="space-y-4 duration-300 animate-in fade-in slide-in-from-bottom-1">

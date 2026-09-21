@@ -50,7 +50,7 @@ describe("audit log export", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toContain("text/csv");
     expect(response.headers.get("Content-Disposition")).toContain(
-      "harly-audit-logs-",
+      "talmore-audit-logs-",
     );
     const csv = await response.text();
     expect(csv).toContain("created_at,action,severity");

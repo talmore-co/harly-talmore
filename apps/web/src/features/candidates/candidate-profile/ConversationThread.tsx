@@ -11,6 +11,7 @@ import { RelativeTime } from "@/lib/date-hydration";
 import { cn } from "@/lib/utils";
 
 import type { CandidateMessage } from "./types";
+import { messageSenderLabel } from "../message-sender";
 
 export function ConversationThread({
   conversation,
@@ -79,7 +80,7 @@ export function ConversationThread({
                   )}
                 >
                   <span className="font-medium text-foreground/80">
-                    {inbound ? message.fromEmail ?? "Candidate" : "You"}
+                    {messageSenderLabel(message)}
                   </span>
                   <RelativeTime value={message.createdAt} />
                 </div>

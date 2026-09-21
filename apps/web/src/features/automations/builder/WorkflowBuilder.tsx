@@ -1,5 +1,7 @@
 "use client";
 
+import { prefillBookingMessage } from "./message-defaults";
+
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -24,13 +26,13 @@ import {
   listWorkflowVersionsAction,
   pauseWorkflowAction,
   publishWorkflowAction,
-  requestWorkflowApprovalAction,
   resumeWorkflowAction,
   rollbackWorkflowAction,
   previewWorkflowPayloadAction,
   updateWorkflowAction,
 } from "../actions";
 import type { SerializedWorkflow } from "./types";
+import type { BuilderData } from "../builder-data";
 import type {
   Action,
   ConditionNode,
@@ -68,7 +70,7 @@ function toDraft(w: SerializedWorkflow): WorkflowDraft {
     enabled: w.enabled,
     trigger: w.trigger,
     conditions: w.conditions,
-    actions: w.actions,
+    actions: w.actions.map(prefillBookingMessage),
     maxRunsPerMinute: w.maxRunsPerMinute,
     maxExternalActionsPerMinute: w.maxExternalActionsPerMinute,
     circuitBreakerThreshold: w.circuitBreakerThreshold,
@@ -82,7 +84,7 @@ export function WorkflowBuilder({
   isNew,
 }: {
   initial: SerializedWorkflow | null;
-  builderData: { members: { id: string; name: string }[]; stageNames: string[]; candidates: { id: string; name: string; email: string }[] };
+  builderData: BuilderData;
   isNew: boolean;
 }) {
   const [draft, setDraft] = useState<WorkflowDraft>(() =>
@@ -93,14 +95,14 @@ export function WorkflowBuilder({
           enabled: true,
           trigger: { event: "application.created" as WorkflowEvent },
           conditions: [],
-          actions: [{ type: "send_slack", config: { message: "New application received." }, continueOnError: true }],
+          actions: [{ type: "add_note", config: { body: "New application received." }, continueOnError: false }],
           maxRunsPerMinute: 60,
           maxExternalActionsPerMinute: 30,
           circuitBreakerThreshold: 5,
           circuitBreakerCooldownSeconds: 300,
         },
   );
-  const [dirty, setDirty] = useState(isNew);
+  const [dirty, setDirty] = useState(() => isNew || Boolean(initial && JSON.stringify(initial.actions) !== JSON.stringify(initial.actions.map(prefillBookingMessage))));
   const [status, setStatus] = useState<SerializedWorkflow["status"]>(initial?.status ?? "draft");
   const [approved, setApproved] = useState(Boolean(initial?.approvedAt));
   const [saving, startSave] = useTransition();
@@ -229,19 +231,11 @@ export function WorkflowBuilder({
               )}>
                 {status}
               </span>
-              {draft.id && status === "draft" && !approved && (
-                <button type="button" onClick={() => runGovernanceAction(
-                  () => requestWorkflowApprovalAction(draft.id!),
-                  "Approval requested.", "draft",
-                )} disabled={saving} className="hidden text-xs font-medium text-ink-soft hover:text-foreground lg:inline">
-                  Request approval
-                </button>
-              )}
-              {draft.id && status === "draft" && approved && (
+               {draft.id && status === "draft" && (
                 <button type="button" onClick={() => runGovernanceAction(
                   () => publishWorkflowAction(draft.id!),
                   "Workflow published.", "published",
-                )} disabled={saving} className="hidden rounded-lg bg-pine px-3 py-1.5 text-xs font-semibold text-white hover:bg-pine-strong lg:inline">
+                 )} disabled={saving || dirty} className="rounded-lg bg-pine px-3 py-1.5 text-xs font-semibold text-white hover:bg-pine-strong disabled:opacity-50">
                   Publish
                 </button>
               )}
@@ -489,7 +483,7 @@ function BuildView({
   onGuardrails,
 }: {
   draft: WorkflowDraft;
-  builderData: { members: { id: string; name: string }[]; stageNames: string[]; candidates: { id: string; name: string; email: string }[] };
+  builderData: BuilderData;
   nl: string;
   onTrigger: (t: Trigger) => void;
   onConditions: (c: ConditionNode[]) => void;
@@ -506,7 +500,7 @@ function BuildView({
         caption="Trigger"
         summary={triggerMeta(draft.trigger.event).label}
       >
-        <TriggerPanel value={draft.trigger} onChange={onTrigger} />
+        <TriggerPanel value={draft.trigger} onChange={onTrigger} jobs={builderData.jobs} />
       </FlowStep>
 
       <Connector />

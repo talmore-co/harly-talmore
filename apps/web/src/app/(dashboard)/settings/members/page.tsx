@@ -1,4 +1,5 @@
 import { MembersAndRoles } from "@/features/workspaces/MembersSection";
+import { getMemberConnectionStatuses } from "@/features/workspaces/member-connections";
 import Link from "next/link";
 import type { Route } from "next";
 import { getWorkspaceSettingsData } from "@/features/workspaces/data";
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function MembersSettingsPage() {
   await requirePagePermission("members:read");
+  const connectionStatuses = await getMemberConnectionStatuses();
   const [
     { members, invitations, inviteLink, context, emailIdentity },
     roles,
@@ -48,7 +50,7 @@ export default async function MembersSettingsPage() {
         View colleague directory
       </Link>
       <MembersAndRoles
-        members={members}
+        members={members.map((member) => ({ ...member, connections: connectionStatuses[member.userId] ?? { cal: "Not connected", google: "Not connected", fathom: "Not connected" } }))}
         invitations={invitations}
         assignableRoles={assignableRoles}
         inviteLink={inviteLink}

@@ -32,6 +32,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toSafeCsv } from "@/lib/csv";
 import { TrendChart } from "./charts";
+import { RecruiterReport } from "./RecruiterReport";
 import type { AgencyReportsData } from "./agency-data";
 import type { ReportFilters, ReportRecord } from "./agency-metrics";
 
@@ -164,6 +165,13 @@ export function ReportsDashboard({ data }: { data: AgencyReportsData }) {
     }, 0);
   }
   function exportReport() {
+    if (filters.tab === "recruiters") {
+      download([
+        ["Period from", "Period to", "Recruiter", "Assigned jobs (current)", "Completed interviews", "Assessments submitted", "Tasks completed (current owner)", "First submissions recorded", "First hires recorded", "Overdue tasks (current)", "Completed interviews missing own assessment"],
+        ...data.recruiters.map((row) => [filters.from, filters.to, row.name, row.jobs, row.interviews, row.assessments, row.tasksCompleted, row.submissions, row.placements, row.overdueTasks, row.missingAssessments.length]),
+      ], "recruiters");
+      return;
+    }
     const rows: (string | number)[][] = [
       ["Report", "Agency delivery"],
       ["From (UTC, inclusive)", filters.from],
@@ -491,6 +499,7 @@ export function ReportsDashboard({ data }: { data: AgencyReportsData }) {
             ["overview", "Overview"],
             ["clients", "Clients & jobs"],
             ["sources", "Sources"],
+            ["recruiters", "Recruiters"],
           ] as const
         ).map(([tab, label]) => (
           <Link
@@ -509,6 +518,7 @@ export function ReportsDashboard({ data }: { data: AgencyReportsData }) {
         ))}
       </nav>
 
+      {filters.tab === "recruiters" && <RecruiterReport rows={data.recruiters} />}
       {filters.tab === "overview" ? (
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">

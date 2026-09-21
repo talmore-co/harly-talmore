@@ -364,7 +364,7 @@ export async function replyMailboxThreadAction(input: {
         references: lastMessage?.messageId ?? undefined,
         messageId: delivery.messageId,
       });
-      const [saved] = await db.insert(mailMessages).values({ workspaceId: organization.id, threadId: thread.id, candidateId: thread.candidateId, applicationId, messageId: info.messageId || delivery.messageId, inReplyTo: lastMessage?.messageId ?? null, references: lastMessage?.messageId ?? null, direction: "outbound", fromEmail: mailboxConfig.address, toEmails: [thread.participantEmail], subject, textBody: parsed.data.body, receivedAt: now, readAt: now }).returning({ id: mailMessages.id });
+      const [saved] = await db.insert(mailMessages).values({ workspaceId: organization.id, authorId: user.id, origin: "member", threadId: thread.id, candidateId: thread.candidateId, applicationId, messageId: info.messageId || delivery.messageId, inReplyTo: lastMessage?.messageId ?? null, references: lastMessage?.messageId ?? null, direction: "outbound", fromEmail: mailboxConfig.address, toEmails: [thread.participantEmail], subject, textBody: parsed.data.body, receivedAt: now, readAt: now }).returning({ id: mailMessages.id });
       await completeLegacyMailDelivery({ id: delivery.id, threadId: thread.id, mailMessageId: saved.id, providerMessageId: info.messageId });
       let sentCopySaved = true;
       if (mailboxConfig.smtp.sentFolder) {
@@ -420,6 +420,8 @@ export async function replyMailboxThreadAction(input: {
     });
 
     const [saved] = await db.insert(mailMessages).values({
+      authorId: user.id,
+      origin: "member",
       workspaceId: organization.id,
       threadId: thread.id,
       candidateId: thread.candidateId,

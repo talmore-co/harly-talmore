@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { preferredThread } from "./reading";
+import { InboxJobFilter } from "./InboxJobFilter";
 import type { ComposerDraft } from "./MailComposer";
 
 import { Button } from "@/components/ui/button";
@@ -259,6 +260,7 @@ function InboxEmptyState({ status, filter }: { status: InboxMailboxStatus; filte
 }
 
 export function RecruitingInbox({
+  initialJobId = "all",
   threads,
   messages,
   selectedThreadId: initialThreadId,
@@ -275,6 +277,7 @@ export function RecruitingInbox({
   messages: Record<string, InboxMessage[]>;
   selectedThreadId?: string;
   initialFilter?: InboxFilter;
+  initialJobId?: string;
   page?: number;
   hasMore?: boolean;
   members: InboxMember[];
@@ -449,7 +452,11 @@ export function RecruitingInbox({
     setFilter(next);
     setActiveThreadId(undefined);
     setMobileView("people");
-    router.push(`/dashboard/inbox?filter=${next}`);
+    const params = new URLSearchParams(window.location.search);
+    params.set("filter", next);
+    params.delete("thread");
+    params.delete("page");
+    router.push(`/dashboard/inbox?${params.toString()}`);
   }
 
   const contextThread = thread ?? personThreads[0];
@@ -487,9 +494,14 @@ export function RecruitingInbox({
         searchRef={searchRef}
       />
       {showConnectionStrip ? <ConnectionStrip status={mailboxStatus} /> : null}
+      <div className="flex flex-wrap items-center gap-2 border-b border-border/70 px-4 py-2">
+        <label htmlFor="inbox-job" className="text-xs font-medium text-muted-foreground">Job</label>
+        <InboxJobFilter value={initialJobId} jobs={[...new Map(applications.map((app) => [app.jobId, app.jobTitle])).entries()].sort((a, b) => a[1].localeCompare(b[1])).map(([id, title]) => ({ id, title }))} onChange={(id) => { const params = new URLSearchParams(window.location.search); if (id === "all") params.delete("job"); else params.set("job", id); params.delete("thread"); params.delete("page"); router.push(`/dashboard/inbox?${params.toString()}`); }} />
+        <span className="text-xs text-muted-foreground">Filters conversations by their linked application.</span>
+      </div>
 
       {!threads.length ? (
-        <InboxEmptyState status={mailboxStatus} filter={filter} />
+        <InboxEmptyState status={mailboxStatus} filter={initialJobId !== "all" && filter === "all" ? "candidates" : filter} />
       ) : (
         <div className="relative flex min-h-0 flex-1 overflow-hidden">
           <div className={cn("min-h-0 shrink-0 border-r border-border/70 bg-card", mobileView === "people" ? "block w-full lg:w-[340px]" : "hidden lg:block lg:w-[340px]")}>

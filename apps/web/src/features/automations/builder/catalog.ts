@@ -42,6 +42,8 @@ export type TriggerMeta = {
 };
 
 export const TRIGGER_CATALOG: TriggerMeta[] = [
+  { event: "application.evaluated", label: "AI evaluation completed", blurb: "An application's AI fit score has been saved. Combine it with questionnaire conditions.", tone: "apply" },
+  { event: "booking.followup_due", label: "Booking invitation unanswered", blurb: "After your chosen delay, if the candidate has not booked an interview.", tone: "interview" },
   {
     event: "application.created",
     label: "Candidate applies",
@@ -99,6 +101,7 @@ export const TRIGGER_CATALOG: TriggerMeta[] = [
 ];
 
 export function triggerMeta(event: WorkflowEvent): TriggerMeta {
+  if (event === "interview.reminder_due") return { event, label: "Interview reminders moved to Settings", blurb: "Manage candidate reminders in Settings → Interviews.", tone: "interview" };
   return TRIGGER_CATALOG.find((t) => t.event === event) ?? {
     event,
     label: event,
@@ -162,7 +165,7 @@ export const FIELD_KIND_CATALOG: FieldKindMeta[] = [
     kind: "application",
     label: "Application",
     blurb: "Fields on the application record.",
-    paths: ["status", "stage", "jobId", "source"],
+    paths: ["questionnaireScore", "status", "stage", "jobId", "source"],
   },
   {
     kind: "job",
@@ -174,7 +177,7 @@ export const FIELD_KIND_CATALOG: FieldKindMeta[] = [
     kind: "ai",
     label: "AI insight",
     blurb: "The latest automatic evaluation score / summary for the candidate.",
-    paths: ["score", "recommendation", "summary", "tags"],
+    paths: ["score", "source", "recommendation", "summary"],
   },
   {
     kind: "trigger",
@@ -194,6 +197,11 @@ export function fieldKindMeta(kind: FieldKindMeta["kind"]): FieldKindMeta {
   return FIELD_KIND_CATALOG.find((f) => f.kind === kind) ?? FIELD_KIND_CATALOG[0]!;
 }
 
+export function fieldLabel(kind: string, path: string): string {
+  const labels: Record<string, string> = { "application.questionnaireScore": "Questionnaire score", "application.stage": "Pipeline stage", "application.status": "Application status", "ai.score": "AI fit score", "ai.source": "Evaluation source", "ai.recommendation": "AI recommendation", "ai.summary": "AI summary", "job.title": "Job title", "job.jobId": "Job", "application.jobId": "Job" };
+  return labels[`${kind}.${path}`] ?? path.replaceAll(".", " · ").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (letter) => letter.toUpperCase());
+}
+
 // ---------------------------------------------------------------------------
 // Actions — display + config-field spec
 // ---------------------------------------------------------------------------
@@ -204,11 +212,13 @@ export function fieldKindMeta(kind: FieldKindMeta["kind"]): FieldKindMeta {
  * builder writes plain strings into config; the registry parses/coerces.
  */
 export type ConfigField =
+  | { key: string; label: string; kind: "date" }
   | { key: string; label: string; kind: "text"; placeholder?: string; required?: boolean; maxLength?: number }
   | { key: string; label: string; kind: "textarea"; placeholder?: string; required?: boolean; maxLength?: number }
   | { key: string; label: string; kind: "select"; options: { value: string; label: string }[]; required?: boolean; placeholder?: string }
   | { key: string; label: string; kind: "stage"; required?: boolean }
   | { key: string; label: string; kind: "owner"; }
+  | { key: string; label: string; kind: "recruiters"; }
   | { key: string; label: string; kind: "secret-refs"; placeholder?: string }
   | { key: string; label: string; kind: "keyval"; placeholder?: string };
 
@@ -226,6 +236,29 @@ export type ActionMeta = {
 
 export const ACTION_CATALOG: ActionMeta[] = [
   {
+    type: "send_booking_invitation", label: "Send booking invitation", blurb: "Email a personal Talmore booking link with availability from the selected recruiters.", group: "Communication", icon: EnvelopeSimpleDuotoneIcon, available: true,
+    config: [
+      { key: "interviewerIds", label: "Recruiters with connected Cal.com", kind: "recruiters" },
+      { key: "subject", label: "Subject", kind: "text", required: true, maxLength: 200 },
+      { key: "body", label: "Message · booking button added automatically", kind: "textarea", required: true, maxLength: 10000, placeholder: "Hi {{candidate.firstName}}, please choose a time to discuss {{job.title}}." },
+    ],
+  },
+  {
+    type: "send_booking_followup", label: "Send booking follow-up", blurb: "Follow up only while the invitation is unanswered and the application remains in that stage.", group: "Communication", icon: EnvelopeSimpleDuotoneIcon, available: true,
+    config: [
+      { key: "subject", label: "Subject", kind: "text", required: true, maxLength: 200 },
+      { key: "body", label: "Message · booking button added automatically", kind: "textarea", required: true, maxLength: 10000 },
+    ],
+  },
+  {
+    type: "send_interview_reminder", label: "Interview reminder · moved to Settings", blurb: "Manage candidate reminders in Settings → Interviews.", group: "Communication", icon: EnvelopeSimpleDuotoneIcon, available: false,
+    config: [
+      { key: "subject", label: "Subject", kind: "text", required: true, maxLength: 200 },
+      { key: "body", label: "Message · use {{interview.when}} and {{interview.location}}", kind: "textarea", required: true, maxLength: 10000 },
+      { key: "timeZone", label: "Time zone shown in message", kind: "text", placeholder: "Asia/Manila" },
+    ],
+  },
+  {
     type: "move_stage",
     label: "Move to stage",
     blurb: "Advance the application to a pipeline stage.",
@@ -240,7 +273,7 @@ export const ACTION_CATALOG: ActionMeta[] = [
     blurb: "Set the application status (hired, rejected, …).",
     group: "Pipeline",
     icon: CheckCircleIcon,
-    available: true,
+    available: false,
     config: [
       {
         key: "status",
@@ -304,7 +337,7 @@ export const ACTION_CATALOG: ActionMeta[] = [
           { value: "urgent", label: "Urgent" },
         ],
       },
-      { key: "dueDate", label: "Due date (ISO)", kind: "text", placeholder: "yyyy-mm-dd" },
+      { key: "dueDate", label: "Due date", kind: "date" },
     ],
   },
   {
@@ -313,7 +346,7 @@ export const ACTION_CATALOG: ActionMeta[] = [
     blurb: "Post a message to your Slack / Discord channel.",
     group: "Communication",
     icon: ChatCircleDotsIcon,
-    available: true,
+    available: false,
     config: [{ key: "message", label: "Message", kind: "textarea", required: true, maxLength: 2000, placeholder: "New application received for {{job.title}}" }],
   },
   {
@@ -322,7 +355,7 @@ export const ACTION_CATALOG: ActionMeta[] = [
     blurb: "Email the candidate (outbox). v1: wired soon.",
     group: "Communication",
     icon: EnvelopeSimpleDuotoneIcon,
-    available: true,
+    available: false,
     config: [
       { key: "toEmail", label: "To email", kind: "text", required: true, placeholder: "candidate@example.com" },
       { key: "subject", label: "Subject", kind: "text", required: true, maxLength: 200 },
@@ -335,7 +368,7 @@ export const ACTION_CATALOG: ActionMeta[] = [
     blurb: "Call an external URL. Reference secrets as {{secrets.NAME}}.",
     group: "External",
     icon: WebhooksDuotoneIcon,
-    available: true,
+    available: false,
     config: [
       { key: "url", label: "URL", kind: "text", required: true, placeholder: "https://api.example.com/hook" },
       {

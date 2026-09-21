@@ -12,6 +12,7 @@ import {
   Inbox,
   KanbanSquare,
   ListTodo,
+  Workflow,
   NotebookTabs,
   Settings,
   UserRound,
@@ -31,6 +32,7 @@ export type NavItem = {
   exact?: boolean;
   aliases?: string[];
   badge?: NavBadge;
+  releaseLabel?: "Alpha";
   requiredPermission?: Permission | Permission[];
 };
 export const navigationGroups: { label: string | null; items: NavItem[] }[] = [
@@ -103,6 +105,7 @@ export const navigationGroups: { label: string | null; items: NavItem[] }[] = [
         icon: BarChart3,
         requiredPermission: "reports:read",
       },
+      { label: "Automations", href: "/dashboard/automations", icon: Workflow, releaseLabel: "Alpha", requiredPermission: "automations:manage" },
     ],
   },
 ];

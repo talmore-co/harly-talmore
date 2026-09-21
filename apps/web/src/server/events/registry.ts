@@ -4,6 +4,7 @@ import { z } from "zod";
 
 const entitySchema = z.record(z.string(), z.unknown());
 const payloadSchemas = {
+  "application.evaluated": z.object({ application: entitySchema }).passthrough(),
   "application.created": z.object({ application: entitySchema }).passthrough(),
   "application.stage_changed": z
     .object({
@@ -35,6 +36,7 @@ const payloadSchemas = {
 } as const;
 
 export const DOMAIN_EVENTS = {
+  APPLICATION_EVALUATED: "application.evaluated",
   APPLICATION_CREATED: "application.created",
   APPLICATION_STAGE_CHANGED: "application.stage_changed",
   APPLICATION_HIRED: "application.hired",

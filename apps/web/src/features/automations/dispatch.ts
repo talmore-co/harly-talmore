@@ -41,6 +41,8 @@ const WORKFLOW_LEASE_MS = 5 * 60_000;
 const WORKFLOW_RETRY_DELAY_MS = 60_000;
 
 export type WorkflowDispatchOptions = {
+  occurredAt?: Date;
+  workflowId?: string;
   /** Durable domain-event identity. Duplicate deliveries become no-ops. */
   sourceEventId?: string;
   parentRunId?: string | null;
@@ -48,7 +50,7 @@ export type WorkflowDispatchOptions = {
 
 export async function dispatchWorkflowEvent(
   workspaceId: string,
-  event: WebhookEvent,
+  event: WebhookEvent | WorkflowEvent,
   data: Record<string, unknown>,
   options: WorkflowDispatchOptions = {},
 ): Promise<boolean> {
@@ -73,6 +75,7 @@ export async function dispatchWorkflowEvent(
     circuitBreakerThreshold: number;
     circuitBreakerCooldownSeconds: number;
     circuitOpenUntil: Date | null;
+    publishedAt: Date | null;
   }>;
   try {
     workflows = await db
@@ -90,11 +93,13 @@ export async function dispatchWorkflowEvent(
         circuitBreakerThreshold: workflowDefinitions.circuitBreakerThreshold,
         circuitBreakerCooldownSeconds: workflowDefinitions.circuitBreakerCooldownSeconds,
         circuitOpenUntil: workflowDefinitions.circuitOpenUntil,
+        publishedAt: workflowDefinitions.publishedAt,
       })
       .from(workflowDefinitions)
       .where(
         and(
           eq(workflowDefinitions.workspaceId, workspaceId),
+          options.workflowId ? eq(workflowDefinitions.id, options.workflowId) : undefined,
           eq(workflowDefinitions.enabled, true),
           eq(workflowDefinitions.status, "published"),
           eq(workflowDefinitions.triggerEvent, triggerEvent),
@@ -109,7 +114,9 @@ export async function dispatchWorkflowEvent(
   if (workflows.length === 0) return true;
 
   for (const workflow of workflows) {
-    const trigger = workflow.trigger as { filter?: Record<string, unknown> } | null;
+    const trigger = workflow.trigger as { filter?: Record<string, unknown>; runtimeVersion?: number } | null;
+    if (trigger?.runtimeVersion !== 2) continue;
+    if (options.occurredAt && workflow.publishedAt && options.occurredAt < workflow.publishedAt) continue;
     // Cheap filter check BEFORE creating the run row — avoid noise for
     // workflows scoped to a specific job/stage that this event doesn't match.
     if (trigger?.filter && !matchesTriggerFilter(trigger.filter, data)) {
@@ -167,7 +174,7 @@ export async function dispatchWorkflowEvent(
       // Best-effort execution; the run row is the safety net. A crash here
       // leaves the row 'running' for the cron to reclaim (T3).
       if (deferUntil) continue;
-      void runWorkflow(run.id).catch((error) => {
+      await runWorkflow(run.id).catch((error) => {
         log.error(error, "[automations] runWorkflow failed", {
           workspaceId,
           workflowId: workflow.id,
@@ -180,6 +187,7 @@ export async function dispatchWorkflowEvent(
         workflowId: workflow.id,
         event,
       });
+      return false;
     }
   }
   return true;
@@ -269,6 +277,7 @@ export async function dispatchWorkflowEventsFromOutbox(batchSize = 100): Promise
     const event = row.eventName as WebhookEvent;
     const ok = await dispatchWorkflowEvent(row.workspaceId, event, row.payload as Record<string, unknown>, {
       sourceEventId: row.eventId,
+      occurredAt: row.createdAt,
       parentRunId: row.automationParentRunId,
     });
     if (!ok) {
@@ -366,6 +375,7 @@ export async function reclaimStalledWorkflowRuns(): Promise<{
   reclaimed: number;
   deadLettered: number;
 }> {
+  if (!AUTOMATIONS_ENABLED) return { reclaimed: 0, deadLettered: 0 };
   const cutoff = new Date(Date.now() - STALLED_RUN_THRESHOLD_MS);
   const stale = await db
     .select({
@@ -429,6 +439,7 @@ export async function reclaimStalledWorkflowRuns(): Promise<{
 export async function dispatchDueWorkflowRuns(limit = 50): Promise<{
   queued: number;
 }> {
+  if (!AUTOMATIONS_ENABLED) return { queued: 0 };
   const now = new Date();
   try {
     const due = await db

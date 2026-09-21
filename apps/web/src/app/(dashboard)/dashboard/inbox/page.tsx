@@ -4,7 +4,7 @@ import { getInboxData, normalizeInboxFilter } from "@/features/mailbox/data";
 export const dynamic = "force-dynamic";
 
 type InboxPageProps = {
-  searchParams: Promise<{ filter?: string | string[]; page?: string; thread?: string }>;
+  searchParams: Promise<{ filter?: string | string[]; page?: string; thread?: string; job?: string }>;
 };
 
 export default async function InboxPage({ searchParams }: InboxPageProps) {
@@ -15,6 +15,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
     filter,
     page,
     threadId: query.thread,
+    jobId: query.job,
   });
 
   return (
@@ -23,6 +24,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
       messages={messages}
       selectedThreadId={query.thread}
       initialFilter={normalizeInboxFilter(filter)}
+      initialJobId={query.job ?? "all"}
       page={page}
       hasMore={hasMore}
       members={members}

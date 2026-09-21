@@ -2,7 +2,7 @@ import "server-only";
 
 import { and, desc, eq, isNull } from "drizzle-orm";
 
-import { db, aiEvaluations, applications, candidates, jobs } from "@harly/db";
+import { db, aiEvaluations, applications, candidates, jobs, jobStages } from "@harly/db";
 
 import type {
   ConditionNode,
@@ -63,8 +63,10 @@ export async function loadConditionContext(input: {
         application: applications,
         candidate: candidates,
         job: jobs,
+        stageName: jobStages.name,
       })
       .from(applications)
+      .leftJoin(jobStages, eq(jobStages.id, applications.currentStageId))
       .innerJoin(
         candidates,
         and(
@@ -90,7 +92,7 @@ export async function loadConditionContext(input: {
       .limit(1);
 
     if (row) {
-      application = row.application as unknown as Record<string, unknown>;
+      application = { ...row.application, stage: row.stageName } as unknown as Record<string, unknown>;
       candidate = row.candidate as unknown as Record<string, unknown>;
       job = row.job as unknown as Record<string, unknown>;
 

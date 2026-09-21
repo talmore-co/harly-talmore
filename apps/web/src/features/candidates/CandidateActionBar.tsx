@@ -512,15 +512,15 @@ export function CandidateActionBar({
             size="sm"
             variant="ghost"
             className="size-8 p-0 text-muted-foreground hover:text-foreground"
-            title="Schedule"
+            title="Schedule interview"
           >
             <CalendarClock className="size-4" />
-            <span className="sr-only">Schedule</span>
+            <span className="sr-only">Schedule interview</span>
           </Button>
         ) : (
           <Button size="sm" variant="outline">
             <CalendarClock className="size-4" />
-            Schedule
+            Schedule interview
           </Button>
         )
       }
@@ -614,7 +614,8 @@ export function CandidateActionBar({
 
       {/* The one action this stage actually calls for. */}
       {email}
-      {selectedApplication && stageAction !== email && stageAction}
+      {applications.length > 0 && schedule}
+      {selectedApplication && stageAction !== email && stageAction !== schedule && stageAction}
 
       {/* Reject , grave, adjacent to the advance it opposes, never hidden in a
           menu: an irreversible decision should cost a deliberate click, not a

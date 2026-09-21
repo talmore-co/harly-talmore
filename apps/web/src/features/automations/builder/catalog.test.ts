@@ -23,14 +23,12 @@ describe("catalog — action metadata covers every action type", () => {
   it("pickable actions are exactly the v1-registered types", () => {
     const registered = [
       "move_stage",
-      "set_status",
       "add_note",
       "add_tag",
       "remove_tag",
       "create_task",
-      "send_slack",
-      "send_email",
-      "http_request",
+      "send_booking_invitation",
+      "send_booking_followup",
     ];
     const pickable = pickableActions().map((a) => a.type).sort();
     expect(pickable).toEqual([...registered].sort());
@@ -49,7 +47,8 @@ describe("catalog — trigger metadata covers every workflow event", () => {
   it("has a trigger entry for every WorkflowEvent", () => {
     for (const event of WORKFLOW_EVENTS) {
       expect(triggerMeta(event), `missing trigger entry for ${event}`).toBeDefined();
-      expect(TRIGGER_CATALOG.find((t) => t.event === event)).toBeDefined();
+      if (event === "interview.reminder_due") expect(TRIGGER_CATALOG.find((t) => t.event === event)).toBeUndefined();
+      else expect(TRIGGER_CATALOG.find((t) => t.event === event)).toBeDefined();
     }
   });
 });
@@ -75,7 +74,7 @@ describe("templates — every starter validates against the Zod schema", () => {
     }
   });
 
-  it("ships at least 6 templates (the design doc's minimum)", () => {
-    expect(WORKFLOW_TEMPLATES.length).toBeGreaterThanOrEqual(6);
+  it("ships editable templates for progression, booking and booking follow-up", () => {
+    expect(WORKFLOW_TEMPLATES.map((template) => template.id)).toEqual(["questionnaire-progression", "score-to-booking", "booking-followup"]);
   });
 });

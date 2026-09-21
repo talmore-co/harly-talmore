@@ -1,6 +1,7 @@
 import "server-only";
 
 import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
+import { z } from "zod";
 import {
   db,
   applications,
@@ -13,6 +14,7 @@ import {
   personalCalEvents,
   activityEvents,
   candidatePortalNotifications,
+  automationBookingInvitations,
 } from "@harly/db";
 import { getPersonalCalConnection, personalCalApiKey } from "./personal";
 import {
@@ -284,7 +286,19 @@ export async function syncPersonalCalBooking(
     // has been deleted, or persist a reference into another workspace.
     if (!application)
       return { matched: false, event: null, interview: null, action: null };
+    const pooledReference = z.object({ talmoreInvitationId: z.string().uuid(), talmoreBookingRequestId: z.string().uuid() }).safeParse(canonical.metadata);
+    const rememberPooledBooking = async (state: "booking" | "confirmed" | "canceled") => {
+      if (!pooledReference.success || !signedApplicationId && mapped?.applicationId !== application.id) return;
+      await tx.update(automationBookingInvitations).set({ bookingUid: canonical.uid, bookingState: state, updatedAt: new Date() }).where(and(
+        eq(automationBookingInvitations.id, pooledReference.data.talmoreInvitationId),
+        eq(automationBookingInvitations.workspaceId, connection.workspaceId),
+        eq(automationBookingInvitations.applicationId, application.id),
+        eq(automationBookingInvitations.selectedEventId, subscriptionId),
+        eq(automationBookingInvitations.bookingRequestId, pooledReference.data.talmoreBookingRequestId),
+      ));
+    };
     if (canonical.status === "pending") {
+      await rememberPooledBooking("booking");
       await remember(
         application.id,
         mapped?.interviewId ?? null,
@@ -329,6 +343,7 @@ export async function syncPersonalCalBooking(
         ? ("scheduled" as const)
         : ("canceled" as const);
     if (!existing && status === "canceled") {
+      await rememberPooledBooking("canceled");
       await remember(application.id, null, null);
       return { matched: true, event: null, interview: null, action: null };
     }
@@ -411,6 +426,7 @@ export async function syncPersonalCalBooking(
       : await tx.insert(interviews).values(values).returning();
     if (!saved) throw new Error("Could not save the interview.");
     await remember(application.id, saved.id, null);
+    await rememberPooledBooking(status === "canceled" ? "canceled" : "confirmed");
     if (!changed)
       return { matched: true, event: null, interview: saved, action: null };
     const action =

@@ -249,7 +249,7 @@ export function InboxThreadReader({
           ) : null}
           <UserAvatar name={participantName} src={thread.candidateAvatarUrl} size="md" className="mt-0.5 shrink-0" />
           <div className="min-w-0">
-            <h1 className="truncate text-[15px] font-semibold tracking-[-0.02em] text-foreground">{participantName}</h1>
+            <h1 className="truncate text-[15px] font-semibold tracking-[-0.02em] text-foreground">{thread.candidateId ? <Link href={`/dashboard/candidates/${thread.candidateId}`} className="underline-offset-4 hover:underline focus-visible:underline">{participantName}</Link> : participantName}</h1>
             <p className="mt-0.5 truncate text-xs text-muted-foreground">
               <span className="font-medium text-foreground/80">Email</span>
               {thread.participantEmail ? <span> · {thread.participantEmail}</span> : null}

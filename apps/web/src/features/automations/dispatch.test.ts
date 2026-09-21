@@ -28,7 +28,7 @@ vi.mock("@harly/db", () => ({
         const thenable: Promise<unknown> & {
           orderBy?: () => { limit: () => Promise<unknown> };
           limit?: () => Promise<unknown>;
-        } = Promise.resolve(dbState.workflows) as never;
+         } = Promise.resolve(dbState.workflows.map((workflow) => ({ ...workflow, trigger: { ...workflow.trigger, runtimeVersion: 2 } }))) as never;
         thenable.orderBy = () => ({
           limit: () =>
             Promise.resolve(
@@ -52,7 +52,7 @@ vi.mock("@harly/db", () => ({
           triggerPayload: row.triggerPayload,
           sourceEventId: row.sourceEventId as string | null | undefined,
         });
-        return { returning: () => Promise.resolve([{ id: `run-${row.workflowId}` }]) };
+        return { onConflictDoNothing: () => ({ returning: () => Promise.resolve([{ id: `run-${row.workflowId}` }]) }) };
       }),
     })),
     update: vi.fn(() => ({

@@ -44,12 +44,13 @@ export function AutomationsManager({
   const isEmpty = workflows.length === 0;
 
   function toggle(id: string, enabled: boolean, i: number) {
+    const previous = workflows[i]!;
     // Optimistic flip; revert on error.
     setWorkflows((prev) => prev.map((w, j) => (j === i ? { ...w, enabled, status: enabled ? "published" : "paused" } : w)));
     startTransition(async () => {
       const r = await toggleWorkflowAction(id, enabled);
       if (!r.ok) {
-        setWorkflows((prev) => prev.map((w, j) => (j === i ? { ...w, enabled: !enabled, status: enabled ? "paused" : "published" } : w)));
+        setWorkflows((prev) => prev.map((w, j) => (j === i ? previous : w)));
         toast.error(r.error ?? "Could not toggle.");
       }
     });

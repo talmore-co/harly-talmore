@@ -1479,6 +1479,8 @@ export async function sendBulkCandidateEmail(input: {
     if (!canonicalEnabled)
       await insertCanonicalMessage({
         workspaceId: workspace.id,
+        authorId: user.id,
+        origin: "member",
         source: "provider",
         candidateId: candidate.id,
         applicationId: applicationId ?? null,
@@ -1742,7 +1744,7 @@ export async function sendCandidateMessage(input: {
         error: parsed.error.issues[0]?.message ?? "Invalid message.",
       };
     }
-    const { organization: workspace } = await getWorkspaceContext();
+    const { organization: workspace, user } = await getWorkspaceContext();
     if (workspace.id !== input.workspaceId) {
       return { success: false, error: "Workspace access denied." };
     }
@@ -1864,6 +1866,8 @@ export async function sendCandidateMessage(input: {
 
     await insertCanonicalMessage({
       workspaceId: input.workspaceId,
+      authorId: user.id,
+      origin: "member",
       source: "provider",
       candidateId: input.candidateId,
       applicationId: latestApplication?.id ?? null,

@@ -218,7 +218,7 @@ function NavigationLink({
     <Link
       href={item.href}
       onClick={onNavigate}
-      aria-label={count > 0 ? `${item.label} (${count})` : item.label}
+      aria-label={count > 0 ? `${item.label} (${count})` : item.releaseLabel ? `${item.label} · ${item.releaseLabel}` : item.label}
       aria-current={active ? "page" : undefined}
       className={cn(
         "relative flex h-10 items-center rounded-xl text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -232,6 +232,7 @@ function NavigationLink({
       {!collapsed ? (
         <span className="min-w-0 flex-1 truncate">{item.label}</span>
       ) : null}
+      {!collapsed && item.releaseLabel ? <span className="shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">{item.releaseLabel}</span> : null}
       {count > 0 ? (
         <span
           aria-hidden
@@ -248,7 +249,7 @@ function NavigationLink({
   return collapsed ? (
     <Tooltip>
       <TooltipTrigger asChild>{link}</TooltipTrigger>
-      <TooltipContent side="right">{item.label}</TooltipContent>
+      <TooltipContent side="right">{item.label}{item.releaseLabel ? ` · ${item.releaseLabel}` : ""}</TooltipContent>
     </Tooltip>
   ) : (
     link

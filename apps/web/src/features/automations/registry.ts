@@ -1,11 +1,14 @@
 import "server-only";
 
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import {
   activityEvents,
   applications,
+  automationBookingInvitations,
+  personalCalEvents,
+  personalCalConnections,
   candidateNotes,
   candidateTags,
   candidates,
@@ -19,6 +22,7 @@ import { decryptSecret } from "@/lib/crypto";
 import { createLogger } from "@/lib/logger";
 import { safeFetchWebhook } from "@/lib/ssrf";
 import { notifyChatEvent } from "@/server/notify/dispatch";
+import { isWebhookEvent } from "@/server/webhooks/events";
 import { enqueueEmailOutbox } from "@/lib/email/outbox-processor";
 
 import type { ActionType, WorkflowEvent } from "./schema";
@@ -28,6 +32,10 @@ import {
   rejectApplicationForApi,
 } from "@/features/applications/service";
 import { assertTaskReferences } from "@/features/tasks/service";
+import { statusForStageName } from "@/features/pipeline/state";
+import { randomBytes } from "node:crypto";
+import { validateBookingPool } from "@/lib/cal/pool-hosts";
+import { applicationHasInterview, candidateMessageSchema, connectedBookingPool, loadActiveAutomationApplication, type CandidateMessageKind, type CandidateMessagePayload } from "./candidate-messages";
 
 /**
  * The workflow action registry (§2.5). Each entry maps an ActionType to:
@@ -68,6 +76,7 @@ export type ActionContext = {
   /** Current run id, propagated to domain events caused by this action. */
   runId: string;
   workflowId?: string;
+  definitionVersion?: number;
   maxExternalActionsPerMinute?: number;
 };
 
@@ -159,10 +168,10 @@ function asString(value: unknown): string | null {
 // ---------------------------------------------------------------------------
 
 const moveStageSchema = z.object({
-  toStageId: z.string().min(1),
+  toStageId: z.string().optional(),
   /** Optional: target by stage name instead of id (resolved per job). */
   toStageName: z.string().min(1).optional(),
-});
+}).refine((value) => Boolean(value.toStageId || value.toStageName), "Choose a target stage.");
 
 async function resolveStageId(
   workspaceId: string,
@@ -217,6 +226,13 @@ const moveStageHandler: ActionHandler<z.infer<typeof moveStageSchema>> = {
     const stageId = await resolveStageId(ctx.workspaceId, applicationId, input);
     if (!stageId) return { success: false, error: "Target stage not found for this job." };
 
+    const target = await loadActiveAutomationApplication(ctx.workspaceId, applicationId);
+    if (!target) return { success: true, data: { skipped: "Application is no longer active on an open job." } };
+    const [destination] = await db.select().from(jobStages).where(eq(jobStages.id, stageId));
+    const [current] = await db.select().from(jobStages).where(eq(jobStages.id, target.application.currentStageId));
+    if (!destination || statusForStageName(destination.name) !== "active") return { success: false, error: "Automations can only advance to active stages." };
+    if (current && current.order >= destination.order) return { success: true, data: { skipped: "Application already reached this stage." } };
+
     const updated = await moveApplicationStageForApi({
       workspaceId: ctx.workspaceId,
       applicationId,
@@ -224,6 +240,7 @@ const moveStageHandler: ActionHandler<z.infer<typeof moveStageSchema>> = {
       actorId: ctx.actorUserId,
       retryOnConflict: true,
       automationRunId: ctx.runId,
+      automationForwardOnly: true,
     });
 
     return {
@@ -459,7 +476,7 @@ const createTaskSchema = z.object({
 
 const createTaskHandler: ActionHandler<z.infer<typeof createTaskSchema>> = {
   schema: createTaskSchema,
-  requiresPermission: "collab:write",
+  requiresPermission: "tasks:write",
   label: "Create task",
   summarize: (input) => `Create task: ${input.title}`,
   async run(input, ctx) {
@@ -542,6 +559,7 @@ const sendSlackHandler: ActionHandler<z.infer<typeof sendSlackSchema>> = {
     // Slack/Discord channel receives a real Block Kit message. We emit using
     // the triggering event so emoji/labels match, with the custom text merged.
     const data = { ...ctx.triggerPayload, workflowMessage: input.message };
+    if (!isWebhookEvent(ctx.triggerEvent)) return { success: false, error: "This event does not support legacy chat delivery." };
     try {
       await notifyChatEvent(ctx.workspaceId, ctx.triggerEvent, data);
       return { success: true };
@@ -681,6 +699,9 @@ const httpRequestHandler: ActionHandler<z.infer<typeof httpRequestSchema>> = {
 // ---------------------------------------------------------------------------
 
 export const ACTION_REGISTRY: Partial<Record<ActionType, AnyActionHandler>> = {
+  send_booking_invitation: erase(candidateMessageHandler("send_booking_invitation")),
+  send_booking_followup: erase(candidateMessageHandler("send_booking_followup")),
+  send_interview_reminder: erase(candidateMessageHandler("send_interview_reminder")),
   move_stage: erase(moveStageHandler),
   set_status: erase(setStatusHandler),
   add_note: erase(addNoteHandler),
@@ -691,6 +712,54 @@ export const ACTION_REGISTRY: Partial<Record<ActionType, AnyActionHandler>> = {
   send_email: erase(sendEmailHandler),
   http_request: erase(httpRequestHandler),
 };
+
+function candidateMessageHandler(kind: CandidateMessageKind): ActionHandler<z.infer<typeof candidateMessageSchema>> {
+  return {
+    schema: candidateMessageSchema,
+    requiresPermission: "collab:write",
+    label: kind.replaceAll("_", " "),
+    summarize: (input) => input.subject,
+    async run(config, ctx) {
+      if (kind === "send_interview_reminder") return { success: true, data: { skipped: "Interview reminders are managed in Settings → Interviews." } };
+      const { applicationId } = targetFromTrigger(ctx.triggerPayload);
+      if (!applicationId || !ctx.workflowId || !ctx.definitionVersion) return { success: false, error: "This action needs an application workflow." };
+      const target = await loadActiveAutomationApplication(ctx.workspaceId, applicationId);
+      if (!target) return { success: true, data: { skipped: "Application unavailable or no longer active." } };
+      const payload: CandidateMessagePayload = { kind, workflowId: ctx.workflowId, definitionVersion: ctx.definitionVersion, applicationId, config: { ...config } };
+      let dedupeKey = ctx.effectKey;
+      if (kind === "send_booking_invitation") {
+        if (await applicationHasInterview(ctx.workspaceId, applicationId)) return { success: true, data: { skipped: "An interview already exists." } };
+        const events = await connectedBookingPool(ctx.workspaceId, config);
+        const event = events[0]!;
+        const locationFormat = await validateBookingPool(ctx.workspaceId, events.map((item) => item.id));
+        await db.insert(automationBookingInvitations).values({ workspaceId: ctx.workspaceId, applicationId, workflowId: ctx.workflowId, stageId: target.application.currentStageId, eventIds: events.map((item) => item.id), locationFormat, tokenSecret: randomBytes(32).toString("hex"), expiresAt: new Date(Date.now() + 90 * 86400000), definitionVersion: ctx.definitionVersion, durationMins: event.durationMins }).onConflictDoNothing({ target: [automationBookingInvitations.workspaceId, automationBookingInvitations.applicationId], where: sql`${automationBookingInvitations.tokenSecret} is not null` });
+        const [invitation] = await db.select().from(automationBookingInvitations).where(and(eq(automationBookingInvitations.workspaceId, ctx.workspaceId), eq(automationBookingInvitations.applicationId, applicationId), sql`${automationBookingInvitations.tokenSecret} is not null`));
+        if (!invitation) throw new Error("Could not record booking invitation.");
+        if (invitation.workflowId !== ctx.workflowId || invitation.bookingState !== "open" || invitation.definitionVersion !== ctx.definitionVersion) return { success: true, data: { skipped: "This application already has a booking invitation." } };
+        payload.invitationId = invitation.id;
+        dedupeKey = `booking-invitation:${invitation.id}`;
+      } else if (kind === "send_booking_followup") {
+        if (ctx.triggerEvent !== "booking.followup_due") return { success: false, error: "Booking follow-ups require the booking follow-up trigger." };
+        const invitationId = asString(ctx.triggerPayload.invitationId);
+        if (!invitationId) return { success: false, error: "No booking invitation in this event." };
+        const [row] = await db.select({ userId: personalCalConnections.userId }).from(automationBookingInvitations)
+          .leftJoin(personalCalEvents, eq(personalCalEvents.id, automationBookingInvitations.eventId))
+          .leftJoin(personalCalConnections, eq(personalCalConnections.id, personalCalEvents.connectionId))
+          .where(and(eq(automationBookingInvitations.id, invitationId), eq(automationBookingInvitations.workspaceId, ctx.workspaceId), eq(automationBookingInvitations.applicationId, applicationId)));
+        if (!row) return { success: true, data: { skipped: "Booking invitation no longer exists." } };
+        payload.invitationId = invitationId;
+        payload.config.interviewerId = row.userId ?? undefined;
+      } else {
+        if (ctx.triggerEvent !== "interview.reminder_due") return { success: false, error: "Interview reminders require the interview reminder trigger." };
+        payload.interviewId = asString(ctx.triggerPayload.interviewId) ?? undefined;
+        payload.scheduledAt = asString(ctx.triggerPayload.scheduledAt) ?? undefined;
+      }
+      const outboxId = await enqueueEmailOutbox(ctx.workspaceId, "automation.candidate", payload as unknown as Record<string, unknown>, dedupeKey, ctx.actorUserId);
+      if (kind === "send_booking_invitation" && payload.invitationId) await db.update(automationBookingInvitations).set({ outboxId }).where(and(eq(automationBookingInvitations.id, payload.invitationId), eq(automationBookingInvitations.workspaceId, ctx.workspaceId)));
+      return { success: true, data: { outboxId, queued: true } };
+    },
+  };
+}
 
 export function getActionHandler(type: ActionType): AnyActionHandler | undefined {
   return ACTION_REGISTRY[type];
