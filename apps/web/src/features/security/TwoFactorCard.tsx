@@ -109,7 +109,7 @@ export function TwoFactorCard({ enabled }: { enabled: boolean }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "harly-backup-codes.txt";
+    a.download = "talmore-backup-codes.txt";
     a.click();
     URL.revokeObjectURL(url);
   }

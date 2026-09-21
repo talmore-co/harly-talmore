@@ -351,7 +351,7 @@ export function ImportCandidatesDrawer({
     );
     const link = document.createElement("a");
     link.href = url;
-    link.download = "harly-candidate-import-template.csv";
+    link.download = "talmore-candidate-import-template.csv";
     link.click();
     URL.revokeObjectURL(url);
   }

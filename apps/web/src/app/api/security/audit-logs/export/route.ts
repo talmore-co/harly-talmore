@@ -123,7 +123,7 @@ export async function GET(request: Request) {
       ]),
     ];
 
-    const filename = `harly-audit-logs-${new Date().toISOString().slice(0, 10)}.csv`;
+    const filename = `talmore-audit-logs-${new Date().toISOString().slice(0, 10)}.csv`;
     return new Response(`\ufeff${toSafeCsv(rows)}`, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",

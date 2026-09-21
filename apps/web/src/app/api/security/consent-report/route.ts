@@ -56,5 +56,5 @@ export async function GET(request: Request) {
   if (format === "json") return NextResponse.json({ exportedAt: new Date().toISOString(), records: report }, { headers: { "Cache-Control": "private, no-store" } });
   const header = ["id", "candidate_id", "candidate_email", "application_id", "consent_type", "granted", "withdrawn_at", "ip_address", "created_at"];
   const csvRows = [header, ...report.map((row) => [String(row.id ?? ""), String(row.candidateId ?? ""), String(row.candidateEmail ?? ""), String(row.applicationId ?? ""), String(row.consentType ?? ""), String(row.granted), String(row.withdrawnAt ?? ""), String(row.ipAddress ?? ""), row.createdAt])];
-  return new Response(`\ufeff${toSafeCsv(csvRows)}`, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="harly-consent-report-${new Date().toISOString().slice(0, 10)}.csv"`, "Cache-Control": "private, no-store" } });
+  return new Response(`\ufeff${toSafeCsv(csvRows)}`, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="talmore-consent-report-${new Date().toISOString().slice(0, 10)}.csv"`, "Cache-Control": "private, no-store" } });
 }
