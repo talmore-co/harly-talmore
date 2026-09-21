@@ -253,6 +253,10 @@ integration("personal invitation pooled booking", () => {
             bookingFields: [
               { field: "name", variant: "fullName", required: true },
               { field: "email", required: true },
+              // Cal.com returns hidden default fields to the event owner even
+              // when they retain required: true in the settings.
+              { field: "title", required: true, hidden: true },
+              { field: "phone", required: true, hidden: true },
             ],
           };
         if (path.startsWith("/slots?"))
@@ -301,6 +305,19 @@ integration("personal invitation pooled booking", () => {
     if (actors?.length) await db.delete(user).where(inArray(user.id, actors));
   });
   const manualInput = () => ({ applicationId, interviewerIds: actors, interviewType: "technical" as const, operation: "create" as const, delivery: "copy" as const, requestId: randomUUID(), ...BOOKING_INVITATION_MESSAGE });
+
+  it("identifies visible required questions while ignoring hidden required defaults", async () => {
+    const original = provider.fetch.getMockImplementation()!;
+    provider.fetch.mockImplementation(async (...args: Parameters<typeof original>) => {
+      const result = await original(...args);
+      if (args[1].startsWith("/event-types/")) {
+        result.bookingFields.push({ field: "custom", slug: "portfolio", label: "Portfolio URL", required: true, hidden: false });
+      }
+      return result;
+    });
+    await expect(validateBookingPool(workspaceId, events)).rejects.toThrow('"Portfolio URL" is required');
+    expect(created).toBeNull();
+  });
 
   it("loads, emails and reconciles booking for stored application IDs with non-RFC UUID bits", async () => {
     await db.delete(automationBookingInvitations).where(eq(automationBookingInvitations.id, invitationId));

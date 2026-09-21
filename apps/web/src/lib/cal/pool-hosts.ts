@@ -61,6 +61,9 @@ const eventSchema = z.object({
     z.object({
       field: z.string(),
       required: z.boolean().optional(),
+      hidden: z.boolean().optional(),
+      label: z.string().optional(),
+      slug: z.string().optional(),
       variant: z.string().optional(),
     }),
   ),
@@ -105,20 +108,21 @@ export async function validatePoolHost(
     throw new Error(
       "This Cal.com event requires a booking flow Talmore does not support. Use a free, non-recurring, single-attendee event without proposals or Cal.com email verification.",
     );
-  if (
-    event.bookingFields.some(
-      (field) =>
-        field.required &&
-        !["name", "email", "location", "rescheduleReason"].includes(
-          field.field,
-        ),
-    ) ||
-    event.bookingFields.some(
-      (field) => field.field === "name" && field.variant === "splitName",
-    )
-  )
+  const unsupportedField = event.bookingFields.find(
+    (field) =>
+      !field.hidden &&
+      field.required &&
+      !["name", "email", "location", "rescheduleReason"].includes(field.field),
+  );
+  if (unsupportedField)
     throw new Error(
-      "Use a full-name Cal.com booking form without additional required questions or phone fields.",
+      `The Cal.com booking field "${unsupportedField.label || unsupportedField.slug || unsupportedField.field}" is required. Talmore cannot collect this field yet. Make it optional or hide it in your Cal.com event settings.`,
+    );
+  if (event.bookingFields.some(
+    (field) => field.field === "name" && field.variant === "splitName",
+  ))
+    throw new Error(
+      "This Cal.com event uses separate first and last name fields. Select the full-name format in your Cal.com event settings for Talmore booking.",
     );
   const location = event.locations[0];
   if (
