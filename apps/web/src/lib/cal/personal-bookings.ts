@@ -287,6 +287,9 @@ export async function syncPersonalCalBooking(
     if (!application)
       return { matched: false, event: null, interview: null, action: null };
     const pooledReference = z.object({ talmoreInvitationId: z.string().uuid(), talmoreBookingRequestId: z.string().uuid() }).safeParse(canonical.metadata);
+    const [pooledInvitation] = pooledReference.success && (signedApplicationId === application.id || mapped?.applicationId === application.id)
+      ? await tx.select().from(automationBookingInvitations).where(and(eq(automationBookingInvitations.id, pooledReference.data.talmoreInvitationId), eq(automationBookingInvitations.workspaceId, connection.workspaceId), eq(automationBookingInvitations.applicationId, application.id), eq(automationBookingInvitations.selectedEventId, subscriptionId), eq(automationBookingInvitations.bookingRequestId, pooledReference.data.talmoreBookingRequestId)))
+      : [];
     const rememberPooledBooking = async (state: "booking" | "confirmed" | "canceled") => {
       if (!pooledReference.success || !signedApplicationId && mapped?.applicationId !== application.id) return;
       await tx.update(automationBookingInvitations).set({ bookingUid: canonical.uid, bookingState: state, updatedAt: new Date() }).where(and(
@@ -389,7 +392,7 @@ export async function syncPersonalCalBooking(
       jobId: application.jobId,
       interviewerId: connection.userId,
       title: canonical.title,
-      type: "screening" as const,
+      type: existing?.type ?? pooledInvitation?.interviewType ?? "screening" as const,
       ...location,
       status:
         existing?.status === "completed" &&

@@ -1220,9 +1220,11 @@ export async function getCandidateProfile(candidateId: string) {
       };
     }
 
-    if (event.type.startsWith("interview.")) {
+    if (event.type.startsWith("interview.") || event.type.startsWith("booking_invitation.")) {
       const interviewLabels: Record<string, string> = {
         "interview.scheduled": "Interview scheduled",
+        "booking_invitation.created": "Awaiting candidate booking",
+        "booking_invitation.updated": "Booking invitation updated",
         "interview.canceled": "Interview canceled",
         "interview.completed": "Interview completed",
         "interview.rescheduled": "Interview rescheduled",

@@ -6,6 +6,10 @@ import {
   automationBookingInvitations,
   candidates,
   db,
+  emailOutbox,
+  activityEvents,
+  customRoles,
+  jobHiringTeam,
   interviews,
   jobs,
   jobStages,
@@ -18,6 +22,7 @@ import {
 } from "@harly/db";
 
 const provider = vi.hoisted(() => ({ fetch: vi.fn(), booking: vi.fn() }));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/features/workspaces/context", () => ({
   getWorkspaceContext: vi.fn(),
 }));
@@ -47,6 +52,11 @@ import { syncPersonalCalBooking } from "./personal-bookings";
 import { hasBookingReservation } from "./booking-reservations";
 import { validateBookingPool } from "./pool-hosts";
 import { CalApiError, type PersonalCalBooking } from "./personal-client";
+import { findBookingInvitation, invitationLink, prepareManualBookingMessage, saveManualBookingInvitation } from "@/features/interviews/booking-invitations";
+import { BOOKING_INVITATION_MESSAGE } from "@/features/automations/builder/message-defaults";
+import { inspectBulkBookingApplication, sendBulkBookingInvitations } from "@/features/interviews/bulk-booking-invitations";
+import { getBulkBookingInvitationOptions } from "@/features/interviews/booking-invitation-actions";
+import { getWorkspaceContext } from "@/features/workspaces/context";
 
 const integration =
   process.env.RUN_PERSONAL_CAL_INTEGRATION === "1" ? describe : describe.skip;
@@ -289,6 +299,152 @@ integration("personal invitation pooled booking", () => {
     if (workspaceId)
       await db.delete(organization).where(eq(organization.id, workspaceId));
     if (actors?.length) await db.delete(user).where(inArray(user.id, actors));
+  });
+  const manualInput = () => ({ applicationId, interviewerIds: actors, interviewType: "technical" as const, operation: "create" as const, delivery: "copy" as const, requestId: randomUUID(), ...BOOKING_INVITATION_MESSAGE });
+
+  it("loads, emails and reconciles booking for stored application IDs with non-RFC UUID bits", async () => {
+    await db.delete(automationBookingInvitations).where(eq(automationBookingInvitations.id, invitationId));
+    const parts = randomUUID().split("-");
+    parts[2] = `f${parts[2]!.slice(1)}`;
+    parts[3] = `7${parts[3]!.slice(1)}`;
+    const importedId = parts.join("-");
+    await db.update(applications).set({ id: importedId }).where(eq(applications.id, applicationId));
+    applicationId = importedId;
+    vi.mocked(getWorkspaceContext).mockResolvedValue({ roleKey: "owner", organization: { id: workspaceId }, user: { id: actors[0] } } as Awaited<ReturnType<typeof getWorkspaceContext>>);
+    expect((await getBulkBookingInvitationOptions([applicationId])).recipients[0]?.eligible).toBe(true);
+    expect((await inspectBulkBookingApplication(workspaceId, actors[0]!, applicationId)).eligible).toBe(true);
+    const results = await sendBulkBookingInvitations(workspaceId, actors[0]!, { ...manualInput(), applicationIds: [applicationId] });
+    expect(results[0]?.status).toBe("queued");
+    const [email] = await db.select().from(emailOutbox).where(eq(emailOutbox.workspaceId, workspaceId));
+    expect(await prepareManualBookingMessage(workspaceId, actors[0]!, email!.payload)).not.toBeNull();
+    const invitation = (await findBookingInvitation(workspaceId, applicationId))!;
+    const pageToken = invitationLink(invitation).split("#")[1]!;
+    await confirmPooledBooking(pageToken, start, "UTC");
+    expect((await db.select().from(interviews).where(eq(interviews.applicationId, applicationId)))[0]?.type).toBe("technical");
+  });
+
+  it("bulk queues one personal email per eligible application and retries without duplicates", async () => {
+    await db.delete(automationBookingInvitations).where(eq(automationBookingInvitations.id, invitationId));
+    const secondCandidateId = randomUUID(), secondApplicationId = randomUUID();
+    await db.insert(candidates).values({ id: secondCandidateId, workspaceId, firstName: "Second", lastName: "Fictional", email: `${secondCandidateId}@example.test` });
+    await db.insert(applications).values({ id: secondApplicationId, workspaceId, candidateId: secondCandidateId, jobId, currentStageId: stageId });
+    const inaccessible = randomUUID();
+    const input = { ...manualInput(), applicationIds: [applicationId, secondApplicationId, inaccessible, applicationId] };
+    const first = await sendBulkBookingInvitations(workspaceId, actors[0]!, input);
+    expect(first.map((row) => row.status)).toEqual(["queued", "queued", "skipped"]);
+    const rows = await db.select().from(emailOutbox).where(eq(emailOutbox.workspaceId, workspaceId));
+    expect(rows).toHaveLength(2);
+    const messages = await Promise.all(rows.map((row) => prepareManualBookingMessage(workspaceId, actors[0]!, row.payload)));
+    expect(new Set(messages.map((message) => message?.to)).size).toBe(2);
+    expect(new Set(messages.map((message) => message?.bodyHtml)).size).toBe(2);
+    const retry = await sendBulkBookingInvitations(workspaceId, actors[0]!, input);
+    expect(retry.map((row) => row.status)).toEqual(["queued", "queued", "skipped"]);
+    expect(await db.select().from(emailOutbox).where(eq(emailOutbox.workspaceId, workspaceId))).toHaveLength(2);
+    expect(await db.select().from(interviews).where(eq(interviews.workspaceId, workspaceId))).toHaveLength(0);
+  });
+
+  it("bulk preserves existing invitation ownership and reports ineligible applications", async () => {
+    const before = (await findBookingInvitation(workspaceId, applicationId))!;
+    expect((await inspectBulkBookingApplication(workspaceId, actors[0]!, applicationId)).eligible).toBe(false);
+    const result = await sendBulkBookingInvitations(workspaceId, actors[0]!, { ...manualInput(), applicationIds: [applicationId] });
+    expect(result[0]?.status).toBe("skipped");
+    expect((await findBookingInvitation(workspaceId, applicationId))?.workflowId).toBe(before.workflowId);
+    expect(await db.select().from(emailOutbox).where(eq(emailOutbox.workspaceId, workspaceId))).toHaveLength(0);
+    await db.update(applications).set({ status: "rejected" }).where(eq(applications.id, applicationId));
+    expect((await inspectBulkBookingApplication(workspaceId, actors[0]!, applicationId)).eligible).toBe(false);
+  });
+
+  it("bulk reports failed recipients without leaving partial invitations for invalid messages", async () => {
+    await db.delete(automationBookingInvitations).where(eq(automationBookingInvitations.id, invitationId));
+    const results = await sendBulkBookingInvitations(workspaceId, actors[0]!, { ...manualInput(), applicationIds: [applicationId], body: "{{candidate.privateField}}" });
+    expect(results[0]?.status).toBe("failed");
+    expect(await findBookingInvitation(workspaceId, applicationId)).toBeNull();
+    expect(await db.select().from(emailOutbox).where(eq(emailOutbox.workspaceId, workspaceId))).toHaveLength(0);
+  });
+
+  it("creates one manual link without email or interview, independent of workflow publication", async () => {
+    await db.delete(automationBookingInvitations).where(eq(automationBookingInvitations.id, invitationId));
+    const result = await saveManualBookingInvitation(workspaceId, actors[0]!, manualInput());
+    expect(result.outboxId).toBeNull();
+    expect(result.invitation.workflowId).toBeNull();
+    expect(await db.select().from(emailOutbox).where(eq(emailOutbox.workspaceId, workspaceId))).toHaveLength(0);
+    expect(await db.select().from(interviews).where(eq(interviews.workspaceId, workspaceId))).toHaveLength(0);
+    expect((await db.select().from(activityEvents).where(eq(activityEvents.workspaceId, workspaceId)))[0]?.type).toBe("booking_invitation.created");
+    await db.update(workflowDefinitions).set({ enabled: false }).where(eq(workflowDefinitions.id, workflowId));
+    const manualToken = invitationLink(result.invitation).split("#")[1]!;
+    expect((await getPooledBookingPage(manualToken)).slots).toEqual([start, later]);
+    await confirmPooledBooking(manualToken, start, "UTC");
+    const [interview] = await db.select().from(interviews).where(eq(interviews.applicationId, applicationId));
+    expect(interview?.type).toBe("technical");
+    const [app] = await db.select().from(applications).where(eq(applications.id, applicationId));
+    expect(app?.currentStageId).toBe(stageId);
+  });
+
+  it("reuses an automation link and requires an explicit version-checked update to take over", async () => {
+    const before = (await findBookingInvitation(workspaceId, applicationId))!;
+    await expect(saveManualBookingInvitation(workspaceId, actors[0]!, manualInput())).rejects.toThrow("already exists");
+    const reused = await saveManualBookingInvitation(workspaceId, actors[0]!, { ...manualInput(), operation: "reuse", expectedUpdatedAt: before.updatedAt.toISOString() });
+    expect(reused.invitation.workflowId).toBe(workflowId);
+    const updated = await saveManualBookingInvitation(workspaceId, actors[0]!, { ...manualInput(), operation: "update", interviewerIds: [actors[1]], expectedUpdatedAt: before.updatedAt.toISOString() });
+    expect(invitationLink(updated.invitation)).toBe(invitationLink(before));
+    expect(updated.invitation.eventIds).toEqual([events[1]]);
+    expect(updated.invitation.workflowId).toBeNull();
+    await expect(saveManualBookingInvitation(workspaceId, actors[0]!, { ...manualInput(), operation: "update", expectedUpdatedAt: before.updatedAt.toISOString() })).rejects.toThrow("changed");
+  });
+
+  it("queues only explicit email sends, deduplicates retries and suppresses stale messages", async () => {
+    const before = (await findBookingInvitation(workspaceId, applicationId))!;
+    const input = { ...manualInput(), operation: "reuse", delivery: "email", expectedUpdatedAt: before.updatedAt.toISOString() };
+    const first = await saveManualBookingInvitation(workspaceId, actors[0]!, input);
+    const retry = await saveManualBookingInvitation(workspaceId, actors[0]!, input);
+    expect(retry.outboxId).toBe(first.outboxId);
+    const [email] = await db.select().from(emailOutbox).where(eq(emailOutbox.id, first.outboxId!));
+    expect(email?.actorId).toBe(actors[0]);
+    const message = await prepareManualBookingMessage(workspaceId, actors[0]!, email!.payload);
+    expect(message?.subject).toBe("Choose an interview time for Fictional role");
+    expect(message?.bodyHtml).toContain("/book/interview#");
+    await saveManualBookingInvitation(workspaceId, actors[0]!, { ...manualInput(), operation: "update", expectedUpdatedAt: before.updatedAt.toISOString() });
+    expect(await prepareManualBookingMessage(workspaceId, actors[0]!, email!.payload)).toBeNull();
+  });
+
+  it("checks job-scoped permissions and revokes a manual link when its creator is suspended", async () => {
+    await db.delete(automationBookingInvitations).where(eq(automationBookingInvitations.id, invitationId));
+    await db.insert(customRoles).values({ workspaceId, key: "booking-tester", name: "Booking tester", permissions: ["collab:write"], scope: { jobAccess: "assigned", departments: [], regions: [] } });
+    await db.update(member).set({ role: "booking-tester" }).where(eq(member.userId, actors[0]!));
+    await expect(saveManualBookingInvitation(workspaceId, actors[0]!, manualInput())).rejects.toThrow("access");
+    await db.insert(jobHiringTeam).values({ workspaceId, jobId, userId: actors[0]! });
+    const result = await saveManualBookingInvitation(workspaceId, actors[0]!, manualInput());
+    const manualToken = invitationLink(result.invitation).split("#")[1]!;
+    expect((await getPooledBookingPage(manualToken)).state).toBe("open");
+    await db.update(member).set({ status: "suspended" }).where(eq(member.userId, actors[0]!));
+    await expect(getPooledBookingPage(manualToken)).rejects.toThrow("no longer available");
+  });
+
+  it("rejects manual pool changes once confirmation has started", async () => {
+    await db.update(automationBookingInvitations).set({ bookingState: "review" }).where(eq(automationBookingInvitations.id, invitationId));
+    const before = (await findBookingInvitation(workspaceId, applicationId))!;
+    await expect(saveManualBookingInvitation(workspaceId, actors[0]!, { ...manualInput(), operation: "update", expectedUpdatedAt: before.updatedAt.toISOString() })).rejects.toThrow("being confirmed");
+  });
+  it("serializes competing manual invitation creates without duplicate activity or email", async () => {
+    await db.delete(automationBookingInvitations).where(eq(automationBookingInvitations.id, invitationId));
+    const results = await Promise.allSettled(actors.map((actorId) => saveManualBookingInvitation(workspaceId, actorId, manualInput())));
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(await db.select().from(automationBookingInvitations).where(eq(automationBookingInvitations.applicationId, applicationId))).toHaveLength(1);
+    expect(await db.select().from(activityEvents).where(eq(activityEvents.workspaceId, workspaceId))).toHaveLength(1);
+    expect(await db.select().from(emailOutbox).where(eq(emailOutbox.workspaceId, workspaceId))).toHaveLength(0);
+  });
+  it("checks the email sender separately from invitation ownership and escapes candidate-facing content", async () => {
+    const before = (await findBookingInvitation(workspaceId, applicationId))!;
+    const sent = await saveManualBookingInvitation(workspaceId, actors[1]!, { ...manualInput(), operation: "reuse", delivery: "email", expectedUpdatedAt: before.updatedAt.toISOString(), body: "Hi {{candidate.firstName}}, <script>no HTML</script>" });
+    const [email] = await db.select().from(emailOutbox).where(eq(emailOutbox.id, sent.outboxId!));
+    expect((await prepareManualBookingMessage(workspaceId, actors[1]!, email!.payload))?.bodyHtml).toContain("&lt;script&gt;");
+    await db.update(member).set({ status: "suspended" }).where(eq(member.userId, actors[1]!));
+    expect(await prepareManualBookingMessage(workspaceId, actors[1]!, email!.payload)).toBeNull();
+    expect((await getPooledBookingPage(token)).state).toBe("open");
+    await db.update(member).set({ status: "active" }).where(eq(member.userId, actors[1]!));
+    await db.update(applications).set({ status: "rejected" }).where(eq(applications.id, applicationId));
+    expect(await prepareManualBookingMessage(workspaceId, actors[1]!, email!.payload)).toBeNull();
+    await expect(saveManualBookingInvitation(randomUUID(), actors[0]!, manualInput())).rejects.toThrow("access");
   });
   it("merges shared slots once and excludes ATS conflicts without hiding another free recruiter", async () => {
     expect((await getPooledBookingPage(token)).slots).toEqual([start, later]);

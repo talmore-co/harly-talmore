@@ -1,4 +1,5 @@
 "use client";
+import { useRangeSelection } from "@/components/ui/use-range-selection";
 import { useRejectionConfirmation } from "./useRejectionConfirmation";
 
 import { useMemo, useState, useTransition } from "react";
@@ -275,14 +276,7 @@ export function CandidatesTable({
     });
   }
 
-  function toggleOne(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
+  const toggleOne = useRangeSelection(filtered.map((row) => row.id), setSelected);
 
   const { confirmRejection, rejectionDialog } = useRejectionConfirmation();
 
@@ -724,7 +718,7 @@ export function CandidatesTable({
                   <div onClick={(e) => e.stopPropagation()}>
                     <Checkbox
                       checked={isSelected}
-                      onCheckedChange={() => toggleOne(row.id)}
+                      onClick={(event) => { event.preventDefault(); toggleOne(row.id, event.shiftKey); }}
                       aria-label={`Select ${row.fullName}`}
                     />
                   </div>

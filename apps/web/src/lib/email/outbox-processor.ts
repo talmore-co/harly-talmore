@@ -182,6 +182,8 @@ async function deliverRow(row: OutboxRow): Promise<boolean> {
         return await deliverInterviewEmail(row);
       case "interview.reminder":
         return await deliverInterviewReminder(row);
+      case "interview.booking_invitation":
+        return await deliverManualBookingInvitation(row);
       case "offer.withdrawn":
         return await deliverOfferWithdrawn(row);
       case "native.signature.invitation":
@@ -281,6 +283,23 @@ async function deliverInterviewReminder(row: OutboxRow): Promise<boolean> {
   const branding = await getWorkspaceEmailBranding(row.workspaceId);
   const replyTo = await getInboundReplyTo(row.workspaceId, message.applicationId);
   const delivered = await sendWorkspaceEmail(row.workspaceId, { to: message.to, subject: message.subject, replyTo: replyTo ?? undefined, react: createElement(CustomTemplateEmail, { bodyHtml: message.bodyHtml, companyName: branding.name, companyLogoUrl: branding.logoUrl ?? undefined, accentColor: branding.primaryColor ?? undefined, socialLinks: branding.socialLinks, hideBranding: true }), ...deliveryOptions(row) });
+  if (!delivered) { await markFailed(row.id, "No configured workspace email sender."); return false; }
+  await markSent(row.id, delivered);
+  await recordOutboundConversation({ workspaceId: row.workspaceId, toEmail: message.to, subject: message.subject, textBody: message.text, outboxRowId: row.id, candidateId: message.candidateId, applicationId: message.applicationId });
+  return true;
+}
+
+async function deliverManualBookingInvitation(row: OutboxRow): Promise<boolean> {
+  const { prepareManualBookingMessage } = await import("@/features/interviews/booking-invitations");
+  const { getInboundReplyTo } = await import("@/lib/email/inbound-token");
+  const message = row.actorId ? await prepareManualBookingMessage(row.workspaceId, row.actorId, row.payload) : null;
+  if (!message) {
+    await db.update(emailOutbox).set({ status: "canceled", lastError: "Booking invitation is no longer eligible.", lockedAt: null, lockedBy: null }).where(eq(emailOutbox.id, row.id));
+    return true;
+  }
+  const branding = await getWorkspaceEmailBranding(row.workspaceId);
+  const replyTo = await getInboundReplyTo(row.workspaceId, message.applicationId);
+  const delivered = await sendWorkspaceEmail(row.workspaceId, { to: message.to, subject: message.subject, replyTo: replyTo ?? undefined, react: createElement(CustomTemplateEmail, { bodyHtml: message.bodyHtml, companyName: branding.name, companyLogoUrl: branding.logoUrl ?? undefined, accentColor: branding.primaryColor ?? undefined, socialLinks: branding.socialLinks, hideBranding: true }), ...deliveryOptions(row) }, row.actorId ?? undefined);
   if (!delivered) { await markFailed(row.id, "No configured workspace email sender."); return false; }
   await markSent(row.id, delivered);
   await recordOutboundConversation({ workspaceId: row.workspaceId, toEmail: message.to, subject: message.subject, textBody: message.text, outboxRowId: row.id, candidateId: message.candidateId, applicationId: message.applicationId });
@@ -452,7 +471,7 @@ async function recordOutboundConversation(input: {
     const [outbox] = await db.select({ actorId: emailOutbox.actorId, kind: emailOutbox.kind }).from(emailOutbox).where(and(eq(emailOutbox.id, input.outboxRowId), eq(emailOutbox.workspaceId, input.workspaceId))).limit(1);
     await insertCanonicalMessage({
       authorId: outbox?.actorId ?? null,
-      origin: outbox?.kind.startsWith("automation.") ? "automation" : "system",
+      origin: outbox?.kind === "interview.booking_invitation" ? "member" : outbox?.kind.startsWith("automation.") ? "automation" : "system",
       workspaceId: input.workspaceId,
       source: "provider",
       mailboxId: null,

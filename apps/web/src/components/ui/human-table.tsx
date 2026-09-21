@@ -291,7 +291,7 @@ export function RowCheckbox({
   label,
 }: {
   checked: boolean;
-  onChange: (checked: boolean) => void;
+  onChange: (checked: boolean, shift?: boolean) => void;
   label: string;
 }) {
   return (
@@ -299,7 +299,7 @@ export function RowCheckbox({
       <input
         type="checkbox"
         checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
+        onChange={(event) => onChange(event.target.checked, "shiftKey" in event.nativeEvent && Boolean(event.nativeEvent.shiftKey))}
         className="peer sr-only"
       />
       <span

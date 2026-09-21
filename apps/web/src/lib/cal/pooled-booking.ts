@@ -8,14 +8,12 @@ import {
   db,
   interviews,
   personalCalEvents,
-  workflowDefinitions,
 } from "@harly/db";
-import { automationActorAllowed } from "@/features/automations/access";
+import { bookingInvitationAllowed } from "./invitation-access";
 import {
   applicationHasInterview,
   loadActiveAutomationApplication,
 } from "@/features/automations/candidate-messages";
-import { AUTOMATIONS_ENABLED } from "@/features/automations/status";
 import { lockInterviewerSchedule } from "@/features/interviews/booking-lock";
 import { personalCalApiKey } from "./personal";
 import {
@@ -40,7 +38,7 @@ const unavailable = () =>
 
 async function invitationContext(token: string) {
   const id = invitationIdFromToken(token);
-  if (!id || !AUTOMATIONS_ENABLED) throw unavailable();
+  if (!id) throw unavailable();
   const [invitation] = await db
     .select()
     .from(automationBookingInvitations)
@@ -52,28 +50,7 @@ async function invitationContext(token: string) {
     invitation.expiresAt.getTime() <= Date.now()
   )
     throw unavailable();
-  const [workflow] = await db
-    .select()
-    .from(workflowDefinitions)
-    .where(
-      and(
-        eq(workflowDefinitions.id, invitation.workflowId),
-        eq(workflowDefinitions.workspaceId, invitation.workspaceId),
-        isNull(workflowDefinitions.deletedAt),
-      ),
-    );
-  if (
-    !workflow?.enabled ||
-    workflow.status !== "published" ||
-    workflow.definitionVersion !== invitation.definitionVersion ||
-    !workflow.createdById ||
-    !(await automationActorAllowed(
-      invitation.workspaceId,
-      workflow.createdById,
-      "collab:write",
-    ))
-  )
-    throw unavailable();
+  if (!await bookingInvitationAllowed(invitation)) throw unavailable();
   const target = await loadActiveAutomationApplication(
     invitation.workspaceId,
     invitation.applicationId,
@@ -346,6 +323,7 @@ export async function confirmPooledBooking(
     if (!current || current.bookingState !== "open") return null;
     if (
       current.definitionVersion !== invitation.definitionVersion ||
+      current.revision !== invitation.revision ||
       current.durationMins !== invitation.durationMins ||
       JSON.stringify(current.eventIds) !== JSON.stringify(invitation.eventIds)
     )

@@ -1,4 +1,5 @@
 "use client";
+import { useRangeSelection } from "@/components/ui/use-range-selection";
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
@@ -99,14 +100,7 @@ export function PoolView({ candidates, openJobs = [] }: PoolViewProps) {
     return result;
   }, [candidates, search, sourceFilter]);
 
-  function toggleSelect(id: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
+  const toggleSelect = useRangeSelection(filtered.map((row) => row.candidateId), setSelectedIds);
 
   function toggleSelectAll() {
     if (selectedIds.size === filtered.length) {
@@ -300,7 +294,7 @@ export function PoolView({ candidates, openJobs = [] }: PoolViewProps) {
                 <td className="px-3 py-3">
                   <Checkbox
                     checked={selectedIds.has(candidate.candidateId)}
-                    onCheckedChange={() => toggleSelect(candidate.candidateId)}
+                    onClick={(event) => { event.preventDefault(); toggleSelect(candidate.candidateId, event.shiftKey); }}
                   />
                 </td>
                 <td className="px-3 py-3">

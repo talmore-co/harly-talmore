@@ -10,12 +10,12 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Link2, MapPin, Phone, Video } from "lucide-react";
+import { AlertTriangle, MapPin, Phone, Video } from "lucide-react";
 import { toast } from "@/lib/notification-island/toast";
 
 import { scheduleInterview } from "@/features/interviews/actions";
 import { checkAvailability } from "@/lib/gcal/availability";
-import { createCandidateCalLink } from "@/features/account/cal-actions";
+import { BookingInvitationForm } from "@/features/interviews/BookingInvitationForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -89,6 +89,9 @@ export function ScheduleDrawer({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [schedulingMode, setSchedulingMode] = useState<"time" | "booking">(
+    "time",
+  );
   const [applicationId, setApplicationId] = useState(
     applications[0]?.applicationId ?? "",
   );
@@ -112,13 +115,6 @@ export function ScheduleDrawer({
     () => (mode === "onsite" ? "Address" : "Meeting link"),
     [mode],
   );
-
-  const calLinkAvailable = hasApplication;
-  const [fallbackLink, setFallbackLink] = useState<{
-    applicationId: string;
-    interviewerId: string;
-    url: string;
-  } | null>(null);
 
   async function checkTimeAvailability(
     newDate: string,
@@ -168,35 +164,6 @@ export function ScheduleDrawer({
       if (request === availabilityRequest.current)
         setCheckingAvailability(false);
     }
-  }
-
-  function copyBookingLink() {
-    if (!applicationId || !interviewerId) {
-      toast.error("Select the role and interviewer below first.");
-      return;
-    }
-    startTransition(async () => {
-      try {
-        const result = await createCandidateCalLink({
-          applicationId,
-          interviewerId,
-        });
-        if (!result.ok) {
-          toast.error(result.error);
-          return;
-        }
-        try {
-          await navigator.clipboard.writeText(result.url);
-          setFallbackLink(null);
-          toast.success("Scheduling link copied. Send it to the candidate.");
-        } catch {
-          setFallbackLink({ applicationId, interviewerId, url: result.url });
-          toast.info("Select and copy the booking link below.");
-        }
-      } catch {
-        toast.error("Could not copy the scheduling link. Please try again.");
-      }
-    });
   }
 
   function reset() {
@@ -259,7 +226,7 @@ export function ScheduleDrawer({
       onOpenChange={setOpen}
       trigger={trigger}
       title="Schedule interview"
-      description="Set the date, time, and interviewers for this meeting."
+      description="Set a time or invite the candidate to choose one."
       footer={
         <>
           <Button
@@ -269,9 +236,11 @@ export function ScheduleDrawer({
           >
             Cancel
           </Button>
-          <Button onClick={submit} disabled={isPending || !hasApplication}>
-            {isPending ? "Scheduling…" : "Schedule"}
-          </Button>
+          {schedulingMode === "time" && (
+            <Button onClick={submit} disabled={isPending || !hasApplication}>
+              {isPending ? "Scheduling…" : "Schedule"}
+            </Button>
+          )}
         </>
       }
     >
@@ -282,6 +251,23 @@ export function ScheduleDrawer({
         </p>
       ) : (
         <div className="space-y-5">
+          <div
+            className="grid grid-cols-2 gap-2"
+            aria-label="Scheduling method"
+          >
+            <SegButton
+              active={schedulingMode === "time"}
+              onClick={() => setSchedulingMode("time")}
+            >
+              Set a time
+            </SegButton>
+            <SegButton
+              active={schedulingMode === "booking"}
+              onClick={() => setSchedulingMode("booking")}
+            >
+              Let candidate choose
+            </SegButton>
+          </div>
           {applications.length > 1 ? (
             <Field label="Role">
               <Select value={applicationId} onValueChange={setApplicationId}>
@@ -312,175 +298,152 @@ export function ScheduleDrawer({
             </p>
           )}
 
-          <Field label="Type">
-            <div className="grid grid-cols-3 gap-2">
-              {TYPES.map((t) => (
-                <SegButton
-                  key={t.key}
-                  active={type === t.key}
-                  onClick={() => setType(t.key)}
-                >
-                  {t.label}
-                </SegButton>
-              ))}
-            </div>
-          </Field>
-
-          <Field label="Mode">
-            <div className="grid grid-cols-3 gap-2">
-              {MODES.map((m) => (
-                <SegButton
-                  key={m.key}
-                  active={mode === m.key}
-                  onClick={() => setMode(m.key)}
-                >
-                  <m.icon className="size-4" strokeWidth={1.8} />
-                  {m.label}
-                </SegButton>
-              ))}
-            </div>
-          </Field>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Date" htmlFor="schedule-date">
-              <DatePicker
-                id="schedule-date"
-                value={date}
-                onChange={(value) => {
-                  setDate(value);
-                  checkTimeAvailability(value, time, durationMins);
-                }}
-              />
-            </Field>
-            <Field label="Time" htmlFor="schedule-time">
-              <TimePicker
-                id="schedule-time"
-                value={time}
-                onChange={(value) => {
-                  setTime(value);
-                  checkTimeAvailability(date, value, durationMins);
-                }}
-              />
-            </Field>
-          </div>
-
-          {availabilityWarning ? (
-            <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2.5 text-sm text-amber-600 dark:text-amber-400">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-              <span>{availabilityWarning}</span>
-            </div>
-          ) : null}
-          {checkingAvailability ? (
-            <p className="text-xs text-muted-foreground">
-              Checking availability…
-            </p>
-          ) : null}
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Duration">
-              <Select
-                value={durationMins}
-                onValueChange={(value) => {
-                  setDurationMins(value);
-                  checkTimeAvailability(date, time, value);
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DURATIONS.map((d) => (
-                    <SelectItem key={d} value={String(d)}>
-                      {d} min
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Interviewer">
-              <Select
-                value={interviewerId || "unassigned"}
-                onValueChange={(value) => {
-                  const newId = value === "unassigned" ? "" : value;
-                  setInterviewerId(newId);
-                  if (date && time) {
-                    checkTimeAvailability(date, time, durationMins, newId);
-                  }
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {members.map((m) => (
-                    <SelectItem key={m.userId} value={m.userId}>
-                      {m.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
-
-          <Field label={locationLabel} htmlFor="schedule-location">
-            <Input
-              id="schedule-location"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder={
-                mode === "onsite"
-                  ? "Office address…"
-                  : "https://meet.google.com/…"
-              }
+          {schedulingMode === "booking" ? (
+            <BookingInvitationForm
+              key={applicationId}
+              applicationId={applicationId}
             />
-          </Field>
+          ) : (
+            <>
+              <Field label="Type">
+                <div className="grid grid-cols-3 gap-2">
+                  {TYPES.map((t) => (
+                    <SegButton
+                      key={t.key}
+                      active={type === t.key}
+                      onClick={() => setType(t.key)}
+                    >
+                      {t.label}
+                    </SegButton>
+                  ))}
+                </div>
+              </Field>
 
-          <Field label="Message to candidate" htmlFor="schedule-notes">
-            <Textarea
-              id="schedule-notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Joining instructions or preparation to share with the candidate…"
-              className="min-h-20"
-            />
-            <p className="text-xs text-muted-foreground">Included in the invitation and calendar event. Keep internal preparation in candidate notes.</p>
-          </Field>
-          {calLinkAvailable ? (
-            <div className="space-y-2.5 rounded-xl border border-primary/30 bg-accent/40 p-3.5">
-              <div className="flex items-center gap-2">
-                <Link2 className="size-4 text-primary" strokeWidth={1.8} />
-                <p className="text-[13px] font-medium tracking-tight">
-                  Or let the candidate self-schedule
-                </p>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {interviewerId
-                  ? `Copy a personal Cal.com link for ${members.find((member) => member.userId === interviewerId)?.name ?? "the selected interviewer"}. The booking syncs here automatically.`
-                  : "Choose an interviewer above to copy their personal Cal.com booking link."}
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full bg-card"
-                onClick={copyBookingLink}
-                disabled={isPending || !interviewerId || !applicationId}
-              >
-                <Link2 className="size-4" />
-                Copy booking link
-              </Button>
-              {fallbackLink?.applicationId === applicationId &&
-                fallbackLink.interviewerId === interviewerId && (
-                  <Input
-                    aria-label="Booking link to copy"
-                    readOnly
-                    value={fallbackLink.url}
-                    onFocus={(event) => event.currentTarget.select()}
+              <Field label="Mode">
+                <div className="grid grid-cols-3 gap-2">
+                  {MODES.map((m) => (
+                    <SegButton
+                      key={m.key}
+                      active={mode === m.key}
+                      onClick={() => setMode(m.key)}
+                    >
+                      <m.icon className="size-4" strokeWidth={1.8} />
+                      {m.label}
+                    </SegButton>
+                  ))}
+                </div>
+              </Field>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="Date" htmlFor="schedule-date">
+                  <DatePicker
+                    id="schedule-date"
+                    value={date}
+                    onChange={(value) => {
+                      setDate(value);
+                      checkTimeAvailability(value, time, durationMins);
+                    }}
                   />
-                )}
-            </div>
-          ) : null}
+                </Field>
+                <Field label="Time" htmlFor="schedule-time">
+                  <TimePicker
+                    id="schedule-time"
+                    value={time}
+                    onChange={(value) => {
+                      setTime(value);
+                      checkTimeAvailability(date, value, durationMins);
+                    }}
+                  />
+                </Field>
+              </div>
+
+              {availabilityWarning ? (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2.5 text-sm text-amber-600 dark:text-amber-400">
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                  <span>{availabilityWarning}</span>
+                </div>
+              ) : null}
+              {checkingAvailability ? (
+                <p className="text-xs text-muted-foreground">
+                  Checking availability…
+                </p>
+              ) : null}
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Duration">
+                  <Select
+                    value={durationMins}
+                    onValueChange={(value) => {
+                      setDurationMins(value);
+                      checkTimeAvailability(date, time, value);
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DURATIONS.map((d) => (
+                        <SelectItem key={d} value={String(d)}>
+                          {d} min
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Interviewer">
+                  <Select
+                    value={interviewerId || "unassigned"}
+                    onValueChange={(value) => {
+                      const newId = value === "unassigned" ? "" : value;
+                      setInterviewerId(newId);
+                      if (date && time) {
+                        checkTimeAvailability(date, time, durationMins, newId);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                      {members.map((m) => (
+                        <SelectItem key={m.userId} value={m.userId}>
+                          {m.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
+
+              <Field label={locationLabel} htmlFor="schedule-location">
+                <Input
+                  id="schedule-location"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder={
+                    mode === "onsite"
+                      ? "Office address…"
+                      : "https://meet.google.com/…"
+                  }
+                />
+              </Field>
+
+              <Field label="Message to candidate" htmlFor="schedule-notes">
+                <Textarea
+                  id="schedule-notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Joining instructions or preparation to share with the candidate…"
+                  className="min-h-20"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Included in the invitation and calendar event. Keep internal
+                  preparation in candidate notes.
+                </p>
+              </Field>
+            </>
+          )}
         </div>
       )}
     </SidePanel>
@@ -521,6 +484,7 @@ function SegButton({
   return (
     <button
       type="button"
+      aria-pressed={active}
       onClick={onClick}
       className={cn(
         "flex items-center justify-center gap-1.5 rounded-xl border px-2 py-2.5 text-[13px] font-medium transition-colors",

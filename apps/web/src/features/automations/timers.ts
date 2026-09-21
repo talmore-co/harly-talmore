@@ -71,6 +71,7 @@ export async function dispatchWorkflowTimers(now = new Date()) {
         and(
           eq(automationBookingInvitations.workspaceId, definition.workspaceId),
           eq(automationBookingInvitations.bookingState, "open"),
+          isNotNull(automationBookingInvitations.workflowId),
           isNotNull(emailOutbox.sentAt),
           gte(emailOutbox.sentAt, new Date(lower.getTime() - offset)),
           lte(emailOutbox.sentAt, new Date(now.getTime() - offset)),

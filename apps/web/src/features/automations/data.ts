@@ -446,7 +446,7 @@ export async function publishWorkflow(input: {
     if (bookingPool) {
       // Keep already-sent personal URLs when the pool changes. In-flight bookings
       // retain their original host and version until reconciliation finishes.
-      await tx.update(automationBookingInvitations).set({ ...bookingPool, definitionVersion: row.definitionVersion, updatedAt: publishedAt }).where(and(eq(automationBookingInvitations.workspaceId, input.workspaceId), eq(automationBookingInvitations.workflowId, row.id), eq(automationBookingInvitations.bookingState, "open"), sql`${automationBookingInvitations.tokenSecret} is not null`));
+      await tx.update(automationBookingInvitations).set({ ...bookingPool, definitionVersion: row.definitionVersion, revision: sql`${automationBookingInvitations.revision} + 1`, updatedAt: publishedAt }).where(and(eq(automationBookingInvitations.workspaceId, input.workspaceId), eq(automationBookingInvitations.workflowId, row.id), eq(automationBookingInvitations.bookingState, "open"), sql`${automationBookingInvitations.tokenSecret} is not null`));
     }
     await tx
       .update(workflowDefinitionVersions)

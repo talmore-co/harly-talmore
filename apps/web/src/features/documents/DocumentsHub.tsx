@@ -1,4 +1,5 @@
 "use client";
+import { useRangeSelection } from "@/components/ui/use-range-selection";
 
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -212,14 +213,7 @@ export function DocumentsHub({
   const allInViewSelected =
     filteredIds.length > 0 && selectedInView.length === filteredIds.length;
 
-  function toggleSelected(id: string) {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
+  const toggleSelected = useRangeSelection(filteredIds, setSelectedIds);
   function toggleSelectAll() {
     setSelectedIds((current) => {
       if (allInViewSelected) {
@@ -606,7 +600,7 @@ export function DocumentsHub({
                       >
                         <Checkbox
                           checked={isSelected}
-                          onCheckedChange={() => toggleSelected(document.id)}
+                          onClick={(event) => { event.preventDefault(); toggleSelected(document.id, event.shiftKey); }}
                           aria-label={`Select ${document.name}`}
                         />
                       </span>
@@ -693,7 +687,7 @@ export function DocumentsHub({
                   >
                     <Checkbox
                       checked={isSelected}
-                      onCheckedChange={() => toggleSelected(document.id)}
+                      onClick={(event) => { event.preventDefault(); toggleSelected(document.id, event.shiftKey); }}
                       aria-label={`Select ${document.name}`}
                     />
                   </span>

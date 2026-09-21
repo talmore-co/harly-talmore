@@ -81,6 +81,7 @@ export async function prepareCandidateWorkflowMessage(workspaceId: string, actor
       if (!invitation.expiresAt || invitation.expiresAt.getTime() <= Date.now()) return null;
       const hosts = await loadInvitationHosts(workspaceId, invitation.eventIds);
       if (!hosts.some((host) => host.event.webhookId && host.connection.apiKeyCiphertext && host.event.durationMins === invitation.durationMins)) return null;
+      if (!invitation.workflowId) return null;
       const [source] = await db.select().from(workflowDefinitions).where(and(eq(workflowDefinitions.id, invitation.workflowId), eq(workflowDefinitions.workspaceId, workspaceId), isNull(workflowDefinitions.deletedAt)));
       if (!source?.enabled || source.status !== "published" || source.definitionVersion !== invitation.definitionVersion || !source.createdById || !await automationActorAllowed(workspaceId, source.createdById, "collab:write")) return null;
       link = `${getHarlyPublicOrigin()}/book/interview#${signBookingInvitation(invitation.id, invitation.tokenSecret)}`;

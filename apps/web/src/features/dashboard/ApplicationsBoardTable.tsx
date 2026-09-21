@@ -1,4 +1,5 @@
 "use client";
+import { useRangeSelection } from "@/components/ui/use-range-selection";
 
 import { useMemo, useState, useTransition } from "react";
 import type { Route } from "next";
@@ -85,14 +86,7 @@ export function ApplicationsBoardTable({
     );
   }
 
-  function toggleOne(id: string, checked: boolean) {
-    setSelected((current) => {
-      const next = new Set(current);
-      if (checked) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  }
+  const toggleOne = useRangeSelection(rows.map((row) => row.applicationId), setSelected);
 
   return (
     <section className="mt-6">
@@ -161,8 +155,8 @@ export function ApplicationsBoardTable({
                     <Td className="w-10 pl-2 pr-0">
                       <RowCheckbox
                         checked={isSelected}
-                        onChange={(checked) =>
-                          toggleOne(row.applicationId, checked)
+                        onChange={(checked, shift) =>
+                          toggleOne(row.applicationId, shift, checked)
                         }
                         label={`Select ${row.name}`}
                       />

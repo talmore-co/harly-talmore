@@ -21,7 +21,7 @@ type StageColumnProps = {
   /** Column position, so the header dot can show funnel progression. */
   index: number;
   total: number;
-  onSelect: (applicationId: string, selected: boolean) => void;
+  onSelect: (applicationId: string, selected: boolean, shift?: boolean) => void;
 };
 
 /**

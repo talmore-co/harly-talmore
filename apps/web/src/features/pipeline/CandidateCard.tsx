@@ -26,7 +26,7 @@ type CandidateCardProps = {
   selected: boolean;
   disabled?: boolean;
   dragDisabled?: boolean;
-  onSelect: (applicationId: string, selected: boolean) => void;
+  onSelect: (applicationId: string, selected: boolean, shift?: boolean) => void;
 };
 
 type CandidateCardOverlayProps = {
@@ -183,9 +183,7 @@ export function CandidateCard({
           <Checkbox
             checked={selected}
             disabled={disabled}
-            onCheckedChange={(checked) =>
-              onSelect(application.id, checked === true)
-            }
+            onClick={(event) => { event.preventDefault(); onSelect(application.id, !selected, event.shiftKey); }}
             aria-label={`Select ${fullName}`}
           />
         </span>

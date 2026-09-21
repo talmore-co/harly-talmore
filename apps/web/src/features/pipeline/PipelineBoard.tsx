@@ -1,4 +1,6 @@
 "use client";
+import { useRangeSelection } from "@/components/ui/use-range-selection";
+import { BulkBookingInvitationDrawer } from "@/features/interviews/BulkBookingInvitationDrawer";
 import { useRejectionConfirmation } from "@/features/candidates/useRejectionConfirmation";
 import { toast } from "@/lib/notification-island/toast";
 import { AttributionControls, matchesAttribution } from "./AttributionControls";
@@ -290,18 +292,10 @@ export function PipelineBoard({
     },
   };
 
-  function handleSelect(applicationId: string, selected: boolean) {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-
-      if (selected) {
-        next.add(applicationId);
-      } else {
-        next.delete(applicationId);
-      }
-
-      return next;
-    });
+  const selectRange = useRangeSelection(visibleStages.flatMap((stage) => (filteredColumns.get(stage.id) ?? []).map((row) => row.id)), setSelectedIds);
+  const selectMobileRange = useRangeSelection(mobileApplications.map((row) => row.id), setSelectedIds);
+  function handleSelect(applicationId: string, selected: boolean, shift = false) {
+    selectRange(applicationId, shift, selected);
   }
 
   function handleDragStart(event: DragStartEvent) {
@@ -559,6 +553,7 @@ export function PipelineBoard({
         {selectedApplications.length} selected
       </Badge>
       <div className="flex flex-wrap gap-2">
+        <BulkBookingInvitationDrawer applicationIds={selectedApplications.filter((row) => Array.from(filteredColumns.values()).some((rows) => rows.some((visible) => visible.id === row.id))).map((row) => row.id)} disabled={mutationPending} />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
           <Button variant="outline" size="sm" disabled={mutationPending}>
@@ -663,7 +658,7 @@ export function PipelineBoard({
               selected={selectedIds.has(application.id)}
               disabled={mutationPending}
               dragDisabled={scoreSort}
-              onSelect={handleSelect}
+              onSelect={(id, checked, shift) => selectMobileRange(id, shift, checked)}
             />
           ))}
           {mobileApplications.length === 0 ? (

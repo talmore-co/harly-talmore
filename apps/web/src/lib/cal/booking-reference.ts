@@ -2,9 +2,10 @@ import "server-only";
 
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
+import { databaseUuidSchema } from "@/lib/database-uuid";
 
 const referenceSchema = z.object({
-  applicationId: z.string().uuid(),
+  applicationId: databaseUuidSchema,
   subscriptionId: z.string().uuid(),
   expires: z.number().int(),
 });

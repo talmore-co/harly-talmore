@@ -41,6 +41,8 @@ import { Input } from "@/components/ui/input";
 import { ShortDateTime } from "@/lib/date-hydration";
 import { MetaAttributionBadge } from "./MetaAttributionBadge";
 import { cn } from "@/lib/utils";
+import { useRangeSelection } from "@/components/ui/use-range-selection";
+import { BulkBookingInvitationDrawer } from "@/features/interviews/BulkBookingInvitationDrawer";
 
 type PipelineListProps = {
   allJobs?: boolean;
@@ -125,14 +127,7 @@ export function PipelineList({
     });
   }
 
-  function toggleOne(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
+  const toggleOne = useRangeSelection(filtered.map((row) => row.id), setSelected);
 
   const selectedIds = useMemo(
     () => filtered.filter((a) => selected.has(a.id)).map((a) => a.id),
@@ -238,6 +233,7 @@ export function PipelineList({
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/25 bg-accent/40 px-3 py-2 duration-200 animate-in fade-in slide-in-from-top-1">
           <span className="text-sm font-medium">{selectedIds.length} selected</span>
           <div className="ml-auto flex flex-wrap gap-2">
+            <BulkBookingInvitationDrawer applicationIds={selectedIds} disabled={isPending} />
                <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button size="sm" variant="outline" disabled={isPending || moveStages.length === 0} title={allJobs && selectedJobIds.size > 1 ? "Select applications from one job to move stages" : undefined}>
@@ -312,7 +308,7 @@ export function PipelineList({
                 <div onClick={(e) => e.stopPropagation()}>
                   <Checkbox
                     checked={isSelected}
-                    onCheckedChange={() => toggleOne(a.id)}
+                    onClick={(event) => { event.preventDefault(); toggleOne(a.id, event.shiftKey); }}
                     aria-label={`Select ${fullName}`}
                   />
                 </div>
