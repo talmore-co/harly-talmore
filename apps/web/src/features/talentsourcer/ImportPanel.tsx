@@ -2,10 +2,9 @@
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useRangeSelection } from "@/components/ui/use-range-selection";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ImportSearchSelect } from "@/features/candidates/import/ImportSearchSelect";
 import { talentSourcerImportOptions, previewTalentSourcerImport, submitTalentSourcerImport } from "./actions";
 
 type Options = Extract<Awaited<ReturnType<typeof talentSourcerImportOptions>>, { ok: true }>;
@@ -44,7 +43,7 @@ export function TalentSourcerImportPanel({ jobId }: { jobId: string }) {
       } catch { setError("Could not load the preview. Try again."); }
     });
   }
-  const picker = (label: string, value: string, change: (value: string) => void, rows: Array<{ id: string; name?: string; title?: string }>) => <div className="space-y-2"><Label>{label}</Label><Select value={value} disabled={pending} onValueChange={value => { change(value); setPreview(null); }}><SelectTrigger aria-label={label} className="w-full"><SelectValue placeholder={`Choose ${label.toLowerCase()}`} /></SelectTrigger><SelectContent>{rows.map(row => <SelectItem key={row.id} value={row.id}>{row.name || row.title || row.id}</SelectItem>)}</SelectContent></Select></div>;
+  const picker = (label: string, value: string, change: (value: string) => void, rows: Array<{ id: string; name?: string; title?: string }>) => <ImportSearchSelect label={label} value={value} disabled={pending} preserveOrder={label === "Pipeline stage"} onChange={value => { change(value); setPreview(null); }} options={rows.map(row => ({ id: row.id, name: row.name || row.title || row.id }))} />;
   return <div className="space-y-4">
     <p className="text-sm text-muted-foreground">Review up to 50 candidates per page. Imports add candidates silently; they do not send messages or run application-created automations. Candidates without email can be imported.</p>
     {error && <div role="alert" className="space-y-2 text-sm"><p>{error}</p><Button variant="outline" onClick={() => setAttempt(value => value + 1)}>Retry connection</Button> <Link className="underline" href="/settings/integrations/talentsourcer">Connection settings</Link></div>}

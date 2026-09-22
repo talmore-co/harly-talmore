@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Download, FileSpreadsheet, Upload } from "lucide-react";
 import { TalentSourcerLogo } from "@/components/ui/icons/brands";
 import { TalentSourcerImportPanel } from "@/features/talentsourcer/ImportPanel";
+import { ImportSearchSelect } from "./ImportSearchSelect";
 import { toast } from "@/lib/notification-island/toast";
 
 import {
@@ -419,21 +420,7 @@ export function ImportCandidatesDrawer({
           </p>
         ) : (
           <div className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="import-job">Job</Label>
-              <Select value={jobId} onValueChange={setJobId}>
-                <SelectTrigger id="import-job" className="w-full">
-                  <SelectValue placeholder="Select a job" />
-                </SelectTrigger>
-                <SelectContent>
-                  {jobs.map((job) => (
-                    <SelectItem key={job.id} value={job.id}>
-                      {job.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <ImportSearchSelect label="Job" value={jobId} onChange={setJobId} options={jobs.map(job => ({ id: job.id, name: job.title }))} disabled={isPending} />
 
             <div className="space-y-2">
               <Label>Source</Label>
