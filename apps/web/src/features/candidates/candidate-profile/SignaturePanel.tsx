@@ -83,7 +83,7 @@ export function CandidateSignaturePanel({
           >
             Cancel
           </Button>
-          <Button onClick={submit} disabled={pending || !selected}>
+          <Button onClick={submit} disabled={pending || !selected || !candidateEmail}>
             {pending ? "Sending…" : "Send signing link"}
           </Button>
         </>
@@ -98,7 +98,7 @@ export function CandidateSignaturePanel({
             <div>
               <p className="text-sm font-medium">Recipient</p>
               <p className="mt-1 text-sm">{candidateName}</p>
-              <p className="text-xs text-muted-foreground">{candidateEmail}</p>
+              <p className="text-xs text-muted-foreground">{candidateEmail || "Add an email address before requesting a signature."}</p>
             </div>
           </div>
         </div>

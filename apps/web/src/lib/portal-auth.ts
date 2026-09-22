@@ -251,7 +251,7 @@ export async function resolvePortalSession(
       ),
     )
     .limit(1);
-  if (!row) return null;
+  if (!row?.email) return null;
   return {
     candidateId: row.candidateId,
     workspaceId: row.workspaceId,

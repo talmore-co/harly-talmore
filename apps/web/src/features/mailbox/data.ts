@@ -380,7 +380,7 @@ export async function getInboxData(input: {
     candidates: candidateRows.map((row) => ({
       id: row.id,
       name: `${row.firstName} ${row.lastName}`.trim(),
-      email: row.email,
+      email: row.email ?? "",
       avatarUrl: row.avatarUrl,
     })),
     applications: applicationRows,

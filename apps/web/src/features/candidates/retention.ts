@@ -174,6 +174,10 @@ export async function anonymizeCandidateForRetention(
       await tx.delete(evaluationJobs).where(eq(evaluationJobs.candidateId, candidateId));
       await tx.delete(candidateFiles).where(eq(candidateFiles.candidateId, candidateId));
       await tx.update(candidateMerges).set({ snapshot: {}, originalEmails: [] }).where(and(eq(candidateMerges.workspaceId, workspaceId), eq(candidateMerges.candidateId, candidateId)));
+      await tx.execute(sql`delete from talentsourcer_import_items where candidate_id = ${candidateId}::uuid and batch_id in (select id from talentsourcer_import_batches where workspace_id = ${workspaceId})`);
+      await tx.execute(sql`delete from talentsourcer_candidate_links where workspace_id = ${workspaceId} and candidate_id = ${candidateId}::uuid`);
+      await tx.execute(sql`delete from candidate_notes where workspace_id = ${workspaceId} and candidate_id = ${candidateId}::uuid and workflow_effect_id like 'talentsourcer:%'`);
+      await tx.execute(sql`update activity_events set metadata = '{"source":"talentsourcer","redacted":true}'::jsonb where workspace_id = ${workspaceId} and type = 'application.imported' and entity_id in (select id from applications where workspace_id = ${workspaceId} and candidate_id = ${candidateId}::uuid)`);
 
       const now = new Date();
       const [updated] = await tx

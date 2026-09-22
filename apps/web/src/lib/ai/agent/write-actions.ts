@@ -1145,6 +1145,7 @@ const HANDLERS = {
         )
         .limit(1);
       if (!candidate) return { success: false, error: "Candidate not found." };
+      if (!candidate.email) return { success: false, error: "Add an email address to this candidate before sending email." };
       if (
         candidate.email.trim().toLowerCase() !==
         input.toEmail.trim().toLowerCase()

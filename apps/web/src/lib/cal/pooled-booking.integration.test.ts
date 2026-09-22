@@ -306,6 +306,12 @@ integration("personal invitation pooled booking", () => {
   });
   const manualInput = () => ({ applicationId, interviewerIds: actors, interviewType: "technical" as const, operation: "create" as const, delivery: "copy" as const, requestId: randomUUID(), ...BOOKING_INVITATION_MESSAGE });
 
+  it("rejects an existing booking link before availability when the candidate email is removed", async () => {
+    await db.update(candidates).set({ email: null }).where(eq(candidates.id, candidateId));
+    await expect(getPooledBookingPage(token)).rejects.toThrow();
+    expect(provider.fetch).not.toHaveBeenCalled();
+  });
+
   it("identifies visible required questions while ignoring hidden required defaults", async () => {
     const original = provider.fetch.getMockImplementation()!;
     provider.fetch.mockImplementation(async (...args: Parameters<typeof original>) => {

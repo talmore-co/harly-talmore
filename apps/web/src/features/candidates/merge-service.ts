@@ -403,7 +403,7 @@ export async function mergeCandidateRecords(input: {
           sql`delete from candidate_portal_sessions where workspace_id = ${workspaceId} and candidate_id in (${source.id}::uuid, ${primary.id}::uuid)`,
         );
         await tx.execute(
-          sql`delete from candidate_portal_magic_links where workspace_id = ${workspaceId} and lower(email) in (${primary.email.toLowerCase()}, ${source.email.toLowerCase()})`,
+          sql`delete from candidate_portal_magic_links where workspace_id = ${workspaceId} and lower(email) in (${primary.email?.toLowerCase() ?? null}, ${source.email?.toLowerCase() ?? null})`,
         );
         await tx
           .delete(candidateDuplicateDismissals)
@@ -500,8 +500,8 @@ export async function mergeCandidateRecords(input: {
             sourceId: source.id,
             candidateId: primary.id,
             originalEmails: [
-              primary.email.toLowerCase(),
-              source.email.toLowerCase(),
+              primary.email?.toLowerCase() ?? "",
+              source.email?.toLowerCase() ?? "",
             ],
             snapshot: JSON.parse(JSON.stringify(snapshot)),
             actorId: context.user.id,

@@ -502,7 +502,7 @@ export function CandidateActionBar({
       candidateId={candidate.id}
       workspaceId={candidate.workspaceId}
       candidateName={name}
-      candidateEmail={candidate.email}
+      candidateEmail={candidate.email ?? ""}
       applications={applications}
       members={members}
       cal={cal}

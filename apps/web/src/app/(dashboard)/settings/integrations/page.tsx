@@ -1,4 +1,5 @@
 import { FileSpreadsheet } from "lucide-react";
+import { TalentSourcerLogo } from "@/components/ui/icons/brands";
 import type { ComponentType } from "react";
 
 import {
@@ -53,6 +54,7 @@ function svgBrand(slug: string, alt: string, variant = "default"): Logo {
 }
 
 const INTEGRATION_LOGOS: Record<IntegrationSlug, Logo> = {
+  talentsourcer: TalentSourcerLogo,
   meta: svgBrand("meta", "Meta"),
   cal: svgBrand("caldotcom", "Cal.com", "dark"),
   "google-calendar": svgBrand("google-calendar", "Google Calendar"),

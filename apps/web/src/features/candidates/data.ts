@@ -319,7 +319,7 @@ export async function listCandidates() {
       firstName: row.firstName,
       lastName: row.lastName,
       fullName: `${row.firstName} ${row.lastName}`,
-      email: row.email,
+      email: row.email ?? "",
       phone: row.phone,
       location: row.location,
       avatarUrl: row.avatarUrl,
@@ -447,7 +447,7 @@ export async function listCandidates() {
       firstName: candidate.firstName,
       lastName: candidate.lastName,
       fullName: candidate.fullName,
-      email: candidate.email,
+      email: candidate.email ?? "",
       phone: candidate.phone,
       location: candidate.location,
       avatarUrl: candidate.avatarUrl,
@@ -708,7 +708,7 @@ export async function listCandidateDirectory(
       firstName: row.firstName,
       lastName: row.lastName,
       fullName: `${row.firstName} ${row.lastName}`,
-      email: row.email,
+      email: row.email ?? "",
       phone: row.phone,
       location: row.location,
       avatarUrl: row.avatarUrl,
@@ -1089,6 +1089,7 @@ export async function getCandidateProfile(candidateId: string) {
 
   const activity: CandidateActivityItem[] = events.map((event) => {
     const mapped = (() => {
+    if (event.type === "application.imported") return { id: event.id, type: event.type, label: `Imported from TalentSourcer AI into ${applicationJobTitles.get(event.entityId) ?? "a job"}`, actorName: event.actorName, createdAt: event.createdAt };
     if (event.type === "application.created") {
       const jobTitle = applicationJobTitles.get(event.entityId) ?? "a job";
       const source = textFromMetadata(event.metadata, "source");
@@ -1501,7 +1502,7 @@ export async function listTrashedCandidates(): Promise<TrashedCandidateItem[]> {
   return rows.map((row) => ({
     id: row.id,
     fullName: `${row.firstName} ${row.lastName}`,
-    email: row.email,
+    email: row.email ?? "",
     githubUrl: row.githubUrl,
     deletedAt: row.deletedAt as Date,
   }));
@@ -2218,6 +2219,7 @@ export async function permanentlyDeleteCandidate(
           inArray(dsarRequests.status, ["pending", "processing", "blocked"]),
         ),
       );
+    await tx.execute(sql`delete from talentsourcer_import_items where candidate_id = ${candidateId}::uuid and batch_id in (select id from talentsourcer_import_batches where workspace_id = ${workspace.id})`);
     return tx
       .delete(candidates)
       .where(

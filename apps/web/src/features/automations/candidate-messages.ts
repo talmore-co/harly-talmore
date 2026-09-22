@@ -63,7 +63,7 @@ export async function prepareCandidateWorkflowMessage(workspaceId: string, actor
   const [workflow] = await db.select().from(workflowDefinitions).where(and(eq(workflowDefinitions.id, payload.workflowId), eq(workflowDefinitions.workspaceId, workspaceId), isNull(workflowDefinitions.deletedAt)));
   if (!workflow?.enabled || workflow.status !== "published" || workflow.definitionVersion !== payload.definitionVersion) return null;
   const target = await loadActiveAutomationApplication(workspaceId, payload.applicationId);
-  if (!target) return null;
+  if (!target?.candidate.email) return null;
   const config = candidateMessageSchema.parse(payload.config);
   let link = "";
   let interviewContext: Record<string, string> = {};

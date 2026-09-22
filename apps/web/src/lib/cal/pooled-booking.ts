@@ -55,7 +55,7 @@ async function invitationContext(token: string) {
     invitation.workspaceId,
     invitation.applicationId,
   );
-  if (!target || target.application.currentStageId !== invitation.stageId)
+  if (!target?.candidate.email || target.application.currentStageId !== invitation.stageId)
     throw unavailable();
   return { invitation, target };
 }
@@ -485,6 +485,7 @@ export async function confirmPooledBooking(
   try {
     // Recheck workflow, membership, stage and connection immediately before the provider write.
     const fresh = await invitationContext(token);
+    if (!fresh.target.candidate.email) throw unavailable();
     const [activeHost] = await loadInvitationHosts(invitation.workspaceId, [
       chosen.event.id,
     ]);

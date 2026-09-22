@@ -152,7 +152,7 @@ export async function getApplicationsBoard({
     applicationId: row.applicationId,
     candidateId: row.candidateId,
     name: `${row.firstName} ${row.lastName}`.trim(),
-    email: row.email,
+    email: row.email ?? "",
     avatarUrl: row.avatarUrl,
     jobId: row.jobId,
     jobTitle: row.jobTitle,

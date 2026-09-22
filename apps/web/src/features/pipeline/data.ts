@@ -356,6 +356,7 @@ export async function getPipelineData(
     selectedJob,
     applications: jobApplications.map(({ candidateGithubUrl, ...application }) => ({
       ...application,
+      candidateEmail: application.candidateEmail ?? "",
       assessmentCounts: assessmentsByApplication.get(application.id) ?? { strong: 0, mixed: 0, weak: 0 },
       isFeaturedReferral: featuredReferralCandidateIds.has(application.candidateId),
       evaluationSource:

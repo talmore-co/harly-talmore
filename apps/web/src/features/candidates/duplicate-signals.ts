@@ -40,7 +40,7 @@ export async function duplicateSuspects(
           first && last
             ? sql`lower(trim(${candidates.firstName})) = ${first} and lower(trim(${candidates.lastName})) = ${last}`
             : undefined,
-          sql`lower(trim(${candidates.email})) = ${target.email.trim().toLowerCase()}`,
+          target.email ? sql`lower(trim(${candidates.email})) = ${target.email.trim().toLowerCase()}` : undefined,
           phone.length >= 7
             ? sql`regexp_replace(coalesce(${candidates.phone}, ''), '[^0-9]', '', 'g') = ${phone}`
             : undefined,
@@ -81,13 +81,13 @@ export async function duplicateSuspects(
   return rows.map((row) => ({
     candidateId: row.id,
     fullName: `${row.firstName} ${row.lastName}`,
-    email: row.email,
+    email: row.email ?? "",
     reasons: [
       row.firstName.trim().toLowerCase() === first &&
       row.lastName.trim().toLowerCase() === last
         ? "Same full name"
         : null,
-      row.email.trim().toLowerCase() === target.email.trim().toLowerCase()
+      target.email && row.email?.trim().toLowerCase() === target.email.trim().toLowerCase()
         ? "Same email"
         : null,
       phone.length >= 7 && (row.phone ?? "").replace(/\D/g, "") === phone

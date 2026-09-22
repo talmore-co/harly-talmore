@@ -76,14 +76,14 @@ export async function detectCandidateDuplicatesForWorkspace(input: {
     target: {
       candidateId: target.id,
       fullName: `${target.firstName} ${target.lastName}`,
-      email: target.email,
+      email: target.email ?? "",
       headline: target.headline,
       skills: Array.isArray(target.skills) ? (target.skills as string[]) : [],
     },
     suspects: suspects.map((suspect) => ({
       candidateId: suspect.id,
       fullName: `${suspect.firstName} ${suspect.lastName}`,
-      email: suspect.email,
+      email: suspect.email ?? "",
       headline: suspect.headline,
       skills: Array.isArray(suspect.skills) ? (suspect.skills as string[]) : [],
     })),
@@ -101,7 +101,7 @@ export async function detectCandidateDuplicatesForWorkspace(input: {
         confidence: match.confidence,
         reason: match.reason,
         fullName: `${suspect.firstName} ${suspect.lastName}`,
-        email: suspect.email,
+        email: suspect.email ?? "",
       },
     ];
   });

@@ -21,7 +21,7 @@ export type EditableCandidate = {
   workspaceId: string;
   firstName: string;
   lastName: string;
-  email: string;
+  email: string | null;
   phone: string | null;
   address: string | null;
   location: string | null;
@@ -108,7 +108,7 @@ export function EditCandidateDrawer({
               <Field name="lastName" label="Last name" defaultValue={candidate.lastName} />
             </div>
           </div>
-          <Field name="email" label="Email" type="email" defaultValue={candidate.email} />
+          <Field name="email" label="Email (optional)" type="email" defaultValue={candidate.email ?? ""} />
           <Field name="headline" label="Headline" defaultValue={candidate.headline ?? ""} />
           <div className="grid grid-cols-2 gap-3">
             <Field name="phone" label="Phone" defaultValue={candidate.phone ?? ""} />

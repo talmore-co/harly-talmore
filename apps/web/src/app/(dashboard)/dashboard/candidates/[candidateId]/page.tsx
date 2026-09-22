@@ -67,6 +67,7 @@ export const dynamic = "force-dynamic";
 const SOURCE_LABEL: Record<string, string> = {
   public_form: "Job board",
   csv_import: "CSV import",
+  talentsourcer: "TalentSourcer AI",
   referral: "Referral",
   linkedin: "LinkedIn",
   career_page: "Career page",
@@ -81,6 +82,7 @@ const SOURCE_LABEL: Record<string, string> = {
 const SOURCE_ICON: Record<string, ReactNode> = {
   public_form: <Briefcase className="size-3.5" />,
   csv_import: <FileSpreadsheet className="size-3.5" />,
+  talentsourcer: <FileSpreadsheet className="size-3.5" />,
   referral: <Users className="size-3.5" />,
   linkedin: <LinkedinLogo className="size-3.5" />,
   career_page: <Globe className="size-3.5" />,
@@ -420,13 +422,13 @@ export default async function CandidateDetailPage({
 
                   {/* Contact + social , one compact inline row */}
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
-                    <RedactLink
+                    {candidate.email ? <RedactLink
                       href={`mailto:${candidate.email}`}
                       className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground"
                     >
                       <Mail className="size-4 shrink-0" strokeWidth={1.6} />
                       {candidate.email}
-                    </RedactLink>
+                    </RedactLink> : <span>No email</span>}
                     {candidate.phone ? (
                       <RedactLink
                         href={`tel:${candidate.phone}`}
@@ -565,7 +567,7 @@ export default async function CandidateDetailPage({
           <CandidateProfileTabs
             candidateId={candidate.id}
             workspaceId={workspaceId}
-            candidateEmail={candidate.email}
+            candidateEmail={candidate.email ?? ""}
             candidateName={fullName}
             candidatePhone={candidate.phone}
             candidateAddress={candidate.address ?? candidate.location}

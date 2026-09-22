@@ -55,7 +55,7 @@ export async function inspectBulkBookingApplication(
       eligible: false,
       reason: "Application is no longer available.",
     };
-  const reason = (await applicationHasInterview(workspaceId, applicationId))
+  const reason = !target.candidate.email ? "Add an email address before sending a booking invitation." : (await applicationHasInterview(workspaceId, applicationId))
     ? "An interview already exists."
     : (await findBookingInvitation(workspaceId, applicationId))
       ? "Already has a booking invitation. Manage it individually."

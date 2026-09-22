@@ -128,7 +128,7 @@ export async function getBookingInvitationOptions(applicationId: string) {
     applicationId,
   );
   const canInvite = Boolean(
-    target && !(await applicationHasInterview(workspaceId, applicationId)),
+    target?.candidate.email && !(await applicationHasInterview(workspaceId, applicationId)),
   );
   // Resolve saved events too: a recruiter's default can have changed since creation.
   const savedHosts = invitation
@@ -147,6 +147,7 @@ export async function getBookingInvitationOptions(applicationId: string) {
   return {
     currentUserId: context.user.id,
     canInvite,
+    cannotInviteReason: target && !target.candidate.email ? "Add an email address to this candidate before creating a booking invitation." : null,
     members: rows.map((row) => ({
       userId: row.userId,
       name: row.name,

@@ -122,6 +122,7 @@ export async function saveManualBookingInvitation(
     workspaceId,
     input.applicationId,
   );
+  if (target && !target.candidate.email) throw new Error("Add an email address to this candidate before creating a booking invitation.");
   if (
     !target ||
     (await applicationHasInterview(workspaceId, input.applicationId))

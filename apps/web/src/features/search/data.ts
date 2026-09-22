@@ -104,7 +104,7 @@ export async function searchWorkspace(query: string): Promise<SearchResults> {
     candidates: candidateRows.map((c) => ({
       id: c.id,
       name: `${c.firstName} ${c.lastName}`,
-      email: c.email,
+      email: c.email ?? "",
       headline: c.headline,
       avatarUrl: c.avatarUrl,
     })),

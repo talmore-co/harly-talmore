@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { TalentSourcerLogo } from "@/components/ui/icons/brands";
+import { TalentSourcerConnectionPanel } from "@/features/talentsourcer/ConnectionPanel";
+import { getTalentSourcerStatus } from "@/features/talentsourcer/actions";
 import { notFound, redirect } from "next/navigation";
 import type { Metadata, Route } from "next";
 import type { ComponentType, ReactNode } from "react";
@@ -67,6 +70,7 @@ function svgBrand(slug: string, alt: string, variant = "default"): Logo {
 }
 
 const DETAIL_LOGOS: Record<IntegrationSlug, Logo> = {
+  talentsourcer: TalentSourcerLogo,
   meta: svgBrand("meta", "Meta"),
   cal: svgBrand("caldotcom", "Cal.com", "dark"),
   "google-calendar": svgBrand("google-calendar", "Google Calendar"),
@@ -116,6 +120,7 @@ export default async function IntegrationDetailPage({
   if (integration.externalHref) redirect(integration.externalHref as Route);
 
   const { organization, role } = await getWorkspaceContext();
+  if (slug === "talentsourcer") return <div className="space-y-6"><Link href="/settings/integrations" className="text-sm underline">Integrations</Link><TalentSourcerConnectionPanel status={await getTalentSourcerStatus()} /></div>;
   if (slug === "meta") return <div className="space-y-6"><Link href="/settings/integrations" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground"><CaretLeftIcon className="size-4" />Integrations</Link><MetaPixelPanel settings={await getMyWorkspaceMetaSettings()} /></div>;
   const canEdit = role === "owner" || role === "admin";
 

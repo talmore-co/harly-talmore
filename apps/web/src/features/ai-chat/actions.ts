@@ -50,7 +50,7 @@ export async function getCandidateContextAction(candidateId: string): Promise<{
     ? {
         id: candidate.id,
         name: `${candidate.firstName} ${candidate.lastName}`.trim(),
-        email: candidate.email,
+        email: candidate.email ?? "",
       }
     : null;
 }

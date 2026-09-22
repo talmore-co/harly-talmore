@@ -72,6 +72,7 @@ const APPLICATION_SOURCE_META: Record<
 > = {
   public_form: { label: "Job board", icon: Briefcase },
   csv_import: { label: "CSV import", icon: FileSpreadsheet },
+  talentsourcer: { label: "TalentSourcer AI", icon: FileSpreadsheet },
   referral: { label: "Referral", icon: Users },
   linkedin: { label: "LinkedIn", icon: Briefcase },
   career_page: { label: "Career page", icon: Globe },
@@ -379,13 +380,13 @@ export function CandidateDetailsPanel({
               <DetailRow
                 label="Email"
                 value={
-                  <a
+                  email ? <a
                     href={`mailto:${email}`}
                     className="inline-flex items-center gap-2 break-all text-foreground transition-colors hover:text-primary"
                   >
                     <Mail className="size-3.5 shrink-0 text-muted-foreground" />
                     {email}
-                  </a>
+                  </a> : "No email"
                 }
               />
               {phone ? (

@@ -96,7 +96,7 @@ type PipelineEmail =
   | {
       type: "stage";
       applicationId: string;
-      candidateEmail: string;
+      candidateEmail: string | null;
       candidateName: string;
       jobTitle: string;
       stageName: string;
@@ -105,7 +105,7 @@ type PipelineEmail =
   | {
       type: "rejected";
       applicationId: string;
-      candidateEmail: string;
+      candidateEmail: string | null;
       candidateName: string;
       jobTitle: string;
       workspaceName: string;
@@ -132,6 +132,7 @@ async function sendPipelineEmails(
 
   const ids: string[] = [];
   for (const email of emails) {
+    if (!email.candidateEmail) continue;
     ids.push(
       await enqueueEmailOutbox(
         workspaceId,

@@ -119,7 +119,7 @@ export async function listInboundReplies(
     id: row.id,
     candidateId: row.candidateId,
     candidateName: `${row.candidateFirstName} ${row.candidateLastName}`.trim(),
-    candidateEmail: row.candidateEmail,
+    candidateEmail: row.candidateEmail ?? "",
     jobTitle: row.jobTitle,
     subject: row.subject,
     body: row.body,

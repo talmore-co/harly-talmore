@@ -771,7 +771,7 @@ export function CandidatesTable({
                       </div>
                       <p className="truncate text-sm text-muted-foreground">
                         {[row.role, row.location].filter(Boolean).join(" · ") ||
-                          row.email}
+                          row.email || "No email"}
                       </p>
                       {row.tags.length > 0 ? (
                         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">

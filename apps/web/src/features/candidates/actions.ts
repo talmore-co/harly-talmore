@@ -226,8 +226,8 @@ const optionalHttpsUrl = z
 
 const candidateUpdateSchema = z.object({
   firstName: z.string().trim().min(1, "First name is required."),
-  lastName: z.string().trim().min(1, "Last name is required."),
-  email: z.string().trim().email("Enter a valid email address."),
+  lastName: z.string().trim(),
+  email: z.union([z.literal(""), z.string().trim().email("Enter a valid email address.")]),
   phone: optionalText,
   address: optionalText,
   linkedinUrl: optionalHttpsUrl,
@@ -779,7 +779,7 @@ export async function updateCandidateProfile(input: {
         .set({
           firstName: parsed.data.firstName,
           lastName: parsed.data.lastName,
-          email: parsed.data.email.toLowerCase(),
+          email: parsed.data.email.toLowerCase() || null,
           phone: parsed.data.phone,
           address: parsed.data.address,
           linkedinUrl: parsed.data.linkedinUrl,
@@ -1410,6 +1410,7 @@ export async function sendBulkCandidateEmail(input: {
   let failed = 0;
 
   for (const candidate of rows) {
+    if (!candidate.email) { failed += 1; continue; }
     const values = {
       candidate_first_name: candidate.firstName,
       candidate_last_name: candidate.lastName,
@@ -1753,6 +1754,11 @@ export async function sendCandidateMessage(input: {
       return { success: false, error: "Candidate not found." };
     }
 
+    const [recipient] = await db.select({ email: candidates.email }).from(candidates).where(and(eq(candidates.id, input.candidateId), eq(candidates.workspaceId, input.workspaceId)));
+    if (!recipient?.email) return { success: false, error: "Add an email address to this candidate before sending email." };
+    const recipientEmail = recipient.email.trim().toLowerCase();
+    if (parsed.data.toEmail.trim().toLowerCase() !== recipientEmail) return { success: false, error: "The candidate email changed. Review the recipient before sending." };
+
     // Latest application for this candidate , used to route inbound replies
     // back to the right thread via a Reply-To token, when inbound is on.
     const [latestApplication] = await db
@@ -1811,7 +1817,7 @@ export async function sendCandidateMessage(input: {
         applicationId:
           explicitThread?.applicationId ?? latestApplication?.id ?? null,
         threadId: explicitThread?.id ?? null,
-        toEmail: parsed.data.toEmail,
+        toEmail: recipientEmail,
         subject: parsed.data.subject,
         textBody: parsed.data.body,
         htmlBody: parsed.data.html ?? null,
@@ -1844,7 +1850,7 @@ export async function sendCandidateMessage(input: {
     if (sender) {
       try {
         await sender.send({
-          to: parsed.data.toEmail,
+          to: recipientEmail,
           subject: parsed.data.subject,
           replyTo,
           messageId,
@@ -1871,13 +1877,13 @@ export async function sendCandidateMessage(input: {
       source: "provider",
       candidateId: input.candidateId,
       applicationId: latestApplication?.id ?? null,
-      participantEmail: parsed.data.toEmail,
+      participantEmail: recipientEmail,
       subject: parsed.data.subject,
       receivedAt: new Date(),
       messageId,
       direction: "outbound",
       fromEmail: process.env.EMAIL_FROM ?? "noreply@harly.local",
-      toEmails: [parsed.data.toEmail],
+      toEmails: [recipientEmail],
       textBody: parsed.data.body,
     });
     revalidatePath(`/dashboard/candidates/${input.candidateId}`);

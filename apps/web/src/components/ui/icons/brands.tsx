@@ -17,6 +17,10 @@ type IconProps = { className?: string };
 
 /* ── Integration brands ───────────────────────────────────────────────────── */
 
+export function TalentSourcerLogo({ className }: IconProps) {
+  return <img src="/talentsourcer-logo.png" alt="TalentSourcer AI" width={128} height={128} className={cn("size-5 rounded-sm object-contain", className)} aria-hidden="true" />;
+}
+
 const THESVG_BASE = "https://cdn.jsdelivr.net/gh/glincker/thesvg@main/public/icons";
 
 export function TheSvgLogo({

@@ -255,8 +255,7 @@ export function BookingInvitationForm({
       )}
       {!data.canInvite && (
         <p className="text-sm text-muted-foreground">
-          Self-booking needs an active application on an open job without an
-          existing interview. Manage existing interviews in the Interviews tab.
+          {data.cannotInviteReason || "Self-booking needs an active application on an open job without an existing interview. Manage existing interviews in the Interviews tab."}
         </p>
       )}
       {saved && (

@@ -61,7 +61,7 @@ const initialImportSource: ImportSource | undefined =
     importSource === "workable" ||
     importSource === "ashby" ||
     importSource === "lever" ||
-    importSource === "join"
+    importSource === "join" || importSource === "talentsourcer"
       ? importSource
       : undefined;
 

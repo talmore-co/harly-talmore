@@ -260,7 +260,7 @@ async function deliverCandidateWorkflowEmail(row: OutboxRow): Promise<boolean> {
   const { AUTOMATIONS_ENABLED } = await import("@/features/automations/status");
   const { prepareCandidateWorkflowMessage } = await import("@/features/automations/candidate-messages");
   const message = AUTOMATIONS_ENABLED && row.actorId ? await prepareCandidateWorkflowMessage(row.workspaceId, row.actorId, row.payload as import("@/features/automations/candidate-messages").CandidateMessagePayload) : null;
-  if (!message) {
+  if (!message?.to) {
     await db.update(emailOutbox).set({ status: "canceled", lastError: "Workflow or candidate message is no longer eligible.", lockedAt: null, lockedBy: null }).where(eq(emailOutbox.id, row.id));
     return true;
   }
@@ -276,7 +276,7 @@ async function deliverInterviewReminder(row: OutboxRow): Promise<boolean> {
   const { prepareInterviewReminder } = await import("@/features/interviews/reminders");
   const { getInboundReplyTo } = await import("@/lib/email/inbound-token");
   const message = await prepareInterviewReminder(row.workspaceId, row.payload);
-  if (!message) {
+  if (!message?.to) {
     await db.update(emailOutbox).set({ status: "canceled", lastError: "Interview reminder is no longer eligible.", lockedAt: null, lockedBy: null }).where(eq(emailOutbox.id, row.id));
     return true;
   }
@@ -293,7 +293,7 @@ async function deliverManualBookingInvitation(row: OutboxRow): Promise<boolean> 
   const { prepareManualBookingMessage } = await import("@/features/interviews/booking-invitations");
   const { getInboundReplyTo } = await import("@/lib/email/inbound-token");
   const message = row.actorId ? await prepareManualBookingMessage(row.workspaceId, row.actorId, row.payload) : null;
-  if (!message) {
+  if (!message?.to) {
     await db.update(emailOutbox).set({ status: "canceled", lastError: "Booking invitation is no longer eligible.", lockedAt: null, lockedBy: null }).where(eq(emailOutbox.id, row.id));
     return true;
   }

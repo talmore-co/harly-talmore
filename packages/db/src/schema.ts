@@ -10,6 +10,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -1437,6 +1438,19 @@ export const applicationQuestions = pgTable(
   ],
 );
 
+// TalentSourcer connections are shared within a Talmore workspace. External
+// identity keys include the source organization so reconnecting cannot merge tenants.
+export const talentSourcerConnections = pgTable("talentsourcer_connections", {
+  workspaceId: text("workspace_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  organizationId: text("organization_id").notNull(),
+  organizationName: text("organization_name").notNull(),
+  token: jsonb("token").$type<{ ciphertext: string; iv: string; tag: string }>(),
+  connectedById: text("connected_by_id").references(() => user.id, { onDelete: "set null" }),
+  revision: uuid("revision").defaultRandom().notNull(),
+  checkedAt: timestamp("checked_at", { withTimezone: true }),
+  ...timestamps(),
+}, (table) => [primaryKey({ columns: [table.workspaceId, table.organizationId] })]);
+
 // Candidates and applications
 export const candidates = pgTable(
   "candidates",
@@ -1447,7 +1461,7 @@ export const candidates = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     firstName: text("first_name").notNull(),
     lastName: text("last_name").notNull(),
-    email: text("email").notNull(),
+    email: text("email"),
     phone: text("phone"),
     address: text("address"),
     location: text("location"),
@@ -1506,6 +1520,41 @@ export const candidates = pgTable(
     index("candidates_skills_idx").using("gin", table.skills),
   ],
 );
+
+export const talentSourcerCandidateLinks = pgTable("talentsourcer_candidate_links", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: text("workspace_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  organizationId: text("organization_id").notNull(),
+  externalCandidateId: text("external_candidate_id").notNull(),
+  candidateId: uuid("candidate_id").notNull().references(() => candidates.id, { onDelete: "cascade" }),
+  ...timestamps(),
+}, (table) => [uniqueIndex("talentsourcer_candidate_identity_idx").on(table.workspaceId, table.organizationId, table.externalCandidateId), index("talentsourcer_links_candidate_idx").on(table.workspaceId, table.candidateId)]);
+
+export const talentSourcerImportBatches = pgTable("talentsourcer_import_batches", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: text("workspace_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  actorId: text("actor_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  connectionRevision: uuid("connection_revision").notNull(),
+  organizationId: text("organization_id").notNull(),
+  jobId: uuid("job_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
+  stageId: uuid("stage_id").notNull().references(() => jobStages.id, { onDelete: "cascade" }),
+  source: jsonb("source").$type<{ projectId: string; sourceId: string; kind: "shortlist" | "interested" }>().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  ...timestamps(),
+}, (table) => [index("talentsourcer_batches_expiry_idx").on(table.expiresAt)]);
+
+export const talentSourcerImportItems = pgTable("talentsourcer_import_items", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: text("workspace_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  batchId: uuid("batch_id").notNull().references(() => talentSourcerImportBatches.id, { onDelete: "cascade" }),
+  externalCandidateId: text("external_candidate_id").notNull(),
+  candidateId: uuid("candidate_id").references(() => candidates.id, { onDelete: "set null" }),
+  applicationId: uuid("application_id").references(() => applications.id, { onDelete: "set null" }),
+  status: text("status").notNull().default("ready"),
+  reason: text("reason"),
+  profile: jsonb("profile").$type<Record<string, unknown>>().notNull(),
+  ...timestamps(),
+}, (table) => [uniqueIndex("talentsourcer_batch_candidate_idx").on(table.batchId, table.externalCandidateId), index("talentsourcer_items_candidate_idx").on(table.workspaceId, table.candidateId)]);
 
 /**
  * Durable candidate erasure queue. Database rows and object storage are two

@@ -263,6 +263,7 @@ integration("permanent candidate deletion", () => {
       .select({ email: candidates.email })
       .from(candidates)
       .where(eq(candidates.id, candidateId));
+    if (!email) throw new Error("Expected fixture email");
     await db.insert(candidatePortalMagicLinks).values({
       workspaceId: context.workspaceId,
       email,

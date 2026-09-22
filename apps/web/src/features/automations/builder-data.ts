@@ -82,7 +82,7 @@ export async function getBuilderData() {
     candidates: candidateRows.map((candidate) => ({
       id: candidate.id,
       name: `${candidate.firstName} ${candidate.lastName} · ${candidate.jobTitle}`,
-      email: candidate.email,
+      email: candidate.email ?? "",
     })),
   };
 }
@@ -112,7 +112,7 @@ export async function previewWorkflowPayload(input: {
       id: candidate.id,
       firstName: candidate.firstName,
       lastName: candidate.lastName,
-      email: candidate.email,
+      email: candidate.email ?? "",
     },
   };
   if (sample.applicationId) payload.application = { id: sample.applicationId, jobId: sample.jobId };

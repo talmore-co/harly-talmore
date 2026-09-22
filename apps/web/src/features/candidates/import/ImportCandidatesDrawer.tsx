@@ -4,6 +4,8 @@ import type { ComponentType } from "react";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Download, FileSpreadsheet, Upload } from "lucide-react";
+import { TalentSourcerLogo } from "@/components/ui/icons/brands";
+import { TalentSourcerImportPanel } from "@/features/talentsourcer/ImportPanel";
 import { toast } from "@/lib/notification-island/toast";
 
 import {
@@ -58,6 +60,7 @@ import { cn } from "@/lib/utils";
 export type ImportJobOption = { id: string; title: string };
 export type ImportSource =
   | "csv"
+  | "talentsourcer"
   | "greenhouse"
   | "workable"
   | "ashby"
@@ -74,6 +77,7 @@ type SourceOption = {
 };
 
 const IMPORT_SOURCE_OPTIONS: SourceOption[] = [
+  { value: "talentsourcer", label: "TalentSourcer AI", logo: TalentSourcerLogo, hint: "Shortlists & interested" },
   {
     value: "csv",
     label: "CSV file",
@@ -476,6 +480,7 @@ export function ImportCandidatesDrawer({
               </div>
             </div>
 
+            {source === "talentsourcer" && <TalentSourcerImportPanel key={jobId} jobId={jobId} />}
             {source === "csv" ? (
               <div className="space-y-2">
                 <Label htmlFor="import-file">CSV file</Label>

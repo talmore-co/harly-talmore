@@ -14,6 +14,7 @@ import {
 import { MailComposer, type ComposerTemplate } from "@/features/mailbox/MailComposer";
 import { Sheet, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 export type EmailTemplateOption = {
   id: string;
@@ -46,7 +47,7 @@ export function EmailDrawer({
   candidateId: string;
   threadId?: string | null;
   workspaceId: string;
-  email: string;
+  email: string | null;
   name: string;
   trigger: ReactNode;
   templates?: EmailTemplateOption[];
@@ -57,6 +58,7 @@ export function EmailDrawer({
   const firstName = name.trim().split(/\s+/)[0] || "there";
   const [open, setOpen] = useState(false);
   const [selectedDraftType, setSelectedDraftType] = useState<DraftType>("screening");
+  if (!email) return <span title="Add an email address to this candidate first."><Button variant="outline" size="sm" disabled>Email unavailable</Button></span>;
 
   const composerTemplates: ComposerTemplate[] = templates.map((template) => ({
     id: template.id,

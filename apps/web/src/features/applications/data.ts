@@ -558,7 +558,7 @@ export async function createPublicApplication(
         candidateId: candidate.id,
         jobId: job.id,
         jobTitle: job.title,
-        candidateEmail: candidate.email,
+        candidateEmail: values.email,
         candidateName: `${candidate.firstName} ${candidate.lastName}`,
       };
       createdDomainEvent.current = await persistDomainEvent(tx, {
@@ -579,7 +579,7 @@ export async function createPublicApplication(
         applicationId: application.id,
         candidateId: candidate.id,
         email: {
-          candidateEmail: candidate.email,
+          candidateEmail: values.email,
           candidateFirstName: candidate.firstName,
           candidateName: `${candidate.firstName} ${candidate.lastName}`,
           jobTitle: job.title,

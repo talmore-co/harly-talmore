@@ -1,4 +1,5 @@
 import "server-only";
+import { connectionStatus } from "@/features/talentsourcer/connection";
 
 import { getWorkspaceContext } from "@/features/workspaces/context";
 import type { getWorkspaceCalStatus } from "@/lib/cal/config";
@@ -25,6 +26,7 @@ import { getMetaStatus } from "@/lib/meta/conversions";
  */
 
 export type IntegrationCategory =
+  | "sourcing"
   | "calendar"
   | "advertising"
   | "communication"
@@ -33,6 +35,7 @@ export type IntegrationCategory =
   | "security";
 
 export type IntegrationSlug =
+  | "talentsourcer"
   | "cal"
   | "meta"
   | "google-calendar"
@@ -74,6 +77,7 @@ export type IntegrationDefinition = {
 };
 
 export const CATEGORY_LABELS: Record<IntegrationCategory, string> = {
+  sourcing: "Sourcing",
   advertising: "Advertising",
   calendar: "Calendar & scheduling",
   communication: "Communication",
@@ -83,6 +87,7 @@ export const CATEGORY_LABELS: Record<IntegrationCategory, string> = {
 };
 
 export const CATEGORY_ORDER: IntegrationCategory[] = [
+  "sourcing",
   "calendar",
   "communication",
   "automation",
@@ -92,6 +97,7 @@ export const CATEGORY_ORDER: IntegrationCategory[] = [
 ];
 
 export const INTEGRATIONS: IntegrationDefinition[] = [
+  { slug: "talentsourcer", name: "TalentSourcer AI", category: "sourcing", description: "Import shortlisted and interested candidates.", detail: "Connect your sourcing workspace and import candidates into a job pipeline.", tileClassName: "bg-muted text-foreground" },
   { slug: "meta", name: "Meta advertising", category: "advertising", description: "Track applications with Meta Pixel and Conversions API.", detail: "Connect browser and server conversion tracking for your recruiting campaigns.", tileClassName: "bg-blue-50 text-blue-600" },
   {
     slug: "cal",
@@ -322,6 +328,7 @@ export function getIntegration(
 }
 
 export type IntegrationStatuses = {
+  talentsourcer?: Awaited<ReturnType<typeof connectionStatus>>;
   meta?: Awaited<ReturnType<typeof getMetaStatus>>;
   cal: Awaited<ReturnType<typeof getWorkspaceCalStatus>>;
   gcal: Awaited<ReturnType<typeof getWorkspaceGCalStatus>>;
@@ -370,7 +377,7 @@ export async function getIntegrationStatuses(
       getWorkspaceCaptchaStatus(workspaceId),
       getMetaStatus(workspaceId),
     ]);
-  return { cal, gcal, slack, outlook, zoom, chat, telegram, jitsi, docuseal, captcha, meta };
+  return { cal, gcal, slack, outlook, zoom, chat, telegram, jitsi, docuseal, captcha, meta, talentsourcer: await connectionStatus(workspaceId) };
 }
 
 /** Resolve whether a given integration slug is currently connected. */
@@ -379,6 +386,7 @@ export function isConnected(
   statuses: IntegrationStatuses,
 ): boolean {
   switch (slug) {
+    case "talentsourcer": return Boolean(statuses.talentsourcer?.connected);
     case "meta":
       return Boolean(statuses.meta?.pixelId);
     case "cal":

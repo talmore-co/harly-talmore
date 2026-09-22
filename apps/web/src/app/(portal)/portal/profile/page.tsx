@@ -74,7 +74,7 @@ export default async function PortalProfilePage() {
         {/* Edit form */}
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-zinc-800 dark:bg-zinc-900">
           <h2 className="mb-5 text-sm font-semibold text-foreground">Edit profile</h2>
-          <PortalProfileForm profile={candidate} />
+          <PortalProfileForm profile={{ ...candidate, email: candidate.email ?? "" }} />
         </div>
         <PortalPrivacyControls erasureRequest={erasureRequest ?? null} />
       </div>

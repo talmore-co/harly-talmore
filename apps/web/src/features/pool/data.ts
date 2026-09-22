@@ -153,7 +153,7 @@ export async function listPoolCandidates(filters?: {
     candidateId: row.candidateId,
     firstName: row.firstName,
     lastName: row.lastName,
-    email: row.email,
+    email: row.email ?? "",
     avatarUrl: row.avatarUrl,
     avatarFallbackSrcs: candidateAvatarFallbackSrcs(row.email, row.githubUrl),
     headline: row.headline,

@@ -7,6 +7,7 @@ import { startCronRun } from "@/server/cron-runs";
 import { dispatchWorkflowTimers } from "@/features/automations/timers";
 import { reconcilePooledBookings } from "@/lib/cal/pooled-booking";
 import { dispatchInterviewReminders } from "@/features/interviews/reminders";
+import { expireTalentSourcerPreviews } from "@/features/talentsourcer/cleanup";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ export async function POST(request: NextRequest) {
     const timers = await dispatchWorkflowTimers();
     const bookings = await reconcilePooledBookings();
     const interviewReminders = await dispatchInterviewReminders();
+    await expireTalentSourcerPreviews();
     const counters = { ...result, automations, timers, bookings, interviewReminders };
     await run.finish("succeeded", counters);
     return NextResponse.json({ ok: true, ...counters });
