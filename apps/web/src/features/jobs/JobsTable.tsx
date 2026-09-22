@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/card";
 import { FilterPill, FILTER_ALL } from "@/components/ui/FilterPill";
 import { JobIdentity } from "@/features/jobs/JobIdentity";
 import { formatEmploymentType, formatWorkplaceType } from "@/lib/format";
+import { pipelineStageColor } from "@/features/pipeline/stage-color";
 
 export type JobRow = {
   clientId: string | null;
@@ -28,6 +29,7 @@ export type JobRow = {
   applicants: number;
   activeApplicants: number;
   newApplicants: number;
+  stages: { id: string; name: string; color: string | null; count: number }[];
   createdAt: Date;
 };
 
@@ -116,8 +118,6 @@ export function JobsTable({
       return b.createdAt.getTime() - a.createdAt.getTime();
     });
   }, [jobs, query, status, dept, employment, workplace, sortKey, showClient]);
-
-  const maxApplicants = Math.max(1, ...filtered.map((j) => j.applicants));
 
   const filtersActive =
     status !== FILTER_ALL ||
@@ -217,7 +217,7 @@ export function JobsTable({
         {filtered.map((job) => (
           <div
             key={job.id}
-            className="group grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3 px-4 py-4 transition-colors hover:bg-muted/40 sm:grid-cols-[minmax(0,1fr)_10rem_9rem_auto] sm:px-5"
+            className="group grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-3 px-4 py-5 transition-colors hover:bg-muted/20 sm:px-5 lg:grid-cols-[minmax(0,1fr)_auto_auto]"
           >
             <Link
               href={`/dashboard/jobs/${job.id}` as Route}
@@ -228,51 +228,35 @@ export function JobsTable({
                 department={job.department}
                 location={job.location}
               />
-              {showClient ? (
-                <p className="mt-1 truncate text-xs text-muted-foreground">
-                  {job.clientName ?? "No client assigned"}
-                </p>
-              ) : null}
+              <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground sm:pl-12">
+                {showClient && <><span>{job.clientName ?? "No client assigned"}</span><span aria-hidden="true">·</span></>}
+                <span>{formatEmploymentType(job.employmentType)}</span>
+                <span aria-hidden="true">·</span>
+                <span>{formatWorkplaceType(job.workplaceType)}</span>
+              </p>
             </Link>
 
-            <div className="hidden text-xs text-muted-foreground sm:block">
-              {formatEmploymentType(job.employmentType)}
-              <span className="mx-1 text-border">·</span>
-              {formatWorkplaceType(job.workplaceType)}
-            </div>
-
-            {/* Applicants , count + mini bar (the "graph") */}
-            <div className="hidden min-w-0 sm:block">
-              <div className="flex items-baseline justify-between gap-2">
+            <div className="col-span-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 lg:col-span-1 lg:pt-1">
+              <div className="flex items-baseline gap-3">
                 <span className="text-sm font-semibold tabular-nums">
-                  {job.applicants}
+                  {job.applicants} <span className="text-xs font-normal text-muted-foreground">{job.applicants === 1 ? "candidate" : "candidates"}</span>
                 </span>
                 {job.newApplicants > 0 ? (
                   <span className="text-[0.65rem] font-medium text-primary">
-                    +{job.newApplicants} new
+                    <span title="Added in the last 7 days">+{job.newApplicants} new</span>
                   </span>
                 ) : null}
               </div>
-              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-primary/70"
-                  style={{
-                    width: `${(job.applicants / maxApplicants) * 100}%`,
-                  }}
-                />
-              </div>
-              <p className="mt-1 text-[0.65rem] text-muted-foreground">
-                {job.applicants === 1 ? "Candidate" : "Candidates"}
-                {job.activeApplicants > 0
-                  ? ` · ${job.activeApplicants} active`
-                  : ""}
+              <p className="text-xs text-muted-foreground">
+                {job.activeApplicants} active
               </p>
             </div>
 
-            <div className="col-start-2 row-start-1 flex items-center justify-end gap-2 sm:col-auto sm:row-auto">
+            <div className="col-start-2 row-start-1 flex items-center justify-end gap-2 lg:col-auto lg:row-auto">
               <JobStatusBadge status={job.status} />
               <JobActionsMenu jobId={job.id} slug={job.slug} />
             </div>
+            {job.stages.length > 0 && <JobPipelineBreakdown job={job} />}
           </div>
         ))}
 
@@ -292,4 +276,20 @@ export function JobsTable({
       </Card>
     </div>
   );
+}
+
+function JobPipelineBreakdown({ job }: { job: JobRow }) {
+  const total = job.stages.reduce((sum, stage) => sum + stage.count, 0);
+  return <div className="col-span-full min-w-0 space-y-2.5 sm:pl-12" aria-label={`${job.title} pipeline breakdown`}>
+    <div className="flex h-1 max-w-5xl gap-0.5 overflow-hidden rounded-full" aria-hidden="true">
+      {total ? job.stages.filter(stage => stage.count > 0).map(stage => <div key={stage.id} className="min-w-1 rounded-full" style={{ flex: stage.count, backgroundColor: pipelineStageColor(stage) }} />) : <div className="w-full rounded-full bg-muted" />}
+    </div>
+    <div className="flex flex-wrap gap-1.5">
+      {job.stages.map(stage => <Link key={stage.id} href={`/dashboard/pipeline?jobId=${job.id}&stage=${encodeURIComponent(stage.name)}` as Route} className="inline-flex min-w-0 items-center gap-2 rounded-sm px-2.5 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`${job.title}: ${stage.name}, ${stage.count} candidates`}>
+        <span className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: pipelineStageColor(stage) }} />
+        <span>{stage.name}</span>
+        <span className={`font-semibold tabular-nums ${stage.count > 0 ? "text-foreground" : "text-muted-foreground"}`}>{stage.count}</span>
+      </Link>)}
+    </div>
+  </div>;
 }

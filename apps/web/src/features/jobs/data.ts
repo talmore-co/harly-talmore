@@ -23,6 +23,7 @@ import {
   applicationQuestions,
   applications,
   candidateReferrals,
+  candidates,
   clients,
   jobHiringTeam,
   jobStages,
@@ -219,7 +220,8 @@ export async function listJobsWithStats(clientId?: string) {
   // Bind as ISO string , the raw sql template can't parametrize a JS Date here.
   const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
 
-  return db
+  const visibleCandidate = exists(db.select({ id: candidates.id }).from(candidates).where(and(eq(candidates.id, applications.candidateId), eq(candidates.workspaceId, workspace.id), isNull(candidates.deletedAt))));
+  const rows = await db
     .select({
       id: jobs.id,
       title: jobs.title,
@@ -243,11 +245,30 @@ export async function listJobsWithStats(clientId?: string) {
       and(
         eq(applications.workspaceId, workspace.id),
         eq(applications.jobId, jobs.id),
+        visibleCandidate,
       ),
     )
     .where(and(where, isNull(jobs.deletedAt), clientId ? eq(jobs.clientId, clientId) : undefined))
     .groupBy(jobs.id, clients.name)
     .orderBy(desc(jobs.createdAt));
+
+  if (!rows.length) return [];
+  // One grouped query for all visible jobs, including empty and custom stages.
+  const stageRows = await db.select({
+    id: jobStages.id, jobId: jobStages.jobId, name: jobStages.name, color: jobStages.color,
+    count: sql<number>`count(${applications.id})::int`,
+  }).from(jobStages).leftJoin(applications, and(
+    eq(applications.workspaceId, workspace.id), eq(applications.jobId, jobStages.jobId),
+    eq(applications.currentStageId, jobStages.id), visibleCandidate,
+  )).where(and(eq(jobStages.workspaceId, workspace.id), inArray(jobStages.jobId, rows.map(row => row.id))))
+    .groupBy(jobStages.id).orderBy(asc(jobStages.order));
+  const byJob = new Map<string, typeof stageRows>();
+  for (const stage of stageRows) {
+    const stages = byJob.get(stage.jobId) ?? [];
+    stages.push(stage);
+    byJob.set(stage.jobId, stages);
+  }
+  return rows.map(row => ({ ...row, stages: byJob.get(row.id) ?? [] }));
 }
 
 /** Distinct department names across the workspace's jobs , for the combobox. */

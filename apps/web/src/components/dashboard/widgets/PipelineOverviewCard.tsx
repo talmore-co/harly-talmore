@@ -5,22 +5,7 @@ import { Button } from "@/components/ui/button";
 import type { PipelineOverview } from "@/features/dashboard/widgets";
 import { Tile, TileHeader, EmptyHint } from "./primitives";
 import { PipelineJobSelect } from "./PipelineJobSelect";
-
-// Color belongs to the stage, not its position in a job's pipeline.
-const LANE_COLORS: Record<string, string> = {
-  applied: "#8a8f98",
-  screening: "#5b8def",
-  interview: "#e8a33d",
-  submitted: "#a875e0",
-  offer: "#32a89b",
-  hired: "#c8f560",
-  rejected: "#d46b5e",
-  "rejected by client": "#b44f78",
-};
-
-function stageColor(stage: PipelineOverview["stages"][number]) {
-  return LANE_COLORS[stage.name.trim().toLowerCase()] ?? stage.color ?? "#8a8f98";
-}
+import { pipelineStageColor as stageColor } from "@/features/pipeline/stage-color";
 
 export function PipelineOverviewCard({
   data,
