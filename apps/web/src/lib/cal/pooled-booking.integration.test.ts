@@ -45,6 +45,7 @@ vi.mock("@/server/webhooks/emit", () => ({
 import {
   confirmPooledBooking,
   getPooledBookingPage,
+  POOLED_BOOKING_RELEASE_GRACE_MS,
   reconcilePooledBookings,
 } from "./pooled-booking";
 import { signBookingInvitation } from "./invitation-token";
@@ -577,6 +578,38 @@ integration("personal invitation pooled booking", () => {
     await reconcilePooledBookings();
     expect((await getPooledBookingPage(token)).state).toBe("review");
     expect(posts()).toHaveLength(2);
+  });
+  it("releases an unresolved reservation once the grace period passes without a provider booking", async () => {
+    loseResponse = true;
+    await confirmPooledBooking(token, start, "UTC");
+    created = null;
+    const [reserved] = await db
+      .select()
+      .from(automationBookingInvitations)
+      .where(eq(automationBookingInvitations.id, invitationId));
+    const reservation = {
+      workspaceId,
+      interviewerId: actors[events.indexOf(reserved.selectedEventId!)]!,
+      when: new Date(start),
+      durationMins: 30,
+    };
+    expect(await hasBookingReservation(db, reservation)).toBe(true);
+    await db
+      .update(automationBookingInvitations)
+      .set({
+        updatedAt: new Date(Date.now() - 120000),
+        bookingAttemptAt: new Date(
+          Date.now() - POOLED_BOOKING_RELEASE_GRACE_MS - 60000,
+        ),
+      })
+      .where(eq(automationBookingInvitations.id, invitationId));
+    await reconcilePooledBookings();
+    expect(await hasBookingReservation(db, reservation)).toBe(false);
+    expect((await getPooledBookingPage(token)).state).toBe("open");
+    loseResponse = false;
+    expect((await confirmPooledBooking(token, start, "UTC")).state).toBe(
+      "confirmed",
+    );
   });
   it("rejects tampered, expired and revoked invitations before looking up provider availability", async () => {
     await expect(
