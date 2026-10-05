@@ -114,3 +114,62 @@ describe("candidate permission scope without applications", () => {
     ).rejects.toThrow(/not assigned to a job|access/i);
   });
 });
+
+describe("candidate permission for department/region scoped roles", () => {
+  const regionPolicy = {
+    permissions: ["candidates:edit"],
+    scope: { jobAccess: "all", regions: ["EMEA"] },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getWorkspaceContext.mockResolvedValue({
+      organization: { id: WORKSPACE_ID },
+      user: { id: "recruiter-1" },
+      roleKey: "emea-recruiter",
+    });
+  });
+
+  /** Selects up to and including the candidate's application list. */
+  function queueCandidateLookup(applicationRows: unknown[]) {
+    mocks.select
+      .mockReturnValueOnce(makeSelectReturning([regionPolicy])) // permissions
+      .mockReturnValueOnce(makeSelectReturning([{ id: "candidate-1" }]))
+      .mockReturnValueOnce(makeSelectReturning([regionPolicy])) // policy
+      .mockReturnValueOnce(makeSelectReturning(applicationRows));
+  }
+
+  /** Selects made by the nested requireJobPermission for one application. */
+  function queueJobCheck(job: { department: string | null; region: string | null }) {
+    mocks.select
+      .mockReturnValueOnce(makeSelectReturning([regionPolicy])) // permissions
+      .mockReturnValueOnce(makeSelectReturning([regionPolicy])) // policy
+      .mockReturnValueOnce(makeSelectReturning([{ id: "job-1", ...job }]));
+  }
+
+  it("does not treat jobAccess=all as unrestricted when a region limit is set", async () => {
+    queueCandidateLookup([]);
+
+    await expect(
+      requireCandidatePermission("candidates:edit", "candidate-1"),
+    ).rejects.toThrow("Candidate is not assigned to a job.");
+  });
+
+  it("rejects a candidate whose only application is outside the role's region", async () => {
+    queueCandidateLookup([{ jobId: "job-1" }]);
+    queueJobCheck({ department: "Sales", region: "APAC" });
+
+    await expect(
+      requireCandidatePermission("candidates:edit", "candidate-1"),
+    ).rejects.toThrow("You do not have access to this candidate.");
+  });
+
+  it("allows a candidate with an application inside the role's region", async () => {
+    queueCandidateLookup([{ jobId: "job-1" }]);
+    queueJobCheck({ department: "Sales", region: "emea" });
+
+    await expect(
+      requireCandidatePermission("candidates:edit", "candidate-1"),
+    ).resolves.toMatchObject({ organization: { id: WORKSPACE_ID } });
+  });
+});

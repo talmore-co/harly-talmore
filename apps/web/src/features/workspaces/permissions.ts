@@ -66,6 +66,15 @@ export const unrestrictedRoleScope = (): RoleScope => ({
   regions: [],
 });
 
+/** True when a scope places no job, department or region limit on its role. */
+export function isUnrestrictedRoleScope(scope: RoleScope) {
+  return (
+    scope.jobAccess === "all" &&
+    scope.departments.length === 0 &&
+    scope.regions.length === 0
+  );
+}
+
 export function normalizeRoleScope(raw: unknown): RoleScope {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     return unrestrictedRoleScope();
