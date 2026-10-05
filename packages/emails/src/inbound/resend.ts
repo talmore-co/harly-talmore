@@ -76,18 +76,18 @@ function verifySignature(
 async function parse(
   rawBody: string,
   ctx: { apiKey?: string },
-): Promise<CanonicalInboundEmail> {
-  if (!ctx.apiKey) {
-    throw new Error("Resend inbound requires an API key to fetch the email body.");
-  }
-
+): Promise<CanonicalInboundEmail | null> {
   const payload = JSON.parse(rawBody) as {
     type: string;
     data: { email_id: string };
   };
 
-  if (payload.type !== "email.received") {
-    throw new Error(`Unexpected Resend webhook event: ${payload.type}`);
+  // The same endpoint may be subscribed to other event types. They are not
+  // inbound mail; rejecting them only makes the provider retry.
+  if (payload.type !== "email.received") return null;
+
+  if (!ctx.apiKey) {
+    throw new Error("Resend inbound requires an API key to fetch the email body.");
   }
 
   const resend = new Resend(ctx.apiKey);

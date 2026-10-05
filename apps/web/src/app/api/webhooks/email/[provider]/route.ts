@@ -48,6 +48,8 @@ export async function POST(
 
   try {
     const email = await adapter.parse(rawBody, { apiKey: config.resendApiKey });
+    // Not an inbound email. Acknowledge it so the provider does not retry.
+    if (!email) return NextResponse.json({ ok: true, skipped: "not an inbound email" });
     await processInboundEmail(email, workspaceId);
   } catch (error) {
     log.error(error, "inbound email processing failed");
