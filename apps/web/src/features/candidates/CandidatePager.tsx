@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { candidateProfileHref } from "@/features/candidates/directory-params";
 
 /**
  * Always-visible prev/next candidate navigation, next to "Back to
@@ -15,11 +16,14 @@ export function CandidatePager({
   nextId,
   position,
   total,
+  listQuery = "",
 }: {
   prevId: string | null;
   nextId: string | null;
   position: number | null;
   total: number;
+  /** Directory query string of the list being paged through. */
+  listQuery?: string;
 }) {
   const router = useRouter();
 
@@ -27,7 +31,7 @@ export function CandidatePager({
 
   function go(id: string | null) {
     if (!id) return;
-    router.push(`/dashboard/candidates/${id}` as Route);
+    router.push(candidateProfileHref(id, listQuery) as Route);
   }
 
   return (
