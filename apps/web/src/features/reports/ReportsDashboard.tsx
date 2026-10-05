@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { toSafeCsv } from "@/lib/csv";
+import { rejectionReasonLabel } from "@/features/pipeline/rejection-reasons";
 import { TrendChart } from "./charts";
 import { RecruiterReport } from "./RecruiterReport";
 import type { AgencyReportsData } from "./agency-data";
@@ -134,6 +135,9 @@ export function ReportsDashboard({ data }: { data: AgencyReportsData }) {
   );
   const submissions = data.records.filter((row) => period(row.submittedOn));
   const placements = data.records.filter((row) => period(row.placedOn));
+  const periodRejections = periodApplications.filter(
+    (row) => row.status === "rejected",
+  );
   const open = (title: string, rows: ReportRecord[]) =>
     setDetail({ title, rows });
   function href(changes: Partial<ReportFilters>) {
@@ -345,6 +349,13 @@ export function ReportsDashboard({ data }: { data: AgencyReportsData }) {
         row.label,
         row.count,
         data.submittedOutcomes[index].count,
+      ]),
+      [],
+      ["Rejection reason (internal)", "Rejected applications in cohort", "Share"],
+      ...data.rejectionReasons.map((row) => [
+        row.label,
+        row.count,
+        pct(row.count, periodRejections.length),
       ]),
       [],
       [
@@ -730,6 +741,28 @@ export function ReportsDashboard({ data }: { data: AgencyReportsData }) {
                 )
               }
             />
+          </Panel>
+          <Panel
+            title="Rejection reasons"
+            description="Rejected applications from the same cohort, by the internal reason recorded at rejection. Rejections without a reason count as Unspecified."
+          >
+            {periodRejections.length ? (
+              <OutcomeList
+                values={data.rejectionReasons}
+                total={periodRejections.length}
+                onClick={(label) =>
+                  open(
+                    `Rejected: ${label}`,
+                    periodRejections.filter(
+                      (row) =>
+                        rejectionReasonLabel(row.rejectionReason) === label,
+                    ),
+                  )
+                }
+              />
+            ) : (
+              <Empty>No rejected applications in this period.</Empty>
+            )}
           </Panel>
         </>
       ) : null}

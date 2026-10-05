@@ -283,7 +283,7 @@ const setStatusHandler: ActionHandler<z.infer<typeof setStatusSchema>> = {
 
     const [updated] = await db
       .update(applications)
-      .set({ status: input.status, updatedAt: new Date() })
+      .set({ status: input.status, rejectionReason: null, rejectionNote: null, updatedAt: new Date() })
       .where(
         and(
           eq(applications.workspaceId, ctx.workspaceId),
