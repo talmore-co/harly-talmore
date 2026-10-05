@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => {
     selectQueue,
     transactionImpl,
     requirePermission: vi.fn(),
+    requireJobPermission: vi.fn(),
+    requireCandidatePermission: vi.fn(),
     insertResults: [] as unknown[][],
   };
 });
@@ -55,6 +57,8 @@ vi.mock("@harly/db", () => {
 
 vi.mock("@/features/workspaces/permissions-server", () => ({
   requirePermission: mocks.requirePermission,
+  requireJobPermission: mocks.requireJobPermission,
+  requireCandidatePermission: mocks.requireCandidatePermission,
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
@@ -69,6 +73,8 @@ describe("F1-09 talent pool assignment", () => {
       user: { id: "user-1" },
       organization: { id: "ws-1" },
     });
+    mocks.requireJobPermission.mockReset().mockResolvedValue(undefined);
+    mocks.requireCandidatePermission.mockReset().mockResolvedValue(undefined);
     // Default success chain (assignFromPoolToJobAction has no pool check):
     // candidate exists, open job, no duplicate application, first stage present,
     // next order = 1.
@@ -135,6 +141,56 @@ describe("F1-09 talent pool assignment", () => {
 
     expect(result.success).toBe(true);
     expect(mocks.transactionImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("checks role scope for the target job and the candidate", async () => {
+    const context = await mocks.requirePermission();
+
+    await assignFromPoolToJobAction({
+      candidateId: "11111111-1111-4111-8111-111111111111",
+      jobId: "22222222-2222-4222-8222-222222222222",
+    });
+
+    expect(mocks.requireJobPermission).toHaveBeenCalledWith(
+      "candidates:edit",
+      "22222222-2222-4222-8222-222222222222",
+      context,
+    );
+    expect(mocks.requireCandidatePermission).toHaveBeenCalledWith(
+      "candidates:edit",
+      "11111111-1111-4111-8111-111111111111",
+      context,
+    );
+  });
+
+  it("does not assign into a job outside the actor's role scope", async () => {
+    mocks.requireJobPermission.mockRejectedValue(
+      new Error("You are not assigned to this job."),
+    );
+
+    const result = await assignFromPoolToJobAction({
+      candidateId: "11111111-1111-4111-8111-111111111111",
+      jobId: "22222222-2222-4222-8222-222222222222",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/does not have access/i);
+    expect(mocks.transactionImpl).not.toHaveBeenCalled();
+  });
+
+  it("does not assign a candidate outside the actor's role scope", async () => {
+    mocks.requireCandidatePermission.mockRejectedValue(
+      new Error("Candidate is not assigned to a job."),
+    );
+
+    const result = await assignFromPoolToJobAction({
+      candidateId: "11111111-1111-4111-8111-111111111111",
+      jobId: "22222222-2222-4222-8222-222222222222",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/does not have access/i);
+    expect(mocks.transactionImpl).not.toHaveBeenCalled();
   });
 
   it("rejects a duplicate application for the same job", async () => {
