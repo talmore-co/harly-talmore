@@ -231,6 +231,8 @@ async function deliverAutomationEmail(row: OutboxRow): Promise<boolean> {
     await markFailed(row.id, "Automation email payload is incomplete.");
     return false;
   }
+  const { assertCandidateContactAllowed } = await import("@/features/candidates/contact-restrictions");
+  await assertCandidateContactAllowed(row.workspaceId, { candidateId: payload.candidateId ?? undefined, email: payload.to });
   const delivered = await sendWorkspaceEmail(row.workspaceId, {
     to: payload.to,
     subject: payload.subject,

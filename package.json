@@ -20,10 +20,10 @@
     "docs:a11y": "pnpm --dir apps/docs a11y",
     "generate:openapi": "pnpm --filter web generate:openapi",
     "clean": "rm -rf .next .turbo apps/*/.next apps/*/dist packages/*/dist tooling/*/dist",
-    "db:up": "docker compose -f tooling/docker/compose.dev.yml up -d",
-    "db:down": "docker compose -f tooling/docker/compose.dev.yml down",
+    "db:up": "docker compose --env-file .env.local -f tooling/docker/compose.dev.yml up -d --wait",
+    "db:down": "docker compose --env-file .env.local -f tooling/docker/compose.dev.yml down",
     "db:generate": "pnpm --filter @harly/db db:generate",
-    "db:migrate": "pnpm --filter @harly/db db:migrate",
+    "db:migrate": "DOTENV_CONFIG_PATH=.env.local node -r dotenv/config ./node_modules/drizzle-kit/bin.cjs migrate --config packages/db/drizzle.config.ts",
     "db:studio": "pnpm --filter @harly/db db:studio",
     "db:push": "pnpm --filter @harly/db db:push",
     "db:seed": "pnpm --filter @harly/db db:seed"

@@ -2220,6 +2220,8 @@ export async function permanentlyDeleteCandidate(
         ),
       );
     await tx.execute(sql`delete from talentsourcer_import_items where candidate_id = ${candidateId}::uuid and batch_id in (select id from talentsourcer_import_batches where workspace_id = ${workspace.id})`);
+    const { eraseRecruitCrmCandidate } = await import("@/features/recruitcrm/cleanup");
+    await eraseRecruitCrmCandidate(tx, workspace.id, candidateId);
     return tx
       .delete(candidates)
       .where(

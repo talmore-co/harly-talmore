@@ -73,6 +73,7 @@ const APPLICATION_SOURCE_META: Record<
   public_form: { label: "Job board", icon: Briefcase },
   csv_import: { label: "CSV import", icon: FileSpreadsheet },
   talentsourcer: { label: "TalentSourcer AI", icon: FileSpreadsheet },
+  recruitcrm: { label: "Recruit CRM", icon: FileSpreadsheet },
   referral: { label: "Referral", icon: Users },
   linkedin: { label: "LinkedIn", icon: Briefcase },
   career_page: { label: "Career page", icon: Globe },

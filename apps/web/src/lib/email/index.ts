@@ -12,6 +12,7 @@ import {
 import { getWorkspaceEmailConfig } from "./config";
 import { resolveSenderFromOverride } from "./sender-identity";
 import { createLogger } from "@/lib/logger";
+import { assertCandidateContactAllowed } from "@/features/candidates/contact-restrictions";
 
 const log = createLogger("email");
 
@@ -56,7 +57,8 @@ export async function getWorkspaceEmailSender(
 ): Promise<EmailSender | null> {
   const config = await getWorkspaceEmailConfig(workspaceId);
   const resolved = await resolveSenderFromOverride(workspaceId, actorUserId, config);
-  return createEmailSender(resolved);
+  const sender = createEmailSender(resolved);
+  return sender ? { ...sender, send: async options => { await assertCandidateContactAllowed(workspaceId, { email: options.to }); return sender.send(options); } } : null;
 }
 
 /**
