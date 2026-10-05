@@ -13,6 +13,7 @@ import {
   max,
   notInArray,
   sql,
+  type SQL,
 } from "drizzle-orm";
 
 import { db } from "@harly/db";
@@ -28,6 +29,10 @@ import {
   scorecards,
 } from "@harly/db";
 import { getWorkspaceContext } from "@/features/workspaces/context";
+import {
+  jobScopeWhere,
+  requireCandidateListAccess,
+} from "@/features/workspaces/role-scope";
 import { candidateAvatarFallbackSrcs } from "@/lib/candidate-avatar";
 import { statusForStageName } from "@/features/pipeline/state";
 
@@ -94,7 +99,10 @@ export type PipelineData =
       applications: PipelineApplication[];
     };
 
-async function getDefaultPipelineJobId(workspaceId: string) {
+async function getDefaultPipelineJobId(
+  workspaceId: string,
+  jobScope: SQL | undefined,
+) {
   const [openJobWithApplications] = await db
     .select({ id: jobs.id })
     .from(jobs)
@@ -110,6 +118,7 @@ async function getDefaultPipelineJobId(workspaceId: string) {
         eq(jobs.workspaceId, workspaceId),
         eq(jobs.status, "open"),
         isNull(jobs.deletedAt),
+        jobScope,
       ),
     )
     .orderBy(desc(jobs.createdAt))
@@ -123,7 +132,7 @@ async function getDefaultPipelineJobId(workspaceId: string) {
     .select({ id: jobs.id })
     .from(jobs)
     .where(
-      and(eq(jobs.workspaceId, workspaceId), isNull(jobs.deletedAt)),
+      and(eq(jobs.workspaceId, workspaceId), isNull(jobs.deletedAt), jobScope),
     )
     .orderBy(desc(jobs.createdAt))
     .limit(1);
@@ -195,7 +204,13 @@ export async function getPipelineData(
   requestedJobId: string | undefined,
   clientId?: string,
 ): Promise<PipelineData> {
-  const { organization: workspace } = await getWorkspaceContext();
+  const {
+    context: { organization: workspace },
+    actor,
+  } = await requireCandidateListAccess();
+  // Undefined for unrestricted roles; otherwise limits every job this board
+  // can list, select or aggregate to the role's configured scope.
+  const jobScope = jobScopeWhere(actor);
   const latestStageMove = db
     .select({
       applicationId: applicationStageHistory.applicationId,
@@ -216,7 +231,7 @@ export async function getPipelineData(
     })
     .from(jobs)
     .where(
-      and(eq(jobs.workspaceId, workspace.id), isNull(jobs.deletedAt)),
+      and(eq(jobs.workspaceId, workspace.id), isNull(jobs.deletedAt), jobScope),
     )
     .orderBy(desc(jobs.createdAt));
 
@@ -228,7 +243,7 @@ export async function getPipelineData(
     ? jobOptions.find((job) => job.id === requestedJobId)
     : undefined;
   const defaultJobId =
-    requestedJob?.id ?? (await getDefaultPipelineJobId(workspace.id));
+    requestedJob?.id ?? (await getDefaultPipelineJobId(workspace.id, jobScope));
   const selectedJob =
     requestedJobId === "all" ? { id: "all", title: "All open jobs", status: "open" as const } : jobOptions.find((job) => job.id === defaultJobId) ?? jobOptions[0];
   const allJobs = selectedJob.id === "all";
@@ -249,7 +264,7 @@ export async function getPipelineData(
       .where(
         and(
           eq(jobStages.workspaceId, workspace.id),
-          allJobs ? and(eq(jobs.status, "open"), isNull(jobs.deletedAt)) : eq(jobStages.jobId, selectedJob.id),
+          allJobs ? and(eq(jobs.status, "open"), isNull(jobs.deletedAt), jobScope) : eq(jobStages.jobId, selectedJob.id),
         ),
       )
       .orderBy(asc(jobStages.order)),
@@ -314,6 +329,8 @@ export async function getPipelineData(
           allJobs ? eq(jobs.status, "open") : eq(applications.jobId, selectedJob.id),
           isNull(candidates.deletedAt),
           allJobs ? teamApplicationWhere(workspace.id, false) : undefined,
+          // A single selected job is already drawn from the scoped job list.
+          allJobs ? jobScope : undefined,
           allJobs && z.uuid().safeParse(clientId).success ? eq(jobs.clientId, clientId!) : undefined,
         ),
       )
@@ -403,7 +420,10 @@ export type PipelineSummary = {
  * active applications, so the card can be hidden without an extra query.
  */
 export async function getPipelineSummary(jobId: string): Promise<PipelineSummary | null> {
-  const { organization: workspace } = await getWorkspaceContext();
+  const {
+    context: { organization: workspace },
+    actor,
+  } = await requireCandidateListAccess();
 
   const STALLED_DAYS = 14;
 
@@ -426,6 +446,9 @@ export async function getPipelineSummary(jobId: string): Promise<PipelineSummary
         eq(applications.workspaceId, workspace.id),
         eq(applications.jobId, jobId),
         eq(applications.status, "active"),
+        // An out-of-scope job counts as empty, which ends the summary here
+        // before any of the follow-up aggregates run.
+        jobScopeWhere(actor),
       ),
     );
 

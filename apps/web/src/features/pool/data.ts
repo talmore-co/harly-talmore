@@ -10,6 +10,12 @@ import {
   jobs,
 } from "@harly/db";
 import { getWorkspaceContext } from "@/features/workspaces/context";
+import {
+  candidateIdInScope,
+  jobIdInScope,
+  jobScopeWhere,
+  requireCandidateListAccess,
+} from "@/features/workspaces/role-scope";
 import { candidateAvatarFallbackSrcs } from "@/lib/candidate-avatar";
 
 export type PoolCandidate = {
@@ -40,13 +46,22 @@ export async function listPoolCandidates(filters?: {
   maxExperience?: number;
   skills?: string[];
 }): Promise<PoolCandidate[]> {
-  const { organization: workspace } = await getWorkspaceContext();
+  const {
+    context: { organization: workspace },
+    actor,
+  } = await requireCandidateListAccess();
 
   const conditions: SQL[] = [
     eq(poolEntries.workspaceId, workspace.id),
     isNull(poolEntries.removedAt),
     isNull(candidates.deletedAt),
   ];
+
+  // A scoped role sees a pool entry only when the candidate also has an
+  // application on a job inside its scope. Pool-only candidates need
+  // unrestricted scope, the same rule requireCandidatePermission applies.
+  const inScope = candidateIdInScope(actor, poolEntries.candidateId);
+  if (inScope) conditions.push(inScope);
 
   if (filters?.source) {
     conditions.push(eq(poolEntries.source, filters.source as PoolEntry["source"]));
@@ -130,6 +145,7 @@ export async function listPoolCandidates(filters?: {
       and(
         eq(aiEvaluations.workspaceId, workspace.id),
         inArray(aiEvaluations.candidateId, candidateIds),
+        jobIdInScope(actor, aiEvaluations.jobId),
       ),
     );
 
@@ -246,7 +262,10 @@ export async function getPoolStats(): Promise<{
   total: number;
   bySource: Record<string, number>;
 }> {
-  const { organization: workspace } = await getWorkspaceContext();
+  const {
+    context: { organization: workspace },
+    actor,
+  } = await requireCandidateListAccess();
 
   const rows = await db
     .select({
@@ -258,6 +277,7 @@ export async function getPoolStats(): Promise<{
       and(
         eq(poolEntries.workspaceId, workspace.id),
         isNull(poolEntries.removedAt),
+        candidateIdInScope(actor, poolEntries.candidateId),
       ),
     )
     .groupBy(poolEntries.source);
@@ -280,7 +300,10 @@ export type OpenJob = {
 };
 
 export async function listOpenJobs(): Promise<OpenJob[]> {
-  const { organization: workspace } = await getWorkspaceContext();
+  const {
+    context: { organization: workspace },
+    actor,
+  } = await requireCandidateListAccess();
 
   const rows = await db
     .select({
@@ -295,6 +318,8 @@ export async function listOpenJobs(): Promise<OpenJob[]> {
         eq(jobs.workspaceId, workspace.id),
         eq(jobs.status, "open"),
         isNull(jobs.deletedAt),
+        // Only offer assignment targets the role may actually assign to.
+        jobScopeWhere(actor),
       ),
     )
     .orderBy(desc(jobs.createdAt));
