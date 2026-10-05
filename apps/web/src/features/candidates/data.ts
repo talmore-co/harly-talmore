@@ -2289,7 +2289,23 @@ export async function deleteCandidate(
     return { ok: false, error: "Candidate not found." } as const;
   }
 
-  return permanentlyDeleteCandidate(candidateId, processedBy);
+  const result = await permanentlyDeleteCandidate(candidateId, processedBy);
+  // The legal-hold check runs before anything is erased and a blocked job is
+  // never retried on its own, so put the candidate back instead of stranding
+  // them in the trash. Other failures stay trashed: the deletion job retries
+  // the purge from there.
+  if (!result.ok && result.error.includes("legal hold")) {
+    await db
+      .update(candidates)
+      .set({ deletedAt: null })
+      .where(
+        and(
+          eq(candidates.id, candidateId),
+          eq(candidates.workspaceId, workspace.id),
+        ),
+      );
+  }
+  return result;
 }
 
 // ── Duplicate detection helpers ──────────────────────────────────────────────
