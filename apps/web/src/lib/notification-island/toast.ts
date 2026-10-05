@@ -15,8 +15,10 @@ type ToastOpts = { description?: string; [key: string]: unknown };
 // the island only ever accepts a short plain string, everything else falls back.
 type ToastMessage = ReactNode;
 
+// The island shows text only, so a toast that carries an action button (Undo)
+// has to stay a corner toast or the action would silently disappear.
 function fitsIsland(message: ToastMessage, opts?: ToastOpts): message is string {
-  return typeof message === "string" && !opts?.description && message.length <= MAX_ISLAND_CHARS;
+  return typeof message === "string" && !opts?.description && !opts?.action && message.length <= MAX_ISLAND_CHARS;
 }
 
 /**

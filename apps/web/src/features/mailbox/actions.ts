@@ -6,7 +6,8 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { applications, candidates, db, jobs, mailMessages, mailThreads, member } from "@harly/db";
 import { getWorkspaceContext } from "@/features/workspaces/context";
-import { requirePermission } from "@/features/workspaces/permissions-server";
+import { can, requirePermission } from "@/features/workspaces/permissions-server";
+import type { Permission } from "@/features/workspaces/permissions";
 import { getMailboxConfig } from "@/lib/mailbox/config";
 import { createLogger } from "@/lib/logger";
 import { syncMailbox } from "@/lib/mailbox/sync";
@@ -22,6 +23,18 @@ import { isMailUnificationEnabled } from "@/lib/mail/feature-flag";
 import { completeLegacyMailDelivery, failLegacyMailDelivery, reserveLegacyMailDelivery } from "@/lib/mail/legacy-delivery";
 
 const log = createLogger("mailbox");
+
+/**
+ * A thrown error reaches the browser with its message stripped in production,
+ * so the inbox could not tell a missing permission from a failure. Actions the
+ * inbox surfaces to the user report a missing permission as a result instead;
+ * `requirePermission` stays as the enforcing check.
+ */
+async function permissionDenied(permission: Permission) {
+  return (await can(permission))
+    ? null
+    : { ok: false, error: "You do not have permission to do this." };
+}
 
 const threadId = z.string().uuid();
 const inboxThread = z.object({
@@ -75,6 +88,8 @@ async function getActiveMailboxApplicationId(input: {
 export async function updateMailboxThreadAction(input: { threadId: string; status?: "open" | "archived" | "spam"; ownerId?: string | null }) {
   const parsed = updateMailboxThreadSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid thread update." };
+  const denied = await permissionDenied("collab:write");
+  if (denied) return denied;
   await requirePermission("collab:write");
   const { organization, user } = await getWorkspaceContext();
   if (parsed.data.ownerId) {
@@ -110,6 +125,8 @@ export async function updateMailboxThreadAction(input: { threadId: string; statu
 export async function linkMailboxThreadToApplicationAction(input: { threadId: string; applicationId: string | null }) {
   const parsed = z.object({ threadId: z.string().uuid(), applicationId: z.string().uuid().nullable() }).safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid thread or application." };
+  const denied = await permissionDenied("candidates:edit");
+  if (denied) return denied;
   await requirePermission("candidates:edit");
   const { organization, user } = await getWorkspaceContext();
   const [thread] = await db.select({ candidateId: mailThreads.candidateId }).from(mailThreads).where(and(eq(mailThreads.id, parsed.data.threadId), eq(mailThreads.workspaceId, organization.id))).limit(1);
@@ -170,6 +187,8 @@ export async function linkMailboxThreadToApplicationAction(input: { threadId: st
 export async function linkMailboxThreadToCandidateAction(input: { threadId: string; candidateId: string | null }) {
   const parsed = z.object({ threadId: z.string().uuid(), candidateId: z.string().uuid().nullable() }).safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid thread or candidate." };
+  const denied = await permissionDenied("candidates:edit");
+  if (denied) return denied;
   await requirePermission("candidates:edit");
   const { organization, user } = await getWorkspaceContext();
   if (parsed.data.candidateId) {
@@ -196,6 +215,8 @@ export async function linkMailboxThreadToCandidateAction(input: { threadId: stri
 }
 export async function markMailboxThreadReadAction(input: { threadId: string }) {
   const parsed = threadId.safeParse(input.threadId); if (!parsed.success) return { ok: false };
+  const denied = await permissionDenied("collab:write");
+  if (denied) return denied;
   await requirePermission("collab:write");
   const { organization } = await getWorkspaceContext();
   const result = await db.transaction(async (tx) => {
@@ -214,6 +235,8 @@ export async function markMailboxThreadReadAction(input: { threadId: string }) {
 export async function markMailboxThreadUnreadAction(input: { threadId: string }) {
   const parsed = threadId.safeParse(input.threadId);
   if (!parsed.success) return { ok: false, error: "Invalid thread." };
+  const denied = await permissionDenied("collab:write");
+  if (denied) return denied;
   await requirePermission("collab:write");
   const { organization } = await getWorkspaceContext();
   const result = await db.transaction(async (tx) => {
@@ -576,6 +599,8 @@ export async function createMailboxThreadAction(input: {
 }
 
 export async function retryMailboxSyncAction() {
+  const denied = await permissionDenied("integrations:manage");
+  if (denied) return denied;
   const context = await requirePermission("integrations:manage");
   try {
     const result = await syncMailbox(context.organization.id);
@@ -698,6 +723,8 @@ export async function suggestMailboxReplyAction(input: { threadId: string }) {
 /** Create a candidate from a reviewed inbox sender, then associate the whole thread. */
 export async function createCandidateFromMailboxThreadAction(input: { threadId: string }) {
   const parsed = threadId.safeParse(input.threadId); if (!parsed.success) return { ok: false, error: "Invalid thread." };
+  const denied = await permissionDenied("candidates:edit");
+  if (denied) return denied;
   await requirePermission("candidates:edit");
   const { organization, user } = await getWorkspaceContext();
   const [thread] = await db.select().from(mailThreads).where(and(eq(mailThreads.id, parsed.data), eq(mailThreads.workspaceId, organization.id))).limit(1);
