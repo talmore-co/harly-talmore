@@ -166,6 +166,10 @@ vi.mock("@/lib/logger", () => ({
   }),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/features/candidates/contact-restrictions", () => ({
+  assertCandidateContactAllowed: vi.fn(async () => undefined),
+  ContactRestrictedError: class ContactRestrictedError extends Error {},
+}));
 vi.mock("@/lib/email/outbox-processor", () => ({
   enqueueEmailOutbox: mocks.enqueueEmailOutbox,
   processEmailOutbox: mocks.processEmailOutbox,

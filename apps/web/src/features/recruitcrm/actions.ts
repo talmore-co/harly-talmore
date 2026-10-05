@@ -7,7 +7,7 @@ import { z } from "zod";
 import { requireJobPermission, requirePermission } from "@/features/workspaces/permissions-server";
 import { encryptSecret } from "@/lib/crypto";
 import { databaseUuidSchema as uuid } from "@/lib/database-uuid";
-import { jobSchema, pageSchema, userSchema } from "./contracts";
+import { candidateSchema, jobSchema, pageSchema, restrictions, userSchema } from "./contracts";
 import { candidateValues } from "./profile";
 import { connected, crmRequest, CrmError, request } from "./client";
 import { importAccess } from "./access";
@@ -99,9 +99,15 @@ export async function previewRecruitCrm(input: z.input<typeof previewSchema>) {
     return { ok: true as const, batchId: batch.id, rows: await results(batch.id), hasMore: rows.hasMore };
   } catch (error) { return { ok: false as const, error: safeError(error) }; }
 }
+function previewRestrictions(snapshot: Record<string, unknown>) {
+  const profile = candidateSchema.safeParse(snapshot);
+  if (!profile.success) return { optedOut: false, offLimits: false };
+  const flags = restrictions(profile.data);
+  return { optedOut: flags.emailOptedOut, offLimits: flags.contactOffLimits };
+}
 async function results(batchId: string, limit = 100_000) {
   const rows = await db.select().from(items).where(eq(items.batchId, batchId)).orderBy(asc(items.createdAt), asc(items.externalSlug)).limit(limit);
-  return rows.map(row => ({ id: row.id, name: [row.snapshot.first_name, row.snapshot.last_name].filter(Boolean).join(" ") || "Candidate", email: typeof row.snapshot.email === "string" ? row.snapshot.email : null, headline: typeof row.snapshot.position === "string" ? row.snapshot.position : null, status: row.status, step: row.step, reason: row.reason, hasCv: Boolean(row.snapshot.resume), optedOut: row.snapshot.is_email_opted_out === true, offLimits: Boolean(row.snapshot.off_limit_status_id || row.snapshot.off_limit_reason), candidateId: row.candidateId }));
+  return rows.map(row => ({ id: row.id, name: [row.snapshot.first_name, row.snapshot.last_name].filter(Boolean).join(" ") || "Candidate", email: typeof row.snapshot.email === "string" ? row.snapshot.email : null, headline: typeof row.snapshot.position === "string" ? row.snapshot.position : null, status: row.status, step: row.step, reason: row.reason, hasCv: Boolean(row.snapshot.resume), ...previewRestrictions(row.snapshot), candidateId: row.candidateId }));
 }
 export async function recruitCrmBatchStatus(batchId: string) {
   const context = await requirePermission("candidates:edit"); uuid.parse(batchId);
@@ -189,7 +195,9 @@ export async function retryRecruitCrmFailures(batchId: string) {
 }
 export async function recentRecruitCrmImports() {
   const context = await requirePermission("candidates:edit");
-  return db.select({ id: batches.id, createdAt: batches.createdAt }).from(batches).where(and(eq(batches.workspaceId, context.organization.id), eq(batches.actorId, context.user.id))).orderBy(desc(batches.createdAt)).limit(10);
+  const rows = await db.select({ id: batches.id, createdAt: batches.createdAt, job: jobs.title, source: batches.source, candidates: sql<number>`(select count(*)::int from recruitcrm_import_items i where i.batch_id = ${batches.id} and i.status <> 'ready')` })
+    .from(batches).leftJoin(jobs, eq(jobs.id, batches.jobId)).where(and(eq(batches.workspaceId, context.organization.id), eq(batches.actorId, context.user.id))).orderBy(desc(batches.createdAt)).limit(10);
+  return rows.map(row => ({ id: row.id, createdAt: row.createdAt, destination: row.job || "Talent pool", source: row.source.kind === "job" ? "Source job" : row.source.query ? `"${row.source.query}"` : "All candidates", candidates: row.candidates }));
 }
 export async function queueRecruitCrmImport(batchId: string, itemIds: string[]) {
   const context = await requirePermission("candidates:edit"); uuid.parse(batchId); z.array(uuid).min(1).max(10_000).parse(itemIds);

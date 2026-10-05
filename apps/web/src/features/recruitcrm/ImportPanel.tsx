@@ -6,10 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useRangeSelection } from "@/components/ui/use-range-selection";
+import { formatShort, formatTime } from "@/lib/date";
 import { ImportSearchSelect } from "@/features/candidates/import/ImportSearchSelect";
 import { browseRecruitCrmResources, previewRecruitCrm, queueRecruitCrmImport, recentRecruitCrmImports, recruitCrmOptions, fetchMoreRecruitCrm, queueAllRecruitCrm, recruitCrmProgress, retryRecruitCrmFailures } from "./actions";
 
 type Preview = Extract<Awaited<ReturnType<typeof previewRecruitCrm>>, { ok: true }>;
+const STATUS_LABELS: Record<string, string> = { ready: "Ready to import", queued: "Queued", processing: "Importing…", imported: "Imported", skipped: "Skipped", failed: "Failed", partial: "Imported without CV", expired: "Expired" };
 export function RecruitCrmImportPanel({ jobs }: { jobs: { id: string; title: string }[] }) {
   const [destination, setDestination] = useState("pool"); const [job, setJob] = useState(""); const [stage, setStage] = useState("");
   const [connection, setConnection] = useState(""); const [kind, setKind] = useState<"search" | "job">("search"); const [sourceJob, setSourceJob] = useState("");
@@ -77,9 +79,9 @@ export function RecruitCrmImportPanel({ jobs }: { jobs: { id: string; title: str
       {progress?.importAll && progress.total > preview.rows.length && <p className="text-xs text-muted-foreground">Showing the first {preview.rows.length} candidates. Progress counts include the full import.</p>}
       {!progress?.importAll && <Button variant="outline" size="sm" disabled={pending || !selectable.length} onClick={() => setSelected(selected.size ? new Set() : new Set(selectable))}>{selected.size ? "Deselect all" : "Select all loaded"}</Button>}
       {!preview.rows.length && <p className="text-sm">No candidates found.</p>}
-      {preview.rows.map(row => <label key={row.id} className="flex gap-3 rounded-lg border p-3 text-sm"><Checkbox aria-label={`Import ${row.name}`} checked={selected.has(row.id)} disabled={pending || !selectable.includes(row.id)} onClick={event => { event.preventDefault(); toggle(row.id, event.shiftKey); }} onCheckedChange={value => toggle(row.id, false, value === true)} /><span className="min-w-0"><span className="block font-medium">{row.name}</span><span className="block text-muted-foreground">{row.email || "No email"}{row.headline ? ` · ${row.headline}` : ""}</span><span className="block text-xs">{row.hasCv ? "CV available" : "No CV"}{row.optedOut ? " · Email opted out" : ""}{row.offLimits ? " · Off limits" : ""}</span><span className="block">{row.status}{row.reason ? ` · ${row.reason}` : ""}</span></span></label>)}
+      {preview.rows.map(row => <label key={row.id} className="flex gap-3 rounded-lg border p-3 text-sm"><Checkbox aria-label={`Import ${row.name}`} checked={selected.has(row.id)} disabled={pending || !selectable.includes(row.id)} onClick={event => { event.preventDefault(); toggle(row.id, event.shiftKey); }} onCheckedChange={value => toggle(row.id, false, value === true)} /><span className="min-w-0"><span className="block font-medium">{row.name}</span><span className="block text-muted-foreground">{row.email || "No email"}{row.headline ? ` · ${row.headline}` : ""}</span><span className="block text-xs">{row.hasCv ? "CV available" : "No CV"}{row.optedOut ? " · Email opted out" : ""}{row.offLimits ? " · Off limits" : ""}</span><span className="block">{STATUS_LABELS[row.status] || row.status}{row.reason ? ` · ${row.reason}` : ""}</span></span></label>)}
       <p className="text-xs text-muted-foreground">You can close this drawer while imports run. Reopen a recent import to check progress or retry failures.</p>
     </div>}
-    {recent.length > 0 && <ImportSearchSelect label="Recent imports" value={preview?.batchId || ""} options={recent.map(row => ({ id: row.id, name: `${new Date(row.createdAt).toLocaleString()} · ${row.id.slice(0, 8)}` }))} preserveOrder onChange={id => run(async () => { setSelected(new Set()); await refresh(id); })} />}
+    {recent.length > 0 && <ImportSearchSelect label="Recent imports" value={preview?.batchId || ""} options={recent.map(row => ({ id: row.id, name: `${formatShort(row.createdAt)} ${formatTime(row.createdAt)} · ${row.source} → ${row.destination}${row.candidates ? ` · ${row.candidates} candidate${row.candidates === 1 ? "" : "s"}` : " · preview only"}` }))} preserveOrder onChange={id => run(async () => { setSelected(new Set()); await refresh(id); })} />}
   </div>;
 }

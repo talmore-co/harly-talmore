@@ -58,7 +58,7 @@ async function invitationContext(token: string) {
   if (!target?.candidate.email || target.application.currentStageId !== invitation.stageId)
     throw unavailable();
   const { assertCandidateContactAllowed } = await import("@/features/candidates/contact-restrictions");
-  try { await assertCandidateContactAllowed(invitation.workspaceId, { candidateId: target.candidate.id }); } catch { throw unavailable(); }
+  try { await assertCandidateContactAllowed(invitation.workspaceId, { candidateId: target.candidate.id }, "contact"); } catch { throw unavailable(); }
   return { invitation, target };
 }
 

@@ -24,7 +24,7 @@ export function pageSchema<T>(row: z.ZodType<T>) {
 export function restrictions(profile: CrmCandidate) {
   const label = profile.status_label?.trim().toLowerCase();
   const statusId = profile.off_limit_status_id;
-  const offLimits = Boolean((statusId != null && statusId !== 0 && statusId !== "0" && statusId !== "") || profile.off_limit_reason || (label && !["available", "not off limit", "none"].includes(label)));
+  const offLimits = Boolean((statusId != null && statusId !== 0 && statusId !== "0" && statusId !== "") || profile.off_limit_reason || (label && label.includes("off limit") && label !== "not off limit"));
   const date = profile.off_limit_end_date ? new Date(profile.off_limit_end_date) : null;
   return { emailOptedOut: profile.is_email_opted_out, contactOffLimits: offLimits, contactOffLimitsUntil: date && Number.isFinite(date.getTime()) ? date : null, contactRestrictionReason: (offLimits ? profile.off_limit_reason || profile.status_label : null) || (profile.is_email_opted_out ? "Email opt-out imported from Recruit CRM" : null) };
 }

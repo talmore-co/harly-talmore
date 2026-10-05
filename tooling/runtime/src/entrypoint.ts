@@ -115,6 +115,7 @@ const jobs: Job[] = [
     path: "/api/cron/domain-events",
     intervalMs: 15_000,
   },
+  { name: "recruitcrm-imports", path: "/api/cron/recruitcrm-imports", intervalMs: 15_000 },
   { name: "email-outbox", path: "/api/cron/email-outbox", intervalMs: 60_000 },
   { name: "meta-conversions", path: "/api/cron/meta-conversions", intervalMs: 60_000 },
   {
@@ -307,7 +308,7 @@ async function doctor() {
           from (
             select job, max(created_at) filter (where status in ('success', 'skipped')) as last_run
             from cron_runs
-            where job in ('domain-events', 'email-outbox', 'meta-conversions', 'webhooks-dispatch', 'esign-reconciliation', 'interview-sync', 'evaluation-jobs', 'mailbox-sync', 'document-expiry', 'retention-enforcement', 'candidate-deletions', 'candidate-reconciliation', 'mail-reconciliation', 'scheduled-reports')
+            where job in ('domain-events', 'recruitcrm-imports', 'email-outbox', 'meta-conversions', 'webhooks-dispatch', 'esign-reconciliation', 'interview-sync', 'evaluation-jobs', 'mailbox-sync', 'document-expiry', 'retention-enforcement', 'candidate-deletions', 'candidate-reconciliation', 'mail-reconciliation', 'scheduled-reports')
             group by job
           ) scheduler_runs
         ) as scheduler_runs,

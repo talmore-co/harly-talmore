@@ -16,4 +16,15 @@ describe("Recruit CRM contact restrictions", () => {
     expect(contactRestriction({ ...row, emailOptedOut: true }, new Date("2026-01-02T00:00:00Z"))).toContain("opted out");
     expect(contactRestriction({ ...row, contactOffLimitsUntil: null })).toContain("off limits");
   });
+  it("lets an email opt-out through for non-email contact, but never off limits", () => {
+    const optedOut = { emailOptedOut: true, contactOffLimits: false, contactOffLimitsUntil: null };
+    expect(contactRestriction(optedOut, new Date(), "contact")).toBeNull();
+    expect(contactRestriction({ ...optedOut, contactOffLimits: true }, new Date(), "contact")).toContain("off limits");
+  });
+  it("treats a status label as off limits only when it says so", () => {
+    const profile = candidateSchema.parse({ slug: "fictional", off_limit_status_id: "0" });
+    expect(restrictions({ ...profile, status_label: "Placed" }).contactOffLimits).toBe(false);
+    expect(restrictions({ ...profile, status_label: "Not Off Limit" }).contactOffLimits).toBe(false);
+    expect(restrictions({ ...profile, status_label: "Off Limit" })).toMatchObject({ contactOffLimits: true, contactRestrictionReason: "Off Limit" });
+  });
 });

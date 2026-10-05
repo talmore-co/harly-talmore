@@ -416,9 +416,10 @@ export function ImportCandidatesDrawer({
           </>
         }
       >
-        {(
-          <div className="space-y-5">
-            {source !== "recruitcrm" && <ImportSearchSelect label="Job" value={jobId} onChange={setJobId} options={jobs.map(job => ({ id: job.id, name: job.title }))} disabled={isPending} />}
+        <div className="space-y-5">
+            {source !== "recruitcrm" && (jobs.length === 0
+              ? <p className="text-sm text-muted-foreground">Create a job before importing from this source. Every imported row is added to a job&apos;s pipeline.</p>
+              : <ImportSearchSelect label="Job" value={jobId} onChange={setJobId} options={jobs.map(job => ({ id: job.id, name: job.title }))} disabled={isPending} />)}
 
             <div className="space-y-2">
               <Label>Source</Label>
@@ -836,8 +837,7 @@ export function ImportCandidatesDrawer({
                 ) : null}
               </div>
             ) : null}
-          </div>
-        )}
+        </div>
       </DrawerLayout>
     </Sheet>
   );

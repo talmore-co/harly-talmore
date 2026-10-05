@@ -1,4 +1,5 @@
 import { and, desc, eq, exists, inArray, isNull, sql } from "drizzle-orm";
+import { ContactRestrictedError } from "@/features/candidates/contact-restrictions";
 import { createElement } from "react";
 import { createHash, randomUUID } from "node:crypto";
 
@@ -211,6 +212,10 @@ async function deliverRow(row: OutboxRow): Promise<boolean> {
         return false;
     }
   } catch (error) {
+    if (error instanceof ContactRestrictedError) {
+      await markStale(row.id, error.message);
+      return false;
+    }
     log.error(error, "email_outbox delivery threw");
     await markFailed(
       row.id,
@@ -327,7 +332,7 @@ async function deliverScheduledReport(row: OutboxRow): Promise<boolean> {
       companyName: payload.companyName ?? "Talmore",
     }),
     idempotencyKey: row.id,
-  });
+  }, undefined, "transactional");
   if (!delivered) {
     await markFailed(row.id, "No configured workspace email sender.");
     return false;
@@ -378,7 +383,7 @@ async function deliverNativeSignatureOtp(row: OutboxRow): Promise<boolean> {
       createElement("p", null, "This code expires in 10 minutes and can only be used once."),
     ),
     ...deliveryOptions(row),
-  });
+  }, undefined, "transactional");
   if (!delivered) { await markFailed(row.id, "Email provider did not accept the native signature OTP."); return false; }
   await markSent(row.id, delivered);
   return true;

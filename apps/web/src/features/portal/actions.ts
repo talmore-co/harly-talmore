@@ -132,7 +132,8 @@ export async function sendPortalMagicLinkAction(
     const appUrl = getHarlyPublicOrigin();
     const url = `${appUrl}/api/portal/auth/magic?token=${token}`;
 
-    const sender = await getWorkspaceEmailSender(workspaceId);
+    // The candidate asked for this link, so contact restrictions do not apply.
+    const sender = await getWorkspaceEmailSender(workspaceId, undefined, "transactional");
     if (sender) {
       const branding = await getWorkspaceEmailBranding(workspaceId);
       await sender.send({

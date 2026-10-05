@@ -29,7 +29,7 @@ export async function copyCv(item: typeof items.$inferSelect, actorId: string, l
   try { while (true) { const part = await reader.read(); if (part.done) break; size += part.value.length; if (size > 10 * 1024 * 1024) throw new CrmError("Candidate imported, but CV exceeds the 10 MB limit."); chunks.push(part.value); } } finally { await reader.cancel(); }
   const bytes = Buffer.concat(chunks);
   const pdf = bytes.subarray(0, 5).toString() === "%PDF-";
-  const docx = bytes.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04])) && (name.toLowerCase().endsWith(".docx") || response.headers.get("content-type")?.includes("wordprocessingml"));
+  const docx = bytes.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04])) && (name.toLowerCase().endsWith(".docx") || new URL(url).pathname.toLowerCase().endsWith(".docx") || response.headers.get("content-type")?.includes("wordprocessingml"));
   const doc = bytes.subarray(0, 8).equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]));
   if (!pdf && !docx && !doc) throw new CrmError("Candidate imported, but CV is not a supported PDF, DOC or DOCX file.");
   const type = pdf ? "application/pdf" : docx ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "application/msword";
