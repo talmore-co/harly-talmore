@@ -645,7 +645,13 @@ export async function importCandidatesAction(input: {
         application: { id: applicationId },
         source: "csv_import",
       },
-      { actorId: context.user.id, skipDomainEvent: true },
+      {
+        actorId: context.user.id,
+        skipDomainEvent: true,
+        eventId: persistedEvents.find(
+          (event) => event.aggregateId === applicationId,
+        )?.eventId,
+      },
     );
   }
 

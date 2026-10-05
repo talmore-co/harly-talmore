@@ -602,7 +602,11 @@ export async function decideOfferForApi(input: {
       application: { id: offer.applicationId, jobId: offer.jobId },
       candidate: { id: offer.candidateId },
       offer: { id: offer.id, title: offer.title },
-    }, { actorId: input.actorUserId, skipDomainEvent: true });
+    }, {
+      actorId: input.actorUserId,
+      skipDomainEvent: true,
+      eventId: decided.event.eventId,
+    });
   }
   return decided.decided;
 }

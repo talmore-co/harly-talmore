@@ -26,6 +26,7 @@ import {
   enqueueEmailOutbox,
   processEmailOutbox,
 } from "@/lib/email/outbox-processor";
+import { interviewEmailDedupeKey } from "@/lib/email/interview-email-dedupe";
 import { trackInterviewSync } from "@/lib/interviews/sync-ledger";
 import { createLogger } from "@/lib/logger";
 import { persistDomainEvent, publishPersistedDomainEvents } from "@/server/events/emit";
@@ -247,6 +248,8 @@ async function sendCalInterviewEmail(input: {
   action: CalAction;
   interview: typeof interviews.$inferSelect;
   context: Awaited<ReturnType<typeof resolveApplication>>;
+  /** Id of the domain event persisted with this booking change. */
+  eventId?: string;
 }) {
   if (!input.context?.email) return;
   try {
@@ -269,7 +272,11 @@ async function sendCalInterviewEmail(input: {
         durationMins: input.interview.durationMins,
         replyTo,
       },
-      undefined,
+      interviewEmailDedupeKey({
+        kind: `interview.${input.action}`,
+        interviewId: input.interview.id,
+        actionId: input.eventId,
+      }),
       input.actorUserId,
     );
     await processEmailOutbox({ ids: [outboxId], workspaceId: input.workspaceId });
@@ -465,7 +472,13 @@ export async function POST(request: NextRequest) {
       workspaceId,
       metadata: { applicationId: latest.applicationId },
     });
-    await sendCalInterviewEmail({ workspaceId, action, interview: latest, context });
+    await sendCalInterviewEmail({
+      workspaceId,
+      action,
+      interview: latest,
+      context,
+      eventId: transition.event.eventId,
+    });
     await emitWebhookEvent(workspaceId, "interview.canceled", {
       interview: serializeCalInterview(latest),
     }, { skipDomainEvent: true });
@@ -566,7 +579,13 @@ export async function POST(request: NextRequest) {
       workspaceId,
       metadata: { applicationId: latest.applicationId },
     });
-    await sendCalInterviewEmail({ workspaceId, action, interview: latest, context });
+    await sendCalInterviewEmail({
+      workspaceId,
+      action,
+      interview: latest,
+      context,
+      eventId: transition.event.eventId,
+    });
     await emitWebhookEvent(workspaceId, "interview.rescheduled", {
       interview: serializeCalInterview(latest),
     }, { skipDomainEvent: true });
@@ -655,9 +674,10 @@ export async function POST(request: NextRequest) {
     action,
     interview: latest,
     context: application,
+    eventId: transition.event.eventId,
   });
   await emitWebhookEvent(workspaceId, "interview.scheduled", {
     interview: serializeCalInterview(latest),
-  }, { skipDomainEvent: true });
+  }, { skipDomainEvent: true, eventId: transition.event.eventId });
   return NextResponse.json({ ok: true });
 }

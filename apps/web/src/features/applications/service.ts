@@ -324,7 +324,7 @@ export async function createApplicationForApi(input: {
   await publishPersistedDomainEvents([event]);
   await emitWebhookEvent(workspaceId, "application.created", {
     application: serializeApplication(application),
-  }, { skipDomainEvent: true });
+  }, { skipDomainEvent: true, eventId: event.eventId });
   return application;
 }
 
@@ -543,14 +543,24 @@ export async function moveApplicationStageForApi(input: {
       fromStageId,
       toStageId: input.toStageId,
       status: updated.status,
-    }, { actorId: input.actorId, skipDomainEvent: true, parentRunId: input.automationRunId });
+    }, {
+      actorId: input.actorId,
+      skipDomainEvent: true,
+      eventId: persistedEvents[0]?.eventId,
+      parentRunId: input.automationRunId,
+    });
     if (
       application.status !== updated.status &&
       (updated.status === "hired" || updated.status === "rejected")
     ) {
       await emitWebhookEvent(input.workspaceId, `application.${updated.status}`, {
         application: serializeApplication(updated),
-      }, { actorId: input.actorId, skipDomainEvent: true, parentRunId: input.automationRunId });
+      }, {
+        actorId: input.actorId,
+        skipDomainEvent: true,
+        eventId: persistedEvents[1]?.eventId,
+        parentRunId: input.automationRunId,
+      });
     }
 
     return updated;
@@ -651,7 +661,11 @@ async function setApplicationStatus(
     await publishPersistedDomainEvents([persistedEvent]);
     await emitWebhookEvent(input.workspaceId, event, {
       application: serializeApplication(updated),
-    }, { actorId: input.actorId, skipDomainEvent: true });
+    }, {
+      actorId: input.actorId,
+      skipDomainEvent: true,
+      eventId: persistedEvent.eventId,
+    });
     if (application.status !== status) {
       await notifyApplicationStatusChange({
         workspaceId: input.workspaceId,

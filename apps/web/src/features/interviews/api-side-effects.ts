@@ -40,6 +40,7 @@ import {
   processEmailOutbox,
 } from "@/lib/email/outbox-processor";
 import { getInboundReplyTo } from "@/lib/email/inbound-token";
+import { interviewEmailDedupeKey } from "@/lib/email/interview-email-dedupe";
 import { createLogger } from "@/lib/logger";
 
 import type { Interview } from "@harly/db";
@@ -133,6 +134,7 @@ async function sendInterviewEmail(
   action: ApiInterviewAction,
   interview: Interview,
   context: InterviewContext,
+  eventId?: string,
 ) {
   if (!context.email) return;
   const replyTo = await getInboundReplyTo(workspaceId, context.applicationId);
@@ -154,7 +156,11 @@ async function sendInterviewEmail(
       replyTo,
       interviewerName: context.interviewerEmail ?? undefined,
     },
-    undefined,
+    interviewEmailDedupeKey({
+      kind: `interview.${action}`,
+      interviewId: interview.id,
+      actionId: eventId,
+    }),
     actorUserId,
   );
   await processEmailOutbox({ ids: [outboxId], workspaceId });
@@ -467,6 +473,8 @@ export async function runApiInterviewSideEffects(input: {
   interview: Interview;
   previous?: Interview;
   action: ApiInterviewAction;
+  /** Id of the domain event persisted with this interview change. */
+  eventId?: string;
 }): Promise<void> {
   if (input.interview.source === "cal.com-personal") return;
   let context: InterviewContext | null;
@@ -511,6 +519,7 @@ export async function runApiInterviewSideEffects(input: {
       input.action,
       input.interview,
       context,
+      input.eventId,
     );
   } catch (error) {
     log.error(error, "REST interview email side effect failed after commit");

@@ -487,7 +487,7 @@ export async function syncPersonalCalBooking(
           source: "cal.com-personal",
         },
       },
-      { skipDomainEvent: true },
+      { skipDomainEvent: true, eventId: outcome.event?.eventId },
     );
   }
   // Cal.com owns invitations and video links. Do not invoke email or calendar sync.

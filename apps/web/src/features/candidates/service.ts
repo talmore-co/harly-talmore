@@ -156,7 +156,7 @@ export async function createCandidateForApi(input: {
   await publishPersistedDomainEvents([event]);
   await emitWebhookEvent(input.workspaceId, "candidate.created", {
     candidate: serializeCandidate(candidate),
-  }, { skipDomainEvent: true });
+  }, { skipDomainEvent: true, eventId: event.eventId });
   await logAuditEvent({
     workspaceId: input.workspaceId,
     action: "candidate.created",
@@ -220,7 +220,7 @@ export async function updateCandidateForApi(input: {
   await publishPersistedDomainEvents([event]);
   await emitWebhookEvent(input.workspaceId, "candidate.updated", {
     candidate: serializeCandidate(updated),
-  }, { skipDomainEvent: true });
+  }, { skipDomainEvent: true, eventId: event.eventId });
   await logAuditEvent({
     workspaceId: input.workspaceId,
     action: "candidate.updated",
