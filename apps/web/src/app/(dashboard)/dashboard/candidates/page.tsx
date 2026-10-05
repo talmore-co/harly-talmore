@@ -19,6 +19,7 @@ import {
   type CandidateApplicationStatus,
   type CandidateDirectoryFilters,
 } from "@/features/candidates/data";
+import { sanitizeDirectoryQuery } from "@/features/candidates/directory-params";
 import { TrashCandidateActions } from "@/features/candidates/TrashCandidateActions";
 import { AddCandidateDrawer } from "@/features/candidates/AddCandidateDrawer";
 import { listEmailTemplates } from "@/features/email-templates/data";
@@ -53,7 +54,8 @@ type CandidatesPageProps = {
 };
 
 export default async function CandidatesPage({ searchParams }: CandidatesPageProps) {
-  const { view, import: importSource, q, dept, role, stage, status, source, tag, sort, page: pageRaw } = await searchParams;
+  const rawSearchParams = await searchParams;
+  const { view, import: importSource, q, dept, role, stage, status, source, tag, sort, page: pageRaw } = rawSearchParams;
   const isTrash = view === "trash";
 const initialImportSource: ImportSource | undefined =
     importSource === "csv" ||
@@ -89,6 +91,17 @@ const initialImportSource: ImportSource | undefined =
     page: Number.isFinite(Number(pageRaw)) ? Number(pageRaw) : 1,
     pageSize: 50,
   };
+  // Carried onto profile links so "Back" and the pager return to this list.
+  const listQuery = sanitizeDirectoryQuery(
+    new URLSearchParams(
+      Object.entries(rawSearchParams).flatMap(([key, value]) =>
+        typeof value === "string" ? [[key, value]] : [],
+      ),
+    ).toString(),
+  );
+  const hasDirectoryFilters = Boolean(
+    q || dept || role || stage || candidateStatus || source || tag,
+  );
   const [
     directory,
     facets,
@@ -178,7 +191,9 @@ const initialImportSource: ImportSource | undefined =
             description="Candidates you delete show up here and can be restored."
           />
         )
-      ) : rows.length === 0 ? (
+      ) : directory.total === 0 && !hasDirectoryFilters ? (
+        // Onboarding only when the workspace has no candidates at all. A
+        // search or filter with zero hits keeps the table, and its controls.
         <div className="space-y-4">
           <EmptyState
             icon={Users}
@@ -202,8 +217,11 @@ const initialImportSource: ImportSource | undefined =
         </div>
       ) : (
         <CandidatesTable
-          key={JSON.stringify(directoryFilters)}
+          // Search and paging update in place; a remount would drop focus
+          // from the search box on every debounced request.
+          key={JSON.stringify({ ...directoryFilters, query: undefined, page: undefined })}
           rows={rows}
+          listQuery={listQuery}
           pageInfo={{ page: directory.page, pageSize: directory.pageSize, total: directory.total, hasNextPage: directory.hasNextPage }}
           filterOptions={facets}
           initialFilters={{ query: q ?? "", dept: dept ?? "__all__", role: role ?? "__all__", stage: stage ?? "__all__", status: candidateStatus ?? "__all__", source: source ?? "__all__", tag: tag ?? "__all__", sort: candidateSort }}
