@@ -29,6 +29,7 @@ import {
 } from "@/server/events/emit";
 import { normalizeStageEmailConfig } from "@/features/pipeline/data";
 import {
+  statusAfterStageMove,
   statusForStageName,
   rejectionSourceForStageName,
   terminalStageNameForStatus,
@@ -319,15 +320,46 @@ export async function moveApplicationInPipeline(
 
           const now = new Date();
           const changedStage = application.currentStageId !== input.toStageId;
-          const nextStatus = statusForStageName(application.toStageName);
+          // A drop in the same column is a reorder and never a status decision.
+          // Only a non-active application that leaves its stage needs the
+          // previous stage's name to decide whether the move reactivates it.
+          const [fromStage] =
+            changedStage && application.status !== "active"
+              ? await tx
+                  .select({ name: jobStages.name })
+                  .from(jobStages)
+                  .where(
+                    and(
+                      eq(jobStages.workspaceId, input.workspaceId),
+                      eq(jobStages.id, application.currentStageId),
+                    ),
+                  )
+                  .limit(1)
+              : [];
+          const nextStatus = statusAfterStageMove({
+            currentStatus: application.status,
+            fromStageName: fromStage?.name ?? null,
+            toStageName: application.toStageName,
+            sameStage: !changedStage,
+          });
           const changedStatus = application.status !== nextStatus;
+          const toStageRejectionSource = rejectionSourceForStageName(
+            application.toStageName,
+          );
 
+          // `updatedAt` on the moved application is the optimistic-lock version
+          // (see the guard below), so it is bumped here and nowhere else.
           const [updatedApplication] = await tx
             .update(applications)
             .set({
               currentStageId: input.toStageId,
               status: nextStatus,
-              ...(changedStage || changedStatus ? { rejectionSource: rejectionSourceForStageName(application.toStageName) } : {}),
+              ...(changedStatus || (changedStage && toStageRejectionSource)
+                ? {
+                    rejectionSource:
+                      nextStatus === "rejected" ? toStageRejectionSource : null,
+                  }
+                : {}),
               ...rejectionDetailsPatch(application.status, nextStatus),
               updatedAt: now,
             })
@@ -347,32 +379,26 @@ export async function moveApplicationInPipeline(
             throw new ConcurrencyConflictError();
           }
 
-          if (input.orderedApplicationIds.length > 0) {
+          // Reordering rewrites `pipelineOrder` only. `updatedAt` is pinned to
+          // its current value because the column's `$onUpdate` would otherwise
+          // stamp every neighbour, marking a whole column as just modified.
+          for (const [
+            index,
+            applicationId,
+          ] of input.orderedApplicationIds.entries()) {
             await tx
               .update(applications)
-              .set({ updatedAt: now })
+              .set({
+                pipelineOrder: index + 1,
+                updatedAt: sql`${applications.updatedAt}`,
+              })
               .where(
                 and(
-                  inArray(applications.id, input.orderedApplicationIds),
+                  eq(applications.id, applicationId),
                   eq(applications.workspaceId, input.workspaceId),
                   eq(applications.currentStageId, input.toStageId),
                 ),
               );
-
-            for (const [
-              index,
-              applicationId,
-            ] of input.orderedApplicationIds.entries()) {
-              await tx
-                .update(applications)
-                .set({ pipelineOrder: index + 1 })
-                .where(
-                  and(
-                    eq(applications.id, applicationId),
-                    eq(applications.workspaceId, input.workspaceId),
-                  ),
-                );
-            }
           }
 
           if (!changedStage && !changedStatus) {
@@ -804,20 +830,62 @@ export async function bulkMoveApplications(
 
           const collectedEmails: PipelineEmail[] = [];
 
+          // Same status rule as a single drag: a withdrawn or rejected
+          // application moved between working stages keeps its status. The
+          // previous stage names are only needed when such an application moves.
+          const fromStageIds = Array.from(applicationsByStage.keys());
+          const fromStageRows = allApplications.some(
+            (app) =>
+              app.status !== "active" && app.currentStageId !== input.toStageId,
+          )
+            ? await tx
+                .select({ id: jobStages.id, name: jobStages.name })
+                .from(jobStages)
+                .where(
+                  and(
+                    eq(jobStages.workspaceId, input.workspaceId),
+                    inArray(jobStages.id, fromStageIds),
+                  ),
+                )
+            : [];
+          const fromStageNameById = new Map(
+            fromStageRows.map((stage) => [stage.id, stage.name]),
+          );
+          const toStageRejectionSource = rejectionSourceForStageName(toStageName);
+          const nextStatusById = new Map(
+            allApplications.map((app) => [
+              app.id,
+              statusAfterStageMove({
+                currentStatus: app.status,
+                fromStageName: fromStageNameById.get(app.currentStageId) ?? null,
+                toStageName,
+                sameStage: app.currentStageId === input.toStageId,
+              }),
+            ]),
+          );
+
           for (const [fromStageId, appIds] of applicationsByStage) {
             if (appIds.length === 0) continue;
-
-            const nextStatus = statusForStageName(toStageName);
 
             for (const applicationId of appIds) {
               const appData = appDataById.get(applicationId);
               if (!appData) throw new Error("Application not found.");
+              const nextStatus =
+                nextStatusById.get(applicationId) ??
+                statusForStageName(toStageName);
               const [updated] = await tx
                 .update(applications)
                 .set({
                   currentStageId: input.toStageId,
                   status: nextStatus,
-                  rejectionSource: rejectionSourceForStageName(toStageName),
+                  ...(nextStatus !== appData.status || toStageRejectionSource
+                    ? {
+                        rejectionSource:
+                          nextStatus === "rejected"
+                            ? toStageRejectionSource
+                            : null,
+                      }
+                    : {}),
                   ...rejectionDetailsPatch(appData.status, nextStatus),
                   updatedAt: now,
                 })
@@ -860,7 +928,9 @@ export async function bulkMoveApplications(
                   toStageId: input.toStageId,
                   bulk: true,
                   rejectionSource: rejectionSourceForStageName(toStageName),
-                  ...(nextStatus ? { status: nextStatus } : {}),
+                  status:
+                    nextStatusById.get(applicationId) ??
+                    statusForStageName(toStageName),
                 },
               })),
             );
@@ -869,7 +939,9 @@ export async function bulkMoveApplications(
               const appData = appDataById.get(applicationId);
               if (!appData) continue;
 
-              const resolvedStatus = nextStatus;
+              const resolvedStatus =
+                nextStatusById.get(applicationId) ??
+                statusForStageName(toStageName);
               const becameRejected =
                 appData.status !== "rejected" && resolvedStatus === "rejected";
               const becameHired =
@@ -982,9 +1054,15 @@ export async function bulkMoveApplications(
                 "Application ordering changed. Refresh and try again.",
               );
             }
+            // Order only: `updatedAt` is pinned (its `$onUpdate` would bump it),
+            // so it stays the version the guard below reads and applications
+            // that merely shifted position are not marked as modified.
             const [updated] = await tx
               .update(applications)
-              .set({ pipelineOrder: index + 1, updatedAt: now })
+              .set({
+                pipelineOrder: index + 1,
+                updatedAt: sql`${applications.updatedAt}`,
+              })
               .where(
                 and(
                   eq(applications.id, applicationId),
@@ -999,7 +1077,6 @@ export async function bulkMoveApplications(
                 "Application ordering changed. Refresh and try again.",
               );
             }
-            versionById.set(applicationId, now.toISOString());
           }
 
           return collectedEmails;

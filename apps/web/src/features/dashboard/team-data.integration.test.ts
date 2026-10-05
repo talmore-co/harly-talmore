@@ -6,6 +6,7 @@ const context = vi.hoisted(() => ({ workspaceId: "", userId: "" }));
 vi.mock("@/features/workspaces/context", () => ({ getWorkspaceContext: async () => ({ organization: { id: context.workspaceId }, user: { id: context.userId } }) }));
 import { getTeamDashboardCounts } from "./team-data";
 import { getPipelineData } from "@/features/pipeline/data";
+import { firstStageIds } from "@/features/pipeline/first-stage";
 import { getCandidatesNeedingReview, getTodayInterviews } from "./widgets";
 import { getInboxData } from "@/features/mailbox/data";
 
@@ -46,13 +47,15 @@ integration("team dashboard totals and destinations", () => {
   });
   afterAll(async () => { await db.delete(organization).where(eq(organization.id, context.workspaceId)); await db.delete(user).where(eq(user.id, context.userId)); });
   it("matches the existing pipeline filters without truncating totals", async () => {
-    expect(await getTeamDashboardCounts()).toEqual({ screening: 30, active: 62, replies: 9 });
+    // "New" is each job's first stage by order: job A's "Applied" and job B's
+    // "New applicants" both count, 30 active applications each.
+    expect(await getTeamDashboardCounts()).toEqual({ screening: 60, active: 62, replies: 9 });
     const active = await getPipelineData("all");
     const single = await getPipelineData(jobA);
     expect(active.kind === "ready" && active.applications.length).toBe(62);
     if (active.kind !== "ready") throw new Error("Expected pipeline data");
-    const appliedIds = new Set(active.stages.filter((stage) => stage.name === "Applied").map((stage) => stage.id));
-    expect(active.applications.filter((application) => appliedIds.has(application.currentStageId))).toHaveLength(30);
+    const newIds = firstStageIds(active.stages);
+    expect(active.applications.filter((application) => newIds.has(application.currentStageId))).toHaveLength(60);
     expect(single.kind === "ready" && single.applications.length).toBe(32);
     expect((await getInboxData({ filter: "needs-reply" })).threads).toHaveLength(9);
   });

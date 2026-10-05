@@ -16,6 +16,8 @@ type EmptyStateProps = {
     label: string;
   };
   className?: string;
+  /** For an action that is not a link, e.g. a button that opens a drawer. */
+  children?: React.ReactNode;
 };
 
 export function EmptyState({
@@ -24,6 +26,7 @@ export function EmptyState({
   icon: Icon = Inbox,
   action,
   className,
+  children,
 }: EmptyStateProps) {
   return (
     <div
@@ -44,6 +47,7 @@ export function EmptyState({
           <Link href={action.href}>{action.label}</Link>
         </Button>
       ) : null}
+      {children ? <div className="mt-6">{children}</div> : null}
     </div>
   );
 }

@@ -218,7 +218,9 @@ export function CandidateCard({
           {...listeners}
           disabled={disabled || dragDisabled}
           onClick={(event) => event.stopPropagation()}
-          className="shrink-0 touch-none cursor-grab rounded-md p-1 text-quiet-mist opacity-0 transition hover:text-near-ink group-hover:opacity-100 active:cursor-grabbing"
+          // Hover-revealed for a mouse only: keyboard focus shows the handle
+          // with a ring, and touch devices (no hover) always show it.
+          className="shrink-0 touch-none cursor-grab rounded-md p-1 text-quiet-mist opacity-0 transition hover:text-near-ink focus-visible:text-near-ink focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-near-ink group-hover:opacity-100 group-focus-within:opacity-100 active:cursor-grabbing pointer-coarse:opacity-100"
           aria-label={`Drag ${fullName} to another stage`}
         >
           <DotsSixVerticalIcon className="size-3.5" />

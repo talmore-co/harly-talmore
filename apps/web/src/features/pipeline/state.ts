@@ -33,3 +33,34 @@ export function rejectionSourceForStageName(name: string): "agency" | "client" |
   if (normalized === "rejected") return "agency";
   return null;
 }
+
+/**
+ * Status an application carries after a pipeline move.
+ *
+ * - Reordering inside the same stage never changes status.
+ * - Entering a terminal stage (Hired / Rejected / Rejected by client) sets the
+ *   matching status.
+ * - Leaving the terminal stage that explains the current status reactivates
+ *   the application, e.g. dragging a rejected card out of Rejected.
+ * - A withdrawn (or otherwise non-active) application moved between two working
+ *   stages keeps its status. Reactivating is an explicit decision made through
+ *   the status action, never a side effect of a drag.
+ */
+export function statusAfterStageMove(input: {
+  currentStatus: PipelineApplicationStatus;
+  /** Null when the previous stage is unknown; treated as a working stage. */
+  fromStageName: string | null;
+  toStageName: string;
+  sameStage: boolean;
+}): PipelineApplicationStatus {
+  if (input.sameStage) return input.currentStatus;
+
+  const targetStatus = statusForStageName(input.toStageName);
+  if (targetStatus !== "active") return targetStatus;
+  if (input.currentStatus === "active") return "active";
+
+  const fromStatus = input.fromStageName
+    ? statusForStageName(input.fromStageName)
+    : "active";
+  return fromStatus === input.currentStatus ? "active" : input.currentStatus;
+}

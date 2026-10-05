@@ -95,7 +95,8 @@ export default async function DashboardPage({
             {
               label: "New applications",
               value: counts.screening,
-              href: "/dashboard/pipeline?jobId=all&stage=Applied",
+              // Each job's first stage, whatever it is named (see team-data).
+              href: "/dashboard/pipeline?jobId=all&queue=new",
               urgent: true,
             },
             {

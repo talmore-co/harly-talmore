@@ -4,7 +4,13 @@ import { applications, candidates, db, jobs, mailThreads } from "@harly/db";
 import { getWorkspaceContext } from "@/features/workspaces/context";
 import { threadNeedsReply } from "@/features/mailbox/thread-query";
 
-/** Shared by totals and the destination queue; never count a limited preview. */
+/**
+ * Shared by totals and the destination queue; never count a limited preview.
+ *
+ * "New" means the job's first stage by order, whatever it is called: a job
+ * whose intake stage was renamed still has new applications. The pipeline list
+ * applies the same rule to the destination (`firstStageIds`, `?queue=new`).
+ */
 export function teamApplicationWhere(workspaceId: string, screening: boolean) {
   return and(
     eq(applications.workspaceId, workspaceId), eq(applications.status, "active"),
@@ -13,7 +19,8 @@ export function teamApplicationWhere(workspaceId: string, screening: boolean) {
     screening ? sql`${applications.currentStageId} = (
       select initial.id from job_stages initial
       where initial.workspace_id = ${workspaceId} and initial.job_id = ${applications.jobId}
-        and initial.name = 'Applied' and initial.id = ${applications.currentStageId}
+      order by initial."order" asc, initial.id asc
+      limit 1
     )` : undefined,
   );
 }

@@ -12,13 +12,12 @@ import { PipelineJobSelect } from "@/features/pipeline/PipelineJobSelect";
 import { PipelineList } from "@/features/pipeline/PipelineList";
 import { PipelineSummaryCard } from "@/features/pipeline/PipelineSummaryCard";
 import { PipelineViewToggle } from "@/features/pipeline/PipelineViewToggle";
-import { getPipelineData, type PipelineData } from "@/features/pipeline/data";
+import { StageEditor } from "@/features/pipeline/StageEditor";
+import { getPipelineData } from "@/features/pipeline/data";
 import { listJobClientNames } from "@/features/jobs/data";
 import { getWorkspaceAiStatus } from "@/lib/ai/config";
 
 export const dynamic = "force-dynamic";
-
-type PipelineDataReady = Extract<PipelineData, { kind: "ready" }>;
 
 type PipelinePageProps = {
   searchParams: Promise<{
@@ -61,6 +60,25 @@ export default async function PipelinePage({
   const [clientOptions, jobClientNames] = canViewClients
     ? await Promise.all([listClientOptions(), listJobClientNames()])
     : [[], {}];
+  const hasStages = data.stages.length > 0;
+  // Stage editing is job editing; the actions re-check access for this job.
+  const canManageStages = !allJobs && (await can("jobs:edit"));
+  const applicationCounts: Record<string, number> = {};
+  for (const application of data.applications) {
+    applicationCounts[application.currentStageId] =
+      (applicationCounts[application.currentStageId] ?? 0) + 1;
+  }
+  const stageEditor = (emphasis: "quiet" | "primary") =>
+    canManageStages ? (
+      <StageEditor
+        key={`stages-${data.selectedJob.id}`}
+        jobId={data.selectedJob.id}
+        jobTitle={data.selectedJob.title}
+        stages={data.stages}
+        applicationCounts={applicationCounts}
+        emphasis={emphasis}
+      />
+    ) : null;
   const toolbar = (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <Suspense>
@@ -71,20 +89,25 @@ export default async function PipelinePage({
         />
       </Suspense>
       {allJobs && clientOptions.length ? <Suspense><PipelineClientFilter clients={clientOptions} /></Suspense> : null}
-      {data.stages.length > 0 && !allJobs ? (
-        <PipelineViewToggle jobId={data.selectedJob.id} view={view} stage={stage} />
+      {hasStages && !allJobs ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {stageEditor("quiet")}
+          <PipelineViewToggle jobId={data.selectedJob.id} view={view} stage={stage} />
+        </div>
       ) : null}
     </div>
   );
 
-  if (data.stages.length === 0 && !allJobs) {
+  if (!hasStages && !allJobs) {
     return (
       <div className="space-y-4">
         {toolbar}
         <EmptyState
           title="No stages configured"
           description="Add pipeline stages to this job to start tracking candidates."
-        />
+        >
+          {stageEditor("primary")}
+        </EmptyState>
       </div>
     );
   }
@@ -129,11 +152,9 @@ export default async function PipelinePage({
       ) : (
         <PipelineBoard
           evaluationAction={evaluationAction}
-          key={pipelineBoardKey(
-            data.selectedJob.id,
-            data.stages,
-            data.applications,
-          )}
+          // Keyed by job only: the board keeps its filters, selection and
+          // scroll across refreshes and reconciles its columns from props.
+          key={`board-${data.selectedJob.id}`}
           jobs={data.jobs}
           selectedJob={data.selectedJob}
           stages={data.stages}
@@ -142,24 +163,4 @@ export default async function PipelinePage({
       )}
     </div>
   );
-}
-
-function pipelineBoardKey(
-  jobId: string,
-  stages: PipelineDataReady["stages"],
-  applications: PipelineDataReady["applications"],
-) {
-  const stageVersion = stages
-    .map(
-      (stage) =>
-        `${stage.id}:${stage.order}:${stage.emailConfig.candidateUpdatesEnabled}`,
-    )
-    .join(",");
-  const applicationVersion = applications
-    .map(
-      (application) =>
-        `${application.id}:${application.currentStageId}:${application.pipelineOrder}:${application.status}:${application.lastStageMovedAt ?? ""}:${application.aiScore ?? ""}`,
-    )
-    .join(",");
-  return `${jobId}:${stageVersion}:${applicationVersion}`;
 }
