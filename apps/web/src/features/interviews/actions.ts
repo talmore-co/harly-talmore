@@ -300,6 +300,13 @@ export async function scheduleInterview(
     );
 
     const data = parsed.data;
+    const { assertCandidateContactAllowed, ContactRestrictedError } = await import("@/features/candidates/contact-restrictions");
+    try {
+      await assertCandidateContactAllowed(workspace.id, { candidateId: data.candidateId }, "contact");
+    } catch (error) {
+      if (error instanceof ContactRestrictedError) return { success: false, error: error.message };
+      throw error;
+    }
     const when = parseScheduledAt(data.scheduledAt, data.timeZone);
 
     if (isPastWhen(when)) {

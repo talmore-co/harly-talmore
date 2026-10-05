@@ -268,6 +268,12 @@ export async function replyMailboxThreadAction(input: {
   const [thread] = await db.select().from(mailThreads).where(and(eq(mailThreads.id, parsed.data.threadId), eq(mailThreads.workspaceId, organization.id))).limit(1);
   if (!thread) return { ok: false, error: "Thread not found." };
   if (!thread.participantEmail) return { ok: false, error: "This thread has no reply address." };
+  try {
+    const { assertCandidateContactAllowed } = await import("@/features/candidates/contact-restrictions");
+    await assertCandidateContactAllowed(organization.id, { candidateId: thread.candidateId ?? undefined, email: thread.participantEmail });
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Outbound contact is disabled for this candidate." };
+  }
   if (thread.candidateId) {
     const [activeCandidate] = await db
       .select({ id: candidates.id })

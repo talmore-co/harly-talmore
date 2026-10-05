@@ -1,4 +1,5 @@
 "use server";
+import { assertCandidateContactAllowed, ContactRestrictedError } from "@/features/candidates/contact-restrictions";
 import { definitionSchema, freezeCriteria, responsesSchema, ScorecardValidationError, type ScorecardSubmission } from "./scorecard-definition";
 
 import { createElement } from "react";
@@ -1758,6 +1759,12 @@ export async function sendCandidateMessage(input: {
     if (!recipient?.email) return { success: false, error: "Add an email address to this candidate before sending email." };
     const recipientEmail = recipient.email.trim().toLowerCase();
     if (parsed.data.toEmail.trim().toLowerCase() !== recipientEmail) return { success: false, error: "The candidate email changed. Review the recipient before sending." };
+    try {
+      await assertCandidateContactAllowed(input.workspaceId, { candidateId: input.candidateId, email: recipientEmail });
+    } catch (error) {
+      if (error instanceof ContactRestrictedError) return { success: false, error: error.message };
+      throw error;
+    }
 
     // Latest application for this candidate , used to route inbound replies
     // back to the right thread via a Reply-To token, when inbound is on.
