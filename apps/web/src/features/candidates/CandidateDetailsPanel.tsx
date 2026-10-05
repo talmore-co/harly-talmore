@@ -48,6 +48,7 @@ import { Button } from "@/components/ui/button";
 import { ShortDate } from "@/lib/date-hydration";
 import { PipelineScores } from "@/features/pipeline/PipelineScores";
 import { MetaAttributionBadge } from "@/features/pipeline/MetaAttributionBadge";
+import { rejectionReasonLabel } from "@/features/pipeline/rejection-reasons";
 import { AiScoreCard } from "./AiScoreCard";
 import type { CandidateAiEvaluationItem } from "./data";
 
@@ -58,6 +59,8 @@ type Application = {
   clientName?: string | null;
   currentStageName: string | null;
   status: string;
+  rejectionReason?: string | null;
+  rejectionNote?: string | null;
   appliedAt: string;
   source: string | null;
   questionnaireScore?: number | null;
@@ -217,6 +220,14 @@ function ApplicationDisclosure({
           <span>{sourceMeta?.label ?? application.source ?? "Source not recorded"}</span>
           <MetaAttributionBadge value={application.attribution} />
         </div>
+        {application.status === "rejected" && (application.rejectionReason || application.rejectionNote) ? (
+          <div className="mt-1.5 pl-[2.4rem] text-xs text-muted-foreground">
+            <p>
+              Rejection reason: <span className="text-foreground">{rejectionReasonLabel(application.rejectionReason)}</span>
+            </p>
+            {application.rejectionNote ? <p className="mt-0.5 whitespace-pre-wrap break-words">{application.rejectionNote}</p> : null}
+          </div>
+        ) : null}
         </div>
         <div className="flex flex-col items-start gap-1.5">
         {application.currentStageName ? (

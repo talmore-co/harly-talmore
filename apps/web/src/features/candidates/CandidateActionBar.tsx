@@ -188,8 +188,8 @@ function RejectButton({
       toast.error("This candidate has no application to update.");
       return;
     }
-    const sendRejectionEmail = status === "rejected" ? await confirmRejection(1) : false;
-    if (sendRejectionEmail === null) return;
+    const rejection = status === "rejected" ? await confirmRejection(1) : undefined;
+    if (rejection === null) return;
     if (
       status !== "rejected" && !window.confirm(
         `${pastTense === "withdrawn" ? "Mark" : "Reject"} ${name}'s application for ${application.jobTitle}?`,
@@ -201,8 +201,10 @@ function RejectButton({
       const result = await bulkUpdateCandidateStatusAction({
         applicationIds: [application.applicationId],
         status,
-        sendRejectionEmail,
+        sendRejectionEmail: rejection?.sendEmail ?? false,
         rejectionSource,
+        rejectionReason: rejection?.reason,
+        rejectionNote: rejection?.note,
       });
       if (result.success) {
         toast.success(`${name} ${pastTense}.`);
