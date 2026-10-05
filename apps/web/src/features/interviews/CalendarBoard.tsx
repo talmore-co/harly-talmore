@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -52,9 +53,37 @@ const MODE_TONE: Record<InterviewMode, string> = {
 };
 
 const MAX_VISIBLE_PER_DAY = 3;
-const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+// Weeks start on Monday; keep in sync with the range loaded by the page.
+const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 type FilterOption = { value: string; label: string };
+export type CalendarFilters = {
+  job?: string;
+  interviewer?: string;
+  type?: string;
+};
+
+const TYPE_OPTIONS: FilterOption[] = [
+  { value: "screening", label: "Screening" },
+  { value: "culture_fit", label: "Culture fit" },
+  { value: "technical", label: "Technical" },
+  { value: "onsite", label: "Onsite" },
+  { value: "final", label: "Final round" },
+];
+
+function knownFilter(value: string | undefined, options: FilterOption[]) {
+  return value && options.some((option) => option.value === value)
+    ? value
+    : "all";
+}
+
+function calendarHref(month: string, filters: Required<CalendarFilters>) {
+  const params = new URLSearchParams({ month });
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== "all") params.set(key, value);
+  }
+  return `/dashboard/calendars?${params}` as Route;
+}
 
 function dayKey(date: Date): string {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
@@ -62,7 +91,7 @@ function dayKey(date: Date): string {
 
 function buildMonthGrid(monthStart: Date): Date[] {
   const gridStart = new Date(monthStart);
-  gridStart.setDate(gridStart.getDate() - gridStart.getDay());
+  gridStart.setDate(gridStart.getDate() - ((gridStart.getDay() + 6) % 7));
   return Array.from({ length: 42 }, (_, i) => {
     const d = new Date(gridStart);
     d.setDate(d.getDate() + i);
@@ -76,18 +105,26 @@ export function CalendarBoard({
   interviews,
   jobOptions,
   interviewerOptions,
+  initialFilters,
 }: {
   monthParam: string;
   monthLabel: string;
   interviews: UpcomingInterviewItem[];
   jobOptions: FilterOption[];
   interviewerOptions: FilterOption[];
+  initialFilters?: CalendarFilters;
 }) {
   const router = useRouter();
   const shouldReduceMotion = useReducedMotion();
-  const [jobFilter, setJobFilter] = useState("all");
-  const [interviewerFilter, setInterviewerFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
+  const [jobFilter, setJobFilter] = useState(() =>
+    knownFilter(initialFilters?.job, jobOptions),
+  );
+  const [interviewerFilter, setInterviewerFilter] = useState(() =>
+    knownFilter(initialFilters?.interviewer, interviewerOptions),
+  );
+  const [typeFilter, setTypeFilter] = useState(() =>
+    knownFilter(initialFilters?.type, TYPE_OPTIONS),
+  );
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const detailRef = useRef<HTMLDivElement | null>(null);
@@ -132,16 +169,31 @@ export function CalendarBoard({
     return map;
   }, [filtered]);
 
+  const currentFilters = {
+    job: jobFilter,
+    interviewer: interviewerFilter,
+    type: typeFilter,
+  };
+
+  // Filters live in the URL so a reload, a shared link or a month change keeps them.
+  function changeFilters(changes: CalendarFilters) {
+    const next = { ...currentFilters, ...changes };
+    setJobFilter(next.job);
+    setInterviewerFilter(next.interviewer);
+    setTypeFilter(next.type);
+    router.replace(calendarHref(monthParam, next), { scroll: false });
+  }
+
   function goToMonth(offset: number) {
     const next = new Date(year, month - 1 + offset, 1);
     const param = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
-    router.push(`/dashboard/calendars?month=${param}`);
+    router.push(calendarHref(param, currentFilters));
   }
 
   function goToday() {
     const now = new Date();
     const param = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    router.push(`/dashboard/calendars?month=${param}`);
+    router.push(calendarHref(param, currentFilters));
   }
 
   const selectedDayInterviews = selectedDay
@@ -167,6 +219,9 @@ export function CalendarBoard({
           month{hasAnyFilter ? " (filtered)" : ""}.
         </p>
         <div className="flex items-center gap-1">
+          <h2 className="mr-2 text-sm font-semibold tracking-tight">
+            {monthLabel}
+          </h2>
           <button
             type="button"
             onClick={() => goToMonth(-1)}
@@ -180,7 +235,7 @@ export function CalendarBoard({
             onClick={goToday}
             className="rounded-md border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent active:scale-[0.97]"
           >
-            {monthLabel}
+            Today
           </button>
           <button
             type="button"
@@ -195,7 +250,10 @@ export function CalendarBoard({
 
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card/50 p-2.5">
         <FunnelIcon className="ml-1 size-4 text-muted-foreground" />
-        <Select value={jobFilter} onValueChange={setJobFilter}>
+        <Select
+          value={jobFilter}
+          onValueChange={(job) => changeFilters({ job })}
+        >
           <SelectTrigger className="h-8 w-auto min-w-32 text-xs">
             <SelectValue placeholder="All jobs" />
           </SelectTrigger>
@@ -208,7 +266,10 @@ export function CalendarBoard({
             ))}
           </SelectContent>
         </Select>
-        <Select value={interviewerFilter} onValueChange={setInterviewerFilter}>
+        <Select
+          value={interviewerFilter}
+          onValueChange={(interviewer) => changeFilters({ interviewer })}
+        >
           <SelectTrigger className="h-8 w-auto min-w-36 text-xs">
             <SelectValue placeholder="All interviewers" />
           </SelectTrigger>
@@ -221,27 +282,28 @@ export function CalendarBoard({
             ))}
           </SelectContent>
         </Select>
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
+        <Select
+          value={typeFilter}
+          onValueChange={(type) => changeFilters({ type })}
+        >
           <SelectTrigger className="h-8 w-auto min-w-28 text-xs">
             <SelectValue placeholder="All types" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All types</SelectItem>
-            <SelectItem value="screening">Screening</SelectItem>
-            <SelectItem value="culture_fit">Culture fit</SelectItem>
-            <SelectItem value="technical">Technical</SelectItem>
-            <SelectItem value="onsite">Onsite</SelectItem>
-            <SelectItem value="final">Final round</SelectItem>
+            {TYPE_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         {hasAnyFilter ? (
           <button
             type="button"
-            onClick={() => {
-              setJobFilter("all");
-              setInterviewerFilter("all");
-              setTypeFilter("all");
-            }}
+            onClick={() =>
+              changeFilters({ job: "all", interviewer: "all", type: "all" })
+            }
             className="ml-auto text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             Clear filters

@@ -48,6 +48,7 @@ vi.mock("@harly/db", () => {
       update: mocks.update,
       transaction: mocks.transaction,
     },
+    activityEvents: {},
     applications: {},
     candidates: { workspaceId: "workspaceId", deletedAt: "deletedAt" },
     candidatePortalNotifications: {},
@@ -220,5 +221,97 @@ describe("POST /api/webhooks/cal", () => {
     expect(mocks.update).not.toHaveBeenCalled();
     expect(mocks.persistDomainEvent).not.toHaveBeenCalled();
     expect(mocks.emitWebhookEvent).not.toHaveBeenCalled();
+  });
+
+  it("follows rescheduleUid to the existing interview and stores the new uid", async () => {
+    const interview = scheduledInterview();
+    const movedTo = new Date("2030-01-02T14:00:00.000Z");
+    const updated = { ...interview, scheduledAt: movedTo, calBookingUid: "booking-2" };
+    const set = vi.fn(() => ({
+      where: () => ({ returning: async () => [updated] }),
+    }));
+    mocks.update.mockReturnValue({ set });
+    mocks.insert.mockReturnValue({ values: async () => undefined });
+    mocks.selectQueue.push(
+      [{ secret: "cal-secret" }],
+      // No interview under the new uid, then the one booked under the old uid.
+      [],
+      [interview],
+      [interview],
+      [updated],
+      [
+        {
+          id: "app-1",
+          email: "candidate@example.test",
+          firstName: "Ada",
+          lastName: "Example",
+          companyName: "Example Co",
+          jobTitle: "Engineer",
+        },
+      ],
+    );
+    const body = JSON.stringify({
+      triggerEvent: "BOOKING_RESCHEDULED",
+      payload: {
+        uid: "booking-2",
+        rescheduleUid: "booking-1",
+        startTime: movedTo.toISOString(),
+        endTime: "2030-01-02T14:45:00.000Z",
+        attendees: [
+          { email: "host@example.test", timeZone: "Europe/London" },
+          { email: "Candidate@example.test", timeZone: "Asia/Manila" },
+        ],
+      },
+    });
+
+    const response = await POST({
+      nextUrl: { searchParams: new URLSearchParams("ws=ws-1") },
+      headers: new Headers({ "x-cal-signature-256": "valid" }),
+      text: async () => body,
+    } as never);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ ok: true });
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({ scheduledAt: movedTo, calBookingUid: "booking-2" }),
+    );
+    expect(mocks.emitWebhookEvent).toHaveBeenCalledWith(
+      "ws-1",
+      "interview.rescheduled",
+      expect.anything(),
+      { skipDomainEvent: true },
+    );
+    expect(mocks.enqueueEmailOutbox).toHaveBeenCalledWith(
+      "ws-1",
+      "interview.rescheduled",
+      expect.objectContaining({ timeZone: "Asia/Manila" }),
+      undefined,
+      undefined,
+    );
+  });
+
+  it("still ignores a reschedule for a booking it has never seen", async () => {
+    mocks.selectQueue.push([{ secret: "cal-secret" }], [], []);
+    const body = JSON.stringify({
+      triggerEvent: "BOOKING_RESCHEDULED",
+      payload: {
+        uid: "booking-2",
+        rescheduleUid: "booking-unknown",
+        startTime: "2030-01-02T14:00:00.000Z",
+      },
+    });
+
+    const response = await POST({
+      nextUrl: { searchParams: new URLSearchParams("ws=ws-1") },
+      headers: new Headers({ "x-cal-signature-256": "valid" }),
+      text: async () => body,
+    } as never);
+
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      skipped: "unknown booking reschedule",
+    });
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.insert).not.toHaveBeenCalled();
   });
 });
