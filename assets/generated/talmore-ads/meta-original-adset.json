@@ -1,0 +1,86 @@
+{
+  "id": "120254404946080440",
+  "name": "Muntinlupa +25km | Broad | Qualified applications",
+  "campaign_id": "120254404943020440",
+  "status": "ACTIVE",
+  "lifetime_budget": "28000",
+  "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
+  "billing_event": "IMPRESSIONS",
+  "optimization_goal": "OFFSITE_CONVERSIONS",
+  "destination_type": "WEBSITE",
+  "targeting": {
+    "age_max": 65,
+    "age_min": 18,
+    "geo_locations": {
+      "cities": [
+        {
+          "country": "PH",
+          "distance_unit": "kilometer",
+          "key": "1750169",
+          "name": "Muntinlupa City",
+          "radius": 25,
+          "region": "Metro Manila",
+          "region_id": "4179"
+        }
+      ],
+      "location_types": [
+        "frequently_in",
+        "home",
+        "recent"
+      ]
+    },
+    "targeting_automation": {
+      "advantage_audience": 0
+    }
+  },
+  "promoted_object": {
+    "custom_conversion_id": "1814490013300940",
+    "smart_pse_enabled": false
+  },
+  "start_time": "2026-09-17T08:30:00+0800",
+  "end_time": "2026-10-01T08:29:59+0800",
+  "ads": {
+    "data": [
+      {
+        "id": "120254405172920440",
+        "name": "R4 | Clear vacancy",
+        "status": "ACTIVE",
+        "creative": {
+          "id": "1623471765814386"
+        }
+      },
+      {
+        "id": "120254405170680440",
+        "name": "R2 | Game genres",
+        "status": "ACTIVE",
+        "creative": {
+          "id": "1654936666233785"
+        }
+      },
+      {
+        "id": "120254405169340440",
+        "name": "R1 | Competitive experience",
+        "status": "ACTIVE",
+        "creative": {
+          "id": "4483474888578094"
+        }
+      },
+      {
+        "id": "120254405172190440",
+        "name": "R3 | Hands-on hobbies",
+        "status": "ACTIVE",
+        "creative": {
+          "id": "1583757172694109"
+        }
+      },
+      {
+        "id": "120254405174390440",
+        "name": "R5 | Training-led imagery comparison",
+        "status": "ACTIVE",
+        "creative": {
+          "id": "1115814517544407"
+        }
+      }
+    ]
+  }
+}

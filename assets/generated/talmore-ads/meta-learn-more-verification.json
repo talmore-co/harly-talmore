@@ -1,0 +1,497 @@
+[
+  {
+    "id": "120254405169340440",
+    "status": "PAUSED",
+    "creative": {
+      "id": "4483474888578094",
+      "asset_feed_spec": {
+        "images": [
+          {
+            "adlabels": [
+              {
+                "name": "feed",
+                "id": "120254404950250440"
+              }
+            ],
+            "hash": "ebbd0c9fdc3fae933531c55235b5c905"
+          },
+          {
+            "adlabels": [
+              {
+                "name": "vertical",
+                "id": "120254404950240440"
+              }
+            ],
+            "hash": "bfdf00be11d8c02cdf418812f12d06cc"
+          }
+        ],
+        "bodies": [
+          {
+            "text": "Current or former competitive gamer? Apply as a Robot Operator for full-time onsite work in Alabang, Muntinlupa. Training is provided.\n\nOperate remote-controlled robots from the Alabang facility using VR, software and controllers. The work includes following procedures, monitoring operations and reporting issues.\n\nGaming background is preferred and esports experience is an advantage. Competitive experience is not required to apply.\n\nYou'll need at least 2 years of college or a bachelor's degree and availability for rotating shifts, including nights. Fresh graduates welcome. Basic English is acceptable.\n\nView the job details and apply."
+          }
+        ],
+        "call_to_action_types": [
+          "LEARN_MORE"
+        ],
+        "descriptions": [
+          {
+            "text": "Full-time onsite. Training provided."
+          }
+        ],
+        "link_urls": [
+          {
+            "website_url": "https://ats.talmore.co/jobs/robot-operations"
+          }
+        ],
+        "titles": [
+          {
+            "text": "Robot Operator | Alabang"
+          }
+        ],
+        "ad_formats": [
+          "SINGLE_IMAGE"
+        ],
+        "asset_customization_rules": [
+          {
+            "customization_spec": {
+              "age_max": 65,
+              "age_min": 13,
+              "publisher_platforms": [
+                "facebook",
+                "instagram"
+              ],
+              "facebook_positions": [
+                "story",
+                "facebook_reels"
+              ],
+              "instagram_positions": [
+                "story",
+                "reels"
+              ]
+            },
+            "image_label": {
+              "name": "vertical",
+              "id": "120254404950240440"
+            },
+            "priority": 1
+          },
+          {
+            "customization_spec": {
+              "age_max": 65,
+              "age_min": 13
+            },
+            "image_label": {
+              "name": "feed",
+              "id": "120254404950250440"
+            },
+            "priority": 2
+          }
+        ],
+        "optimization_type": "PLACEMENT",
+        "additional_data": {
+          "multi_share_end_card": false,
+          "is_click_to_message": false
+        },
+        "reasons_to_shop": false,
+        "shops_bundle": false
+      },
+      "url_tags": "utm_source={{site_source_name}}&utm_medium=paid_social&utm_campaign=robot_operator_alabang&utm_content={{ad.name}}&campaign_id={{campaign.id}}&adset_id={{adset.id}}&ad_id={{ad.id}}"
+    }
+  },
+  {
+    "id": "120254405170680440",
+    "status": "PAUSED",
+    "creative": {
+      "id": "1654936666233785",
+      "asset_feed_spec": {
+        "images": [
+          {
+            "adlabels": [
+              {
+                "name": "feed",
+                "id": "120254404950250440"
+              }
+            ],
+            "hash": "989bb1a5bf779fc44f32221575e8b228"
+          },
+          {
+            "adlabels": [
+              {
+                "name": "vertical",
+                "id": "120254404950240440"
+              }
+            ],
+            "hash": "13607d7b1419a581c53c7a31fbdaabb3"
+          }
+        ],
+        "bodies": [
+          {
+            "text": "Play FPS, racing, flight-sim or VR games? Put your experience to work as a Robot Operator onsite in Alabang, Muntinlupa. Training is provided.\n\nThis is a full-time role operating remote-controlled robots from the facility. You'll use VR, software and controllers, follow procedures, document activity and report issues.\n\nGaming background is preferred; esports experience is an advantage. Applicants need at least 2 years of college or a bachelor's degree and must be available for rotating shifts, including nights. Fresh graduates welcome. Basic English is acceptable.\n\nView the job details and apply."
+          }
+        ],
+        "call_to_action_types": [
+          "LEARN_MORE"
+        ],
+        "descriptions": [
+          {
+            "text": "Alabang onsite. Rotating shifts, including nights."
+          }
+        ],
+        "link_urls": [
+          {
+            "website_url": "https://ats.talmore.co/jobs/robot-operations"
+          }
+        ],
+        "titles": [
+          {
+            "text": "Hiring Robot Operators"
+          }
+        ],
+        "ad_formats": [
+          "SINGLE_IMAGE"
+        ],
+        "asset_customization_rules": [
+          {
+            "customization_spec": {
+              "age_max": 65,
+              "age_min": 13,
+              "publisher_platforms": [
+                "facebook",
+                "instagram"
+              ],
+              "facebook_positions": [
+                "story",
+                "facebook_reels"
+              ],
+              "instagram_positions": [
+                "story",
+                "reels"
+              ]
+            },
+            "image_label": {
+              "name": "vertical",
+              "id": "120254404950240440"
+            },
+            "priority": 1
+          },
+          {
+            "customization_spec": {
+              "age_max": 65,
+              "age_min": 13
+            },
+            "image_label": {
+              "name": "feed",
+              "id": "120254404950250440"
+            },
+            "priority": 2
+          }
+        ],
+        "optimization_type": "PLACEMENT",
+        "additional_data": {
+          "multi_share_end_card": false,
+          "is_click_to_message": false
+        },
+        "reasons_to_shop": false,
+        "shops_bundle": false
+      },
+      "url_tags": "utm_source={{site_source_name}}&utm_medium=paid_social&utm_campaign=robot_operator_alabang&utm_content={{ad.name}}&campaign_id={{campaign.id}}&adset_id={{adset.id}}&ad_id={{ad.id}}"
+    }
+  },
+  {
+    "id": "120254405172190440",
+    "status": "PAUSED",
+    "creative": {
+      "id": "1583757172694109",
+      "asset_feed_spec": {
+        "images": [
+          {
+            "adlabels": [
+              {
+                "name": "feed",
+                "id": "120254404950250440"
+              }
+            ],
+            "hash": "caf29915a9fe84b010f93c9076102f14"
+          },
+          {
+            "adlabels": [
+              {
+                "name": "vertical",
+                "id": "120254404950240440"
+              }
+            ],
+            "hash": "69c496fbc0b5a40293d769d30278468c"
+          }
+        ],
+        "bodies": [
+          {
+            "text": "Have hands-on experience with RC vehicles, drones, racing wheels, flight joysticks or VR controllers? Tell us about your hobbies when you apply for a Robot Operator role in Alabang, Muntinlupa.\n\nThe job involves operating remote-controlled robots from the Alabang facility using VR, software and controllers. Training is provided. Gaming background is preferred.\n\nFull-time onsite work, with rotating shifts including nights. At least 2 years of college or a bachelor's degree required. Fresh graduates welcome. Basic English is acceptable.\n\nView the job details and apply."
+          }
+        ],
+        "call_to_action_types": [
+          "LEARN_MORE"
+        ],
+        "descriptions": [
+          {
+            "text": "Full-time onsite in Alabang, Muntinlupa."
+          }
+        ],
+        "link_urls": [
+          {
+            "website_url": "https://ats.talmore.co/jobs/robot-operations"
+          }
+        ],
+        "titles": [
+          {
+            "text": "Robot Operator | Training provided"
+          }
+        ],
+        "ad_formats": [
+          "SINGLE_IMAGE"
+        ],
+        "asset_customization_rules": [
+          {
+            "customization_spec": {
+              "age_max": 65,
+              "age_min": 13,
+              "publisher_platforms": [
+                "facebook",
+                "instagram"
+              ],
+              "facebook_positions": [
+                "story",
+                "facebook_reels"
+              ],
+              "instagram_positions": [
+                "story",
+                "reels"
+              ]
+            },
+            "image_label": {
+              "name": "vertical",
+              "id": "120254404950240440"
+            },
+            "priority": 1
+          },
+          {
+            "customization_spec": {
+              "age_max": 65,
+              "age_min": 13
+            },
+            "image_label": {
+              "name": "feed",
+              "id": "120254404950250440"
+            },
+            "priority": 2
+          }
+        ],
+        "optimization_type": "PLACEMENT",
+        "additional_data": {
+          "multi_share_end_card": false,
+          "is_click_to_message": false
+        },
+        "reasons_to_shop": false,
+        "shops_bundle": false
+      },
+      "url_tags": "utm_source={{site_source_name}}&utm_medium=paid_social&utm_campaign=robot_operator_alabang&utm_content={{ad.name}}&campaign_id={{campaign.id}}&adset_id={{adset.id}}&ad_id={{ad.id}}"
+    }
+  },
+  {
+    "id": "120254405172920440",
+    "status": "PAUSED",
+    "creative": {
+      "id": "1623471765814386",
+      "asset_feed_spec": {
+        "images": [
+          {
+            "adlabels": [
+              {
+                "name": "feed",
+                "id": "120254404950250440"
+              }
+            ],
+            "hash": "cba3beefa67a4ae4d34cae7e7c56024e"
+          },
+          {
+            "adlabels": [
+              {
+                "name": "vertical",
+                "id": "120254404950240440"
+              }
+            ],
+            "hash": "b3061e35371ec6d68b7033fdb6fcaccd"
+          }
+        ],
+        "bodies": [
+          {
+            "text": "We're hiring Robot Operators for full-time onsite work in Alabang, Muntinlupa. Training is provided, and fresh graduates are welcome.\n\nOperate remote-controlled robots from the facility using VR, software and controllers. Follow procedures, monitor operations, document activity and report issues.\n\nGaming background is preferred and esports experience is an advantage. You'll need at least 2 years of college or a bachelor's degree and availability for rotating shifts, including nights. Basic English is acceptable.\n\nView the job details and apply."
+          }
+        ],
+        "call_to_action_types": [
+          "LEARN_MORE"
+        ],
+        "descriptions": [
+          {
+            "text": "Training provided. Fresh graduates welcome."
+          }
+        ],
+        "link_urls": [
+          {
+            "website_url": "https://ats.talmore.co/jobs/robot-operations"
+          }
+        ],
+        "titles": [
+          {
+            "text": "Robot Operator | Alabang"
+          }
+        ],
+        "ad_formats": [
+          "SINGLE_IMAGE"
+        ],
+        "asset_customization_rules": [
+          {
+            "customization_spec": {
+              "age_max": 65,
+              "age_min": 13,
+              "publisher_platforms": [
+                "facebook",
+                "instagram"
+              ],
+              "facebook_positions": [
+                "story",
+                "facebook_reels"
+              ],
+              "instagram_positions": [
+                "story",
+                "reels"
+              ]
+            },
+            "image_label": {
+              "name": "vertical",
+              "id": "120254404950240440"
+            },
+            "priority": 1
+          },
+          {
+            "customization_spec": {
+              "age_max": 65,
+              "age_min": 13
+            },
+            "image_label": {
+              "name": "feed",
+              "id": "120254404950250440"
+            },
+            "priority": 2
+          }
+        ],
+        "optimization_type": "PLACEMENT",
+        "additional_data": {
+          "multi_share_end_card": false,
+          "is_click_to_message": false
+        },
+        "reasons_to_shop": false,
+        "shops_bundle": false
+      },
+      "url_tags": "utm_source={{site_source_name}}&utm_medium=paid_social&utm_campaign=robot_operator_alabang&utm_content={{ad.name}}&campaign_id={{campaign.id}}&adset_id={{adset.id}}&ad_id={{ad.id}}"
+    }
+  },
+  {
+    "id": "120254405174390440",
+    "status": "PAUSED",
+    "creative": {
+      "id": "1115814517544407",
+      "asset_feed_spec": {
+        "images": [
+          {
+            "adlabels": [
+              {
+                "name": "feed",
+                "id": "120254404950250440"
+              }
+            ],
+            "hash": "5eba239894026c7dd3ff8707bf6e92cb"
+          },
+          {
+            "adlabels": [
+              {
+                "name": "vertical",
+                "id": "120254404950240440"
+              }
+            ],
+            "hash": "0d90640c73389464a331e3fc3f0b67c1"
+          }
+        ],
+        "bodies": [
+          {
+            "text": "Learn robot operations in a full-time onsite role in Alabang, Muntinlupa. We're hiring Robot Operators, and training is provided.\n\nControl robots remotely from the Alabang facility using VR, software and controllers. The role includes following procedures, monitoring operations and documenting activity.\n\nGaming background is preferred; esports experience is an advantage. Fresh graduates are welcome. Applicants need at least 2 years of college or a bachelor's degree and must be available for rotating shifts, including nights. Basic English is acceptable.\n\nView the job details and apply."
+          }
+        ],
+        "call_to_action_types": [
+          "LEARN_MORE"
+        ],
+        "descriptions": [
+          {
+            "text": "Full-time onsite. Training provided."
+          }
+        ],
+        "link_urls": [
+          {
+            "website_url": "https://ats.talmore.co/jobs/robot-operations"
+          }
+        ],
+        "titles": [
+          {
+            "text": "Robot Operator | Alabang"
+          }
+        ],
+        "ad_formats": [
+          "SINGLE_IMAGE"
+        ],
+        "asset_customization_rules": [
+          {
+            "customization_spec": {
+              "age_max": 65,
+              "age_min": 13,
+              "publisher_platforms": [
+                "facebook",
+                "instagram"
+              ],
+              "facebook_positions": [
+                "story",
+                "facebook_reels"
+              ],
+              "instagram_positions": [
+                "story",
+                "reels"
+              ]
+            },
+            "image_label": {
+              "name": "vertical",
+              "id": "120254404950240440"
+            },
+            "priority": 1
+          },
+          {
+            "customization_spec": {
+              "age_max": 65,
+              "age_min": 13
+            },
+            "image_label": {
+              "name": "feed",
+              "id": "120254404950250440"
+            },
+            "priority": 2
+          }
+        ],
+        "optimization_type": "PLACEMENT",
+        "additional_data": {
+          "multi_share_end_card": false,
+          "is_click_to_message": false
+        },
+        "reasons_to_shop": false,
+        "shops_bundle": false
+      },
+      "url_tags": "utm_source={{site_source_name}}&utm_medium=paid_social&utm_campaign=robot_operator_alabang&utm_content={{ad.name}}&campaign_id={{campaign.id}}&adset_id={{adset.id}}&ad_id={{ad.id}}"
+    }
+  }
+]

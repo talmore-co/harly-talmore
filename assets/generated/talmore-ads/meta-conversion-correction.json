@@ -1,0 +1,38 @@
+{
+  "before": {
+    "id": "120254404946080440",
+    "name": "Muntinlupa +25km | Broad | Qualified applications",
+    "status": "ACTIVE",
+    "promoted_object": {
+      "custom_conversion_id": "1814490013300940",
+      "smart_pse_enabled": false
+    }
+  },
+  "created": {
+    "id": "2079722146239839",
+    "is_custom_event_type_predicted": "0"
+  },
+  "rule": {
+    "and": [
+      {
+        "event": {
+          "eq": "QualifiedApplication"
+        }
+      },
+      {
+        "or": [
+          {
+            "URL": {
+              "i_contains": "ats.talmore.co/jobs/robot-operations"
+            }
+          },
+          {
+            "URL": {
+              "i_contains": "ats.talmore.co/apply/robot-operations"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

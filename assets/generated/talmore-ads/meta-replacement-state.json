@@ -1,0 +1,35 @@
+{
+  "adset": "120254406135120440",
+  "initial_spend_cents": 2597,
+  "ads": [
+    {
+      "id": "120254406135440440",
+      "name": "R4 | Clear vacancy",
+      "original_id": "120254405172920440"
+    },
+    {
+      "id": "120254406135560440",
+      "name": "R2 | Game genres",
+      "original_id": "120254405170680440"
+    },
+    {
+      "id": "120254406136020440",
+      "name": "R1 | Competitive experience",
+      "original_id": "120254405169340440"
+    },
+    {
+      "id": "120254406136310440",
+      "name": "R3 | Hands-on hobbies",
+      "original_id": "120254405172190440"
+    },
+    {
+      "id": "120254406136720440",
+      "name": "R5 | Training-led imagery comparison",
+      "original_id": "120254405174390440"
+    }
+  ],
+  "old_paused": true,
+  "remaining_budget_cents": 25397,
+  "reported_campaign_spend_cents": 2603,
+  "activated": true
+}
