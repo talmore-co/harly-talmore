@@ -389,8 +389,8 @@ export function PipelineBoard({
       return;
     }
 
-    const sendRejectionEmail = status === "rejected" ? await confirmRejection(applicationIds.length) : false;
-    if (sendRejectionEmail === null) return;
+    const rejection = status === "rejected" ? await confirmRejection(applicationIds.length) : undefined;
+    if (rejection === null) return;
     if (
       applicationIds.length > 1 &&
       status === "hired" &&
@@ -424,7 +424,9 @@ export function PipelineBoard({
         applicationIds,
         workspaceId: firstApplication.workspaceId,
         status,
-        sendRejectionEmail,
+        sendRejectionEmail: rejection?.sendEmail ?? false,
+        rejectionReason: rejection?.reason,
+        rejectionNote: rejection?.note,
       });
       if (result.warning) toast.warning(result.warning);
 

@@ -242,6 +242,54 @@ describe("agency report definitions", () => {
       data.outcomes.find((row) => row.label === "Still active")?.count,
     ).toBe(1);
   });
+  it("breaks rejected cohort applications down by reason with an Unspecified bucket", () => {
+    const data = report([
+      app("salary-1", { status: "rejected", rejectionReason: "salary_expectations" }),
+      app("salary-2", { status: "rejected", rejectionReason: "salary_expectations", rejectionSource: "client" }),
+      app("fit", { status: "rejected", rejectionReason: "team_fit" }),
+      app("no-reason", { status: "rejected" }),
+      app("retired-code", { status: "rejected", rejectionReason: "legacy_code" }),
+      // A stale reason on a reactivated application must not count.
+      app("reactivated", { status: "active", rejectionReason: "duplicate" }),
+      app("before-period", { status: "rejected", rejectionReason: "team_fit", appliedAt: "2026-08-20T10:00:00Z" }),
+      app("future", { status: "rejected", rejectionReason: "team_fit", appliedAt: "2026-09-20T00:00:00Z" }),
+    ]);
+    const count = (label: string) =>
+      data.rejectionReasons.find((row) => row.label === label)?.count;
+    expect(count("Salary expectations")).toBe(2);
+    expect(count("Team fit")).toBe(1);
+    expect(count("Duplicate application")).toBe(0);
+    expect(count("Unspecified")).toBe(2);
+    expect(data.rejectionReasons.at(-1)?.label).toBe("Unspecified");
+    expect(
+      data.rejectionReasons.reduce((sum, row) => sum + row.count, 0),
+    ).toBe(
+      data.outcomes
+        .filter((row) => row.label.startsWith("Reject"))
+        .reduce((sum, row) => sum + row.count, 0),
+    );
+    expect(
+      data.records.find((row) => row.applicationId === "reactivated")
+        ?.rejectionReason,
+    ).toBeNull();
+  });
+  it("only counts rejection reasons for the selected jobs", () => {
+    const data = buildAgencyReport({
+      workspaceId: "ws",
+      filters,
+      jobs: [job],
+      applications: [
+        app("visible", { status: "rejected", rejectionReason: "duplicate" }),
+        app("other-job", { status: "rejected", rejectionReason: "duplicate", jobId: "inaccessible" }),
+      ],
+      transitions: [],
+      offers: [],
+      now,
+    });
+    expect(
+      data.rejectionReasons.find((row) => row.code === "duplicate")?.count,
+    ).toBe(1);
+  });
   it("does not count closed-job applications in current waiting lists", () => {
     const data = buildAgencyReport({
       workspaceId: "ws",

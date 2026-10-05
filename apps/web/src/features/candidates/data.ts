@@ -821,6 +821,8 @@ export async function getCandidateProfile(candidateId: string) {
       currentStageId: applications.currentStageId,
       currentStageName: jobStages.name,
       status: applications.status,
+      rejectionReason: applications.rejectionReason,
+      rejectionNote: applications.rejectionNote,
       appliedAt: applications.appliedAt,
       source: applications.source,
     })

@@ -289,8 +289,8 @@ export function CandidatesTable({
       toast.error("Selected candidates have no application to update.");
       return;
     }
-    const sendRejectionEmail = next === "rejected" ? await confirmRejection(applicationIds.length) : false;
-    if (sendRejectionEmail === null) return;
+    const rejection = next === "rejected" ? await confirmRejection(applicationIds.length) : undefined;
+    if (rejection === null) return;
     if (
       applicationIds.length > 1 &&
       next === "hired" &&
@@ -302,7 +302,9 @@ export function CandidatesTable({
       const result = await bulkUpdateCandidateStatusAction({
         applicationIds,
         status: next,
-        sendRejectionEmail,
+        sendRejectionEmail: rejection?.sendEmail ?? false,
+        rejectionReason: rejection?.reason,
+        rejectionNote: rejection?.note,
       });
       if (result.warning) toast.warning(result.warning);
       if (result.success) {
@@ -325,13 +327,15 @@ export function CandidatesTable({
       toast.error("This candidate has no application to update.");
       return;
     }
-    const sendRejectionEmail = next === "rejected" ? await confirmRejection(1) : false;
-    if (sendRejectionEmail === null) return;
+    const rejection = next === "rejected" ? await confirmRejection(1) : undefined;
+    if (rejection === null) return;
     startTransition(async () => {
       const result = await bulkUpdateCandidateStatusAction({
         applicationIds: [row.applicationId as string],
         status: next,
-        sendRejectionEmail,
+        sendRejectionEmail: rejection?.sendEmail ?? false,
+        rejectionReason: rejection?.reason,
+        rejectionNote: rejection?.note,
       });
       if (result.warning) toast.warning(result.warning);
       if (result.success) {

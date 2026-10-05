@@ -59,6 +59,11 @@ import {
 } from "./referrals/service";
 import { updateApplicationStatus } from "@/features/pipeline/actions";
 import {
+  REJECTION_NOTE_MAX_LENGTH,
+  REJECTION_REASONS,
+  type RejectionReasonCode,
+} from "@/features/pipeline/rejection-reasons";
+import {
   permanentlyDeleteCandidate,
   deleteCandidate,
   restoreCandidate,
@@ -98,6 +103,8 @@ const bulkStatusSchema = z.object({
   status: z.enum(["active", "hired", "rejected", "withdrawn"]),
   sendRejectionEmail: z.boolean().optional().default(false),
   rejectionSource: z.enum(["agency", "client"]).optional(),
+  rejectionReason: z.enum(REJECTION_REASONS.map((reason) => reason.code)).nullish(),
+  rejectionNote: z.string().trim().max(REJECTION_NOTE_MAX_LENGTH).nullish(),
 });
 
 const emailLog = createLogger("candidate-email");
@@ -170,6 +177,8 @@ export async function bulkUpdateCandidateStatusAction(input: {
   status: "active" | "hired" | "rejected" | "withdrawn";
   sendRejectionEmail?: boolean;
   rejectionSource?: "agency" | "client";
+  rejectionReason?: RejectionReasonCode | null;
+  rejectionNote?: string | null;
 }): Promise<{ success: boolean; error?: string; warning?: string }> {
   const parsed = bulkStatusSchema.safeParse(input);
   if (!parsed.success) {
@@ -185,6 +194,8 @@ export async function bulkUpdateCandidateStatusAction(input: {
     status: parsed.data.status,
     sendRejectionEmail: parsed.data.sendRejectionEmail,
     rejectionSource: parsed.data.rejectionSource,
+    rejectionReason: parsed.data.rejectionReason,
+    rejectionNote: parsed.data.rejectionNote,
   });
 
   if (result.success) {
