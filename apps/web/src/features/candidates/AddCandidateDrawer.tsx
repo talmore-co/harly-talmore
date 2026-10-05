@@ -1,9 +1,10 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { UserPlus } from "lucide-react";
 import { toast } from "@/lib/notification-island/toast";
+import { replaceUrlParams } from "@/lib/url-params";
 
 import { createCandidate } from "@/features/candidates/actions";
 import type { ImportJobOption } from "@/features/candidates/import/ImportCandidatesDrawer";
@@ -38,7 +39,21 @@ export function AddCandidateDrawer({
   currentUserId: string;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  // `?add=candidate` (the sidebar's Create menu) opens the drawer directly.
+  // Closing it strips the param; `requestHandled` keeps the drawer shut until
+  // the URL has caught up, and re-arms once the param is gone.
+  const requested = useSearchParams().get("add") === "candidate";
+  const [requestHandled, setRequestHandled] = useState(false);
+  if (!requested && requestHandled) setRequestHandled(false);
+  const [manuallyOpen, setManuallyOpen] = useState(false);
+  const open = manuallyOpen || (requested && !requestHandled);
+  function setOpen(next: boolean) {
+    setManuallyOpen(next);
+    if (!next && requested) {
+      setRequestHandled(true);
+      replaceUrlParams({ add: null });
+    }
+  }
   const [isPending, startTransition] = useTransition();
   const [referring, setReferring] = useState(false);
   const [jobId, setJobId] = useState(NO_JOB);

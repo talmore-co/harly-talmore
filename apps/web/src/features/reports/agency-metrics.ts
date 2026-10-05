@@ -1,5 +1,6 @@
 import { attributionSchema } from "@/features/applications/attribution";
 import { validDashboardDay } from "@/features/dashboard/day";
+import { countRejectionReasons } from "@/features/pipeline/rejection-reasons";
 
 const DAY = 86_400_000;
 export type ReportParams = {
@@ -98,6 +99,7 @@ export type ReportApplication = {
   stage: string;
   hiredOn: string | null;
   rejectionSource: "agency" | "client" | null;
+  rejectionReason?: string | null;
   source: string | null;
   qualification: boolean | null;
   attribution: unknown;
@@ -129,6 +131,8 @@ export type ReportRecord = {
   placedOn: string | null;
   status: string;
   outcome: string;
+  /** Internal reason code; only set while the application is rejected. */
+  rejectionReason: string | null;
   age: number | null;
   source: string;
   campaign: string;
@@ -297,6 +301,10 @@ export function buildAgencyReport(input: {
       placedOn: placedOn && day(placedOn) <= today ? placedOn : null,
       status: application.status,
       outcome,
+      rejectionReason:
+        application.status === "rejected"
+          ? (application.rejectionReason ?? null)
+          : null,
       age,
       source: source.source,
       campaign: source.campaign,
@@ -464,6 +472,12 @@ export function buildAgencyReport(input: {
     label,
     count: submissions.filter((row) => row.outcome === label).length,
   }));
+  // Same application cohort as `outcomes`, split by the recruiter's reason.
+  const rejectionReasons = countRejectionReasons(
+    periodApplications
+      .filter((row) => row.status === "rejected")
+      .map((row) => row.rejectionReason),
+  );
   const firstByJob = new Map<string, string>();
   for (const row of records) {
     if (
@@ -544,6 +558,7 @@ export function buildAgencyReport(input: {
     stages,
     outcomes,
     submittedOutcomes,
+    rejectionReasons,
     sources: [...sourceGroups.values()].sort(
       (a, b) =>
         b.applications - a.applications || a.source.localeCompare(b.source),

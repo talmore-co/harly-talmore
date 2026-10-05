@@ -26,7 +26,10 @@ import { listEmailTemplates } from "@/features/email-templates/data";
 import { listJobOptions } from "@/features/jobs/data";
 import { listWorkspaceMembers } from "@/features/jobs/hiring-team-data";
 import { getWorkspaceContext } from "@/features/workspaces/context";
-import { can } from "@/features/workspaces/permissions-server";
+import {
+  can,
+  requirePagePermission,
+} from "@/features/workspaces/permissions-server";
 import { candidateAvatarFallbackSrcs } from "@/lib/candidate-avatar";
 import { formatRelative, formatShort } from "@/lib/date";
 
@@ -56,6 +59,7 @@ type CandidatesPageProps = {
 export default async function CandidatesPage({ searchParams }: CandidatesPageProps) {
   const rawSearchParams = await searchParams;
   const { view, import: importSource, q, dept, role, stage, status, source, tag, sort, page: pageRaw } = rawSearchParams;
+  await requirePagePermission("candidates:view");
   const isTrash = view === "trash";
 const initialImportSource: ImportSource | undefined =
     importSource === "csv" ||
@@ -63,7 +67,7 @@ const initialImportSource: ImportSource | undefined =
     importSource === "workable" ||
     importSource === "ashby" ||
     importSource === "lever" ||
-    importSource === "join" || importSource === "talentsourcer"
+    importSource === "join" || importSource === "talentsourcer" || importSource === "recruitcrm"
       ? importSource
       : undefined;
 

@@ -183,6 +183,8 @@ async function writeLegacy(
 export async function sendCanonicalEmail(
   input: SendCanonicalEmailInput,
 ): Promise<SendCanonicalEmailResult> {
+  const { assertCandidateContactAllowed } = await import("@/features/candidates/contact-restrictions");
+  await assertCandidateContactAllowed(input.workspaceId, { candidateId: input.candidateId ?? undefined, email: input.toEmail });
   const enabled = await isMailUnificationEnabled(input.workspaceId);
   if (!enabled)
     throw new Error(

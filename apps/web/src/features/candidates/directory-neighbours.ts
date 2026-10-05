@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, exists, ilike, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, exists, ilike, isNotNull, isNull, or, sql } from "drizzle-orm";
 
 import { db } from "@harly/db";
 import {
@@ -10,7 +10,11 @@ import {
   jobs,
   jobStages,
 } from "@harly/db";
-import { getWorkspaceContext } from "@/features/workspaces/context";
+import {
+  jobIdInScope,
+  requireCandidateListAccess,
+  type RoleScopeActor,
+} from "@/features/workspaces/role-scope";
 import type { CandidateDirectoryFilters } from "./data";
 
 /** How many candidates to look at on each side of the open profile. */
@@ -35,6 +39,7 @@ export function candidateDirectoryNeighboursQuery(
   workspaceId: string,
   candidateId: string,
   input: CandidateDirectoryFilters = {},
+  scope?: { actor: RoleScopeActor; restricted: boolean },
 ) {
   const query = input.query?.trim().replace(/\s+/g, " ").slice(0, 100) ?? "";
   const escapedQuery = query.replace(/[\\%_]/g, "\\$&");
@@ -42,6 +47,7 @@ export function candidateDirectoryNeighboursQuery(
 
   const latestApplication = db
     .selectDistinctOn([applications.candidateId], {
+      id: applications.id,
       candidateId: applications.candidateId,
       jobId: applications.jobId,
       status: applications.status,
@@ -50,7 +56,12 @@ export function candidateDirectoryNeighboursQuery(
       currentStageId: applications.currentStageId,
     })
     .from(applications)
-    .where(eq(applications.workspaceId, workspaceId))
+    .where(
+      and(
+        eq(applications.workspaceId, workspaceId),
+        scope ? jobIdInScope(scope.actor, applications.jobId) : undefined,
+      ),
+    )
     .orderBy(
       asc(applications.candidateId),
       desc(applications.appliedAt),
@@ -62,6 +73,9 @@ export function candidateDirectoryNeighboursQuery(
     eq(candidates.workspaceId, workspaceId),
     isNull(candidates.deletedAt),
   ];
+  // Same rule as the directory: a scoped role only sees candidates with an
+  // application it may access.
+  if (scope?.restricted) predicates.push(isNotNull(latestApplication.id));
   if (query) {
     predicates.push(
       or(
@@ -160,11 +174,16 @@ export async function getCandidateDirectoryNeighbours(
   candidateId: string,
   input: CandidateDirectoryFilters = {},
 ): Promise<CandidateDirectoryNeighbours> {
-  const { organization: workspace } = await getWorkspaceContext();
+  const {
+    context: { organization: workspace },
+    actor,
+    restricted,
+  } = await requireCandidateListAccess();
   const rows = await candidateDirectoryNeighboursQuery(
     workspace.id,
     candidateId,
     input,
+    { actor, restricted },
   );
   return neighboursFromRankedRows(candidateId, rows);
 }

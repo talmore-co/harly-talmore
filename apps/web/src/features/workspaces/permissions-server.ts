@@ -27,6 +27,7 @@ import {
   PERMISSIONS,
   exceedsPrivilege,
   isBuiltinRole,
+  isUnrestrictedRoleScope,
   roleIsAllPowerful,
   roleLabel,
   normalizeRoleScope,
@@ -277,7 +278,9 @@ export async function requireCandidatePermission(
   if (!candidate) throw new Error("Candidate not found.");
   const policy = await getRolePolicy(context.organization.id, context.roleKey);
   // Workspace-wide access is independent of whether a related job was trashed.
-  if (policy.scope.jobAccess === "all") return context;
+  // A department or region limit is still a limit, so only a fully
+  // unrestricted scope may skip the per-job check below.
+  if (isUnrestrictedRoleScope(policy.scope)) return context;
   const applicationsForCandidate = await db
     .select({ jobId: applications.jobId })
     .from(applications)

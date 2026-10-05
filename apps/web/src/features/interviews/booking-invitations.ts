@@ -123,6 +123,7 @@ export async function saveManualBookingInvitation(
     input.applicationId,
   );
   if (target && !target.candidate.email) throw new Error("Add an email address to this candidate before creating a booking invitation.");
+  if (target) { const { assertCandidateContactAllowed } = await import("@/features/candidates/contact-restrictions"); await assertCandidateContactAllowed(workspaceId, { candidateId: target.candidate.id }); }
   if (
     !target ||
     (await applicationHasInterview(workspaceId, input.applicationId))

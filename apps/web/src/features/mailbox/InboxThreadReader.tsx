@@ -9,6 +9,7 @@ import {
   FileImage,
   FileText,
   Archive,
+  ArchiveRestore,
   PanelRight,
   Plus,
 } from "lucide-react";
@@ -174,6 +175,7 @@ export function InboxThreadReader({
   onDraftChange,
   senderAddress,
   onArchive,
+  onRestore,
   templates = [],
   companyName,
   senderName,
@@ -199,6 +201,8 @@ export function InboxThreadReader({
   onDraftChange?: (draft: ComposerDraft | undefined) => void;
   senderAddress?: string | null;
   onArchive?: () => void;
+  /** Reopen an archived or spam conversation. */
+  onRestore?: () => void;
   templates?: ComposerTemplate[];
   companyName?: string;
   senderName?: string;
@@ -259,6 +263,7 @@ export function InboxThreadReader({
         </div>
         <div className="flex w-full shrink-0 items-center justify-end gap-1.5 sm:w-auto">
           {onArchive ? <Button variant="ghost" size="icon-sm" onClick={onArchive} disabled={isPending} aria-label="Archive conversation"><Archive className="size-4" /></Button> : null}
+          {onRestore ? <Button variant="ghost" size="icon-sm" onClick={onRestore} disabled={isPending} aria-label="Move conversation back to inbox" title="Move to inbox"><ArchiveRestore className="size-4" /></Button> : null}
           {onNewThread ? <Button variant="ghost" size="icon-sm" onClick={onNewThread} aria-label="New email"><Plus className="size-4" /></Button> : null}
           {onToggleDetails ? <Button variant="ghost" size="icon-sm" className="hidden lg:inline-flex" onClick={onToggleDetails} aria-label="Candidate details" aria-expanded={detailsOpen}><PanelRight className="size-4" /></Button> : null}
           {canSendReply ? (

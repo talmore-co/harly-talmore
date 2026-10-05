@@ -21,7 +21,14 @@ const statusLabel: Record<string, string> = {
   closed: "Closed",
 };
 
-export function JobStatusActions({ job }: { job: Job }) {
+export function JobStatusActions({
+  job,
+  canPublish = true,
+}: {
+  job: Job;
+  /** False when the member's role lacks `jobs:publish`. */
+  canPublish?: boolean;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const actions = (["draft", "open", "closed"] as const).filter(
@@ -57,7 +64,7 @@ export function JobStatusActions({ job }: { job: Job }) {
             variant={status === "open" ? "default" : "outline"}
             size="sm"
             className="w-full justify-start"
-            disabled={isPending}
+            disabled={isPending || (status === "open" && !canPublish)}
             onClick={() => changeStatus(status)}
           >
             <Icon className="size-4" />
@@ -65,6 +72,12 @@ export function JobStatusActions({ job }: { job: Job }) {
           </Button>
         );
       })}
+      {!canPublish && job.status !== "open" ? (
+        <p className="text-xs text-muted-foreground">
+          Your role can&apos;t publish jobs. Ask a teammate with publishing
+          rights to open this one.
+        </p>
+      ) : null}
     </div>
   );
 }

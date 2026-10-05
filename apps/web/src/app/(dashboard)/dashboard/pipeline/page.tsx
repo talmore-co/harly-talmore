@@ -1,5 +1,8 @@
 import { Suspense } from "react";
-import { can } from "@/features/workspaces/permissions-server";
+import {
+  can,
+  requirePagePermission,
+} from "@/features/workspaces/permissions-server";
 import { listClientOptions } from "@/features/clients/actions";
 import { PipelineClientFilter } from "@/features/clients/PipelineClientFilter";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -10,8 +13,8 @@ import { PipelineList } from "@/features/pipeline/PipelineList";
 import { PipelineSummaryCard } from "@/features/pipeline/PipelineSummaryCard";
 import { PipelineViewToggle } from "@/features/pipeline/PipelineViewToggle";
 import { getPipelineData, type PipelineData } from "@/features/pipeline/data";
+import { listJobClientNames } from "@/features/jobs/data";
 import { getWorkspaceAiStatus } from "@/lib/ai/config";
-import { getWorkspaceContext } from "@/features/workspaces/context";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +38,8 @@ export default async function PipelinePage({
   const selectedId = scope === "team" ? "all" : jobId ?? job;
   const allJobs = selectedId === "all";
   const view = rawView === "board" && !allJobs ? "board" : "list";
-  const { organization: workspace } = await getWorkspaceContext();
+  const { organization: workspace } =
+    await requirePagePermission("candidates:view");
   const [data, aiStatus] = await Promise.all([
     getPipelineData(selectedId, clientId),
     getWorkspaceAiStatus(workspace.id),
@@ -53,13 +57,17 @@ export default async function PipelinePage({
     );
   }
 
-  const clientOptions = await can("clients:view") ? await listClientOptions() : [];
+  const canViewClients = await can("clients:view");
+  const [clientOptions, jobClientNames] = canViewClients
+    ? await Promise.all([listClientOptions(), listJobClientNames()])
+    : [[], {}];
   const toolbar = (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <Suspense>
         <PipelineJobSelect
           jobs={data.jobs}
           selectedJobId={data.selectedJob.id}
+          clientNames={jobClientNames}
         />
       </Suspense>
       {allJobs && clientOptions.length ? <Suspense><PipelineClientFilter clients={clientOptions} /></Suspense> : null}

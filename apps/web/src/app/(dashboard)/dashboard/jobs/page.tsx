@@ -65,7 +65,7 @@ export default async function DashboardJobsPage({
         <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <div className="duration-500 animate-in fade-in slide-in-from-bottom-2">
             <StatTile
-              label="Open roles"
+              label="Open jobs"
               value={openRoles}
               hint={`${draftRoles} draft`}
               icon={Briefcase}
@@ -73,11 +73,11 @@ export default async function DashboardJobsPage({
           </div>
           <div className="delay-75 duration-500 animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards">
             <StatTile
-              label="Applicants"
+              label="Candidates"
               value={totalApplicants}
               hint={
                 clientId === "all"
-                  ? "across all roles"
+                  ? "across all jobs"
                   : "across this client selection"
               }
               icon={Users}
@@ -87,14 +87,14 @@ export default async function DashboardJobsPage({
             <StatTile
               label="New this week"
               value={newApplicants}
-              hint="applied in 7d"
+              hint="candidates added in 7d"
               icon={TrendingUp}
               accent
             />
           </div>
           <div className="delay-200 duration-500 animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards">
             <StatTile
-              label="Total roles"
+              label="Total jobs"
               value={jobs.length}
               hint={`${draftRoles} not published`}
               icon={Briefcase}
@@ -177,7 +177,7 @@ export default async function DashboardJobsPage({
         <EmptyState
           icon={Briefcase}
           title="No jobs yet"
-          description="Create your first opening. Talmore adds the default hiring stages automatically."
+          description="Create your first job. Talmore adds the default hiring stages automatically."
           action={{ href: "/dashboard/jobs/new", label: "Create job" }}
         />
       )}
@@ -200,11 +200,7 @@ function StatTile({
 }) {
   return (
     <div
-      className={cn(
-        tileClass,
-        "transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-md",
-        accent && "border-primary/25 bg-accent/40",
-      )}
+      className={cn(tileClass, accent && "border-primary/25 bg-accent/40")}
     >
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-muted-foreground">

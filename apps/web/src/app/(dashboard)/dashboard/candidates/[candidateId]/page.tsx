@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { formatShort } from "@/lib/date";
+import { ContactRestrictionsDialog } from "@/features/candidates/ContactRestrictionsDialog";
 import { notFound, redirect } from "next/navigation";
 import type { Route } from "next";
 import { resolveMergedCandidateId, resolveMergedApplicationId } from "@/features/candidates/merge-aliases";
@@ -348,8 +350,25 @@ export default async function CandidateDetailPage({
     createdAt: event.createdAt.toISOString(),
   }));
 
+  const contactRestrictions = {
+    emailOptedOut: candidate.emailOptedOut,
+    offLimits: candidate.contactOffLimits,
+    offLimitsUntil: candidate.contactOffLimitsUntil?.toISOString().slice(0, 10) ?? null,
+    reason: candidate.contactRestrictionReason ?? "",
+  };
+
   return (
     <div className="space-y-4">
+      {(candidate.emailOptedOut || candidate.contactOffLimits) && (
+        <div role="status" className="flex items-start justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+          <div>
+            {candidate.emailOptedOut && <p>Email opted out. Outbound email is disabled.</p>}
+            {candidate.contactOffLimits && <p>Off limits{candidate.contactOffLimitsUntil ? ` until ${formatShort(candidate.contactOffLimitsUntil)}` : ""}. {candidate.contactOffLimitsUntil && candidate.contactOffLimitsUntil < new Date() ? "This restriction has expired." : "Outbound contact is disabled."}</p>}
+            {candidate.contactRestrictionReason && <p>{candidate.contactRestrictionReason}</p>}
+          </div>
+          {canEditCandidates && <ContactRestrictionsDialog candidateId={candidate.id} name={fullName} initial={contactRestrictions} trigger={<Button type="button" variant="outline" size="sm">Edit</Button>} />}
+        </div>
+      )}
       <div className="flex items-center justify-between gap-3">
         <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit">
           <Link href={directoryHref(listQuery) as Route}>
@@ -522,6 +541,9 @@ export default async function CandidateDetailPage({
                       workspaceId={workspaceId}
                       tags={tags}
                     />
+                    {canEditCandidates && !candidate.emailOptedOut && !candidate.contactOffLimits && (
+                      <ContactRestrictionsDialog candidateId={candidate.id} name={fullName} initial={contactRestrictions} trigger={<Button type="button" variant="ghost" size="sm">Contact restrictions</Button>} />
+                    )}
                   </div>
                   <CandidateReferrals
                     referrals={referrals}

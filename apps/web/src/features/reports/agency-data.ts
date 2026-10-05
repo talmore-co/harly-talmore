@@ -176,6 +176,7 @@ export async function getAgencyReports(params: ReportParams = {}) {
         stage: jobStages.name,
         hiredOn: applications.hiredOn,
         rejectionSource: applications.rejectionSource,
+        rejectionReason: applications.rejectionReason,
         source: applications.source,
         snapshot: sql<unknown>`jsonb_build_object(
           'version', ${applications.questionnaireScoreSnapshot}->'version',

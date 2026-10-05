@@ -1,4 +1,6 @@
 import "server-only";
+import { db, recruitCrmConnections } from "@harly/db";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { connectionStatus } from "@/features/talentsourcer/connection";
 
 import { getWorkspaceContext } from "@/features/workspaces/context";
@@ -36,6 +38,7 @@ export type IntegrationCategory =
 
 export type IntegrationSlug =
   | "talentsourcer"
+  | "recruitcrm"
   | "cal"
   | "meta"
   | "google-calendar"
@@ -97,6 +100,7 @@ export const CATEGORY_ORDER: IntegrationCategory[] = [
 ];
 
 export const INTEGRATIONS: IntegrationDefinition[] = [
+  { slug: "recruitcrm", name: "Recruit CRM", category: "sourcing", description: "Import candidates from your previous CRM.", detail: "Import selected candidates, CVs and notes into a job or Talent pool.", tileClassName: "bg-muted text-foreground" },
   { slug: "talentsourcer", name: "TalentSourcer AI", category: "sourcing", description: "Import shortlisted and interested candidates.", detail: "Connect your sourcing workspace and import candidates into a job pipeline.", tileClassName: "bg-muted text-foreground" },
   { slug: "meta", name: "Meta advertising", category: "advertising", description: "Track applications with Meta Pixel and Conversions API.", detail: "Connect browser and server conversion tracking for your recruiting campaigns.", tileClassName: "bg-blue-50 text-blue-600" },
   {
@@ -329,6 +333,7 @@ export function getIntegration(
 
 export type IntegrationStatuses = {
   talentsourcer?: Awaited<ReturnType<typeof connectionStatus>>;
+  recruitcrm?: boolean;
   meta?: Awaited<ReturnType<typeof getMetaStatus>>;
   cal: Awaited<ReturnType<typeof getWorkspaceCalStatus>>;
   gcal: Awaited<ReturnType<typeof getWorkspaceGCalStatus>>;
@@ -377,7 +382,8 @@ export async function getIntegrationStatuses(
       getWorkspaceCaptchaStatus(workspaceId),
       getMetaStatus(workspaceId),
     ]);
-  return { cal, gcal, slack, outlook, zoom, chat, telegram, jitsi, docuseal, captcha, meta, talentsourcer: await connectionStatus(workspaceId) };
+  const crm = await db.select({ id: recruitCrmConnections.id }).from(recruitCrmConnections).where(and(eq(recruitCrmConnections.workspaceId, workspaceId), isNotNull(recruitCrmConnections.token))).limit(1);
+  return { cal, gcal, slack, outlook, zoom, chat, telegram, jitsi, docuseal, captcha, meta, talentsourcer: await connectionStatus(workspaceId), recruitcrm: crm.length > 0 };
 }
 
 /** Resolve whether a given integration slug is currently connected. */
@@ -387,6 +393,7 @@ export function isConnected(
 ): boolean {
   switch (slug) {
     case "talentsourcer": return Boolean(statuses.talentsourcer?.connected);
+    case "recruitcrm": return Boolean(statuses.recruitcrm);
     case "meta":
       return Boolean(statuses.meta?.pixelId);
     case "cal":

@@ -23,11 +23,17 @@ import {
   UserCircleIcon,
 } from "@/components/ui/icons/command";
 import { allNavItems, hasNavPermission } from "@/components/dashboard/nav-items";
+import { filterCommandItems } from "@/components/dashboard/command-filter";
 import type { Permission } from "@/features/workspaces/permissions";
 
 const emptyResults: SearchResults = { jobs: [], candidates: [] };
 
 const SKELETON_ROWS = 4;
+
+const ACTIONS = [
+  { label: "Create new job", href: "/dashboard/jobs/new", icon: PlusCircleIcon },
+  { label: "Account settings", href: "/account", icon: UserCircleIcon },
+];
 
 export function CommandMenu({
   open,
@@ -38,8 +44,9 @@ export function CommandMenu({
   onOpenChange: (open: boolean) => void;
   userPermissions: Permission[];
 }) {
-  // The rail only shows five destinations now, so the palette carries the full
-  // index , it is the fast path to everything that moved behind More.
+  // The palette carries the full navigation index, including secondary
+  // destinations that have no sidebar entry (talent pool, templates, career
+  // page), limited to what this user's permissions allow.
   const navItems = allNavItems().filter((item) =>
     hasNavPermission(item, userPermissions),
   );
@@ -48,6 +55,12 @@ export function CommandMenu({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResults>(emptyResults);
   const [loading, setLoading] = useState(false);
+  // Workspace search needs candidate visibility and an unscoped role. Without
+  // it the palette still works as navigation; a rejected search turns it off
+  // until the palette is reopened instead of leaving the skeleton up.
+  const canSearch = userPermissions.includes("candidates:view");
+  const [searchFailed, setSearchFailed] = useState(false);
+  const searchEnabled = canSearch && !searchFailed;
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -67,33 +80,44 @@ export function CommandMenu({
         setQuery("");
         setResults(emptyResults);
         setLoading(false);
+        setSearchFailed(false);
       });
     }
   }, [open]);
 
-  // Debounced workspace search.  
+  // Debounced workspace search.
   useEffect(() => {
     const q = query.trim();
-    if (q.length < 1) {
+    if (q.length < 1 || !searchEnabled) {
       return;
     }
     let cancelled = false;
     const timer = setTimeout(async () => {
-      const next = await searchWorkspaceAction(q);
-      if (!cancelled) {
-        setResults(next);
-        setLoading(false);
+      try {
+        const next = await searchWorkspaceAction(q);
+        if (!cancelled) {
+          setResults(next);
+          setLoading(false);
+        }
+      } catch {
+        // The action throws for roles that may not search (and on network
+        // errors). Navigation and actions stay usable either way.
+        if (!cancelled) {
+          setResults(emptyResults);
+          setLoading(false);
+          setSearchFailed(true);
+        }
       }
     }, 150);
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [query]);
+  }, [query, searchEnabled]);
 
   function handleQueryChange(value: string) {
     setQuery(value);
-    if (value.trim().length < 1) {
+    if (value.trim().length < 1 || !searchEnabled) {
       setResults(emptyResults);
       setLoading(false);
       return;
@@ -110,6 +134,12 @@ export function CommandMenu({
   const hasQuery = query.trim().length > 0;
   const hasResults = results.jobs.length > 0 || results.candidates.length > 0;
   const showSkeleton = hasQuery && loading && !hasResults;
+  // The palette runs with `shouldFilter={false}` so server results are shown
+  // as returned; the static entries are filtered here instead.
+  const visibleNavItems = filterCommandItems(navItems, query);
+  const visibleActions = filterCommandItems(ACTIONS, query);
+  const hasStaticMatches =
+    visibleNavItems.length > 0 || visibleActions.length > 0;
 
   return (
         <CommandDialog
@@ -128,7 +158,7 @@ export function CommandMenu({
         className="text-base"
       />
       <CommandList className="max-h-[min(420px,60vh)] p-2">
-        {hasQuery && !hasResults && !loading ? (
+        {hasQuery && !hasResults && !loading && !hasStaticMatches ? (
           <div className="spotlight-item-enter px-2 pt-3 pb-1 text-sm text-ink-soft">
             No results for &ldquo;{query}&rdquo;.
           </div>
@@ -205,44 +235,39 @@ export function CommandMenu({
           </CommandGroup>
         ) : null}
 
-        {!showSkeleton && !hasResults ? (
+        {(showSkeleton || hasResults) && hasStaticMatches ? (
           <CommandSeparator className="my-2" />
         ) : null}
 
-         {!showSkeleton ? (
-          <>
-            <CommandGroup heading="Navigate">
-              {navItems.map((item) => (
-                <CommandItem
-                  key={item.href}
-                  value={`nav-${item.label}`}
-                  onSelect={() => go(item.href)}
-                  className="gap-3 rounded-2xl"
-                >
-                  <item.icon className="size-4" strokeWidth={1.8} />
-                  {item.label}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-            <CommandGroup heading="Actions">
+        {visibleNavItems.length > 0 ? (
+          <CommandGroup heading="Navigate">
+            {visibleNavItems.map((item) => (
               <CommandItem
-                value="action-new-job"
-                onSelect={() => go("/dashboard/jobs/new")}
+                key={item.href}
+                value={`nav-${item.label}`}
+                onSelect={() => go(item.href)}
                 className="gap-3 rounded-2xl"
               >
-                <PlusCircleIcon />
-                Create new job
+                <item.icon className="size-4" strokeWidth={1.8} />
+                {item.label}
               </CommandItem>
+            ))}
+          </CommandGroup>
+        ) : null}
+        {visibleActions.length > 0 ? (
+          <CommandGroup heading="Actions">
+            {visibleActions.map((action) => (
               <CommandItem
-                value="action-account"
-                onSelect={() => go("/account")}
+                key={action.href}
+                value={`action-${action.label}`}
+                onSelect={() => go(action.href)}
                 className="gap-3 rounded-2xl"
               >
-                <UserCircleIcon />
-                Account settings
+                <action.icon />
+                {action.label}
               </CommandItem>
-            </CommandGroup>
-          </>
+            ))}
+          </CommandGroup>
         ) : null}
       </CommandList>
       <div className="flex items-center gap-3 border-t px-4 py-2.5 text-xs text-ink-soft">

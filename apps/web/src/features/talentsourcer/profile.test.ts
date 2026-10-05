@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { importProfile, normalizedLinkedIn } from "./profile";
-import type { ExportedCandidate } from "./client";
+import { TalentSourcerError, type ExportedCandidate } from "./client";
 
 describe("sourced candidate profiles", () => {
   const profile: ExportedCandidate = { candidateId: "source-id", organizationId: "org", profile: { fullName: "Fictional Prospect" }, contacts: {}, privateContext: {} };
@@ -11,6 +11,10 @@ describe("sourced candidate profiles", () => {
   it("rejects invalid emails and unnamed candidates", () => {
     expect(() => importProfile({ ...profile, contacts: { selectedEmail: "not-an-email" } })).toThrow("invalid");
     expect(() => importProfile({ ...profile, profile: {} })).toThrow("no name");
+  });
+  it("raises validation problems as TalentSourcerError so the import can show them", () => {
+    expect(() => importProfile({ ...profile, contacts: { selectedEmail: "not-an-email" } })).toThrow(TalentSourcerError);
+    expect(() => importProfile({ ...profile, profile: {} })).toThrow(TalentSourcerError);
   });
   it("normalizes profile identity without matching lookalike domains", () => {
     expect(normalizedLinkedIn("https://uk.linkedin.com/in/Example/?trk=test")).toBe("https://www.linkedin.com/in/example");

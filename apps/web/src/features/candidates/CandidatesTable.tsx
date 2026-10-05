@@ -1,6 +1,6 @@
 "use client";
 import { useRangeSelection } from "@/components/ui/use-range-selection";
-import { useRejectionConfirmation } from "./useRejectionConfirmation";
+import { useRejectionConfirmation, type RejectionChoice } from "./useRejectionConfirmation";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
@@ -353,25 +353,27 @@ export function CandidatesTable({
     }
     if (next === "hired") {
       askConfirmation(hireCandidatesCopy({ count: applicationIds.length }), () =>
-        applyBulkStatus(applicationIds, next, false),
+        applyBulkStatus(applicationIds, next, undefined),
       );
       return;
     }
-    const sendRejectionEmail = next === "rejected" ? await confirmRejection(applicationIds.length) : false;
-    if (sendRejectionEmail === null) return;
-    applyBulkStatus(applicationIds, next, sendRejectionEmail);
+    const rejection = next === "rejected" ? await confirmRejection(applicationIds.length) : undefined;
+    if (rejection === null) return;
+    applyBulkStatus(applicationIds, next, rejection);
   }
 
   function applyBulkStatus(
     applicationIds: string[],
     next: "hired" | "rejected" | "active",
-    sendRejectionEmail: boolean,
+    rejection: RejectionChoice | undefined,
   ) {
     startTransition(async () => {
       const result = await bulkUpdateCandidateStatusAction({
         applicationIds,
         status: next,
-        sendRejectionEmail,
+        sendRejectionEmail: rejection?.sendEmail ?? false,
+        rejectionReason: rejection?.reason,
+        rejectionNote: rejection?.note,
       });
       if (result.warning) toast.warning(result.warning);
       if (result.success) {
@@ -397,25 +399,27 @@ export function CandidatesTable({
     if (next === "hired") {
       askConfirmation(
         hireCandidatesCopy({ name: row.fullName, jobTitle: row.role }),
-        () => applyRowStatus(row, next, false),
+        () => applyRowStatus(row, next, undefined),
       );
       return;
     }
-    const sendRejectionEmail = next === "rejected" ? await confirmRejection(1) : false;
-    if (sendRejectionEmail === null) return;
-    applyRowStatus(row, next, sendRejectionEmail);
+    const rejection = next === "rejected" ? await confirmRejection(1) : undefined;
+    if (rejection === null) return;
+    applyRowStatus(row, next, rejection);
   }
 
   function applyRowStatus(
     row: CandidateRow,
     next: "hired" | "rejected" | "active",
-    sendRejectionEmail: boolean,
+    rejection: RejectionChoice | undefined,
   ) {
     startTransition(async () => {
       const result = await bulkUpdateCandidateStatusAction({
         applicationIds: [row.applicationId as string],
         status: next,
-        sendRejectionEmail,
+        sendRejectionEmail: rejection?.sendEmail ?? false,
+        rejectionReason: rejection?.reason,
+        rejectionNote: rejection?.note,
       });
       if (result.warning) toast.warning(result.warning);
       if (result.success) {
