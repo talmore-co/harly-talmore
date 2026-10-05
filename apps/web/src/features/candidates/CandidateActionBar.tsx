@@ -33,6 +33,10 @@ import {
 import type { TemplateValues } from "@/features/email-templates/interpolate";
 import { EvaluationDrawer } from "@/features/candidates/EvaluationDrawer";
 import {
+  ConfirmActionDialog,
+  deleteCandidatesCopy,
+} from "@/features/candidates/ConfirmActionDialog";
+import {
   MoveStageButton,
   type MoveStageTarget,
 } from "@/features/candidates/MoveStageButton";
@@ -59,7 +63,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -351,15 +354,23 @@ function DeleteCandidateButton({
         return;
       }
       setConfirmOpen(false);
-      toast.success(`${name} moved to trash.`);
+      toast.success(`${name} deleted permanently.`);
       router.push("/dashboard/candidates");
     });
   }
 
   return (
-    <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-      <DialogTrigger asChild>
-        {trigger ?? (
+    <ConfirmActionDialog
+      copy={deleteCandidatesCopy({ name })}
+      open={confirmOpen}
+      onOpenChange={(next) => {
+        if (!isPending) setConfirmOpen(next);
+      }}
+      onConfirm={deleteCandidate}
+      pending={isPending}
+      pendingLabel="Deleting…"
+      trigger={
+        trigger ?? (
           <Button
             size="sm"
             variant="outline"
@@ -368,34 +379,9 @@ function DeleteCandidateButton({
             <Trash2 className="size-4" />
             Delete
           </Button>
-        )}
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Delete candidate?</DialogTitle>
-          <DialogDescription>
-            {name} will be moved to the trash. You can restore them later, or
-            delete permanently from the Trash tab on the candidates list.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setConfirmOpen(false)}
-            disabled={isPending}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={deleteCandidate}
-            disabled={isPending}
-          >
-            {isPending ? "Deleting…" : "Delete candidate"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        )
+      }
+    />
   );
 }
 
@@ -646,7 +632,7 @@ export function CandidateActionBar({
               // Keep drawer/dialog owners mounted while their portals are open.
               if (
                 document.querySelector(
-                  '[role="dialog"]:not([data-slot="popover-content"])',
+                  '[role="dialog"]:not([data-slot="popover-content"]), [role="alertdialog"]',
                 )
               )
                 event.preventDefault();

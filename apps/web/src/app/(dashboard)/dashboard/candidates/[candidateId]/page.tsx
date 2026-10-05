@@ -43,7 +43,15 @@ import { ReferCandidateDrawer } from "@/features/candidates/referrals/ReferCandi
 import { DuplicateDetectionCard } from "@/features/candidates/DuplicateDetectionCard";
 import { MergeHistoryEntry } from "@/features/candidates/MergeHistoryEntry";
 import { IdentityShield, Redact, RedactLink } from "@/features/candidates/IdentityShield";
-import { getCandidateProfile, listCandidates, findSuspectDuplicates } from "@/features/candidates/data";
+import { getCandidateProfile, findSuspectDuplicates } from "@/features/candidates/data";
+import { getCandidateDirectoryNeighbours } from "@/features/candidates/directory-neighbours";
+import {
+  DIRECTORY_LIST_PARAM,
+  directoryFiltersFromQuery,
+  directoryHref,
+  sanitizeDirectoryQuery,
+} from "@/features/candidates/directory-params";
+import { listMoveStageOptions } from "@/features/candidates/move-stage-data";
 import { getNextStage } from "@/features/pipeline/data";
 import { listCandidateInterviews } from "@/features/interviews/data";
 import { listEmailTemplates } from "@/features/email-templates/data";
@@ -63,8 +71,11 @@ import { getWorkspaceAiStatus } from "@/lib/ai/config";
 import { getWorkspaceCalStatus } from "@/lib/cal/config";
 import { getWorkspaceEsignStatus } from "@/lib/esign/config";
 import { candidateAvatarFallbackSrcs } from "@/lib/candidate-avatar";
+import { createLogger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
+
+const log = createLogger("candidate-profile");
 
 const SOURCE_LABEL: Record<string, string> = {
   public_form: "Job board",
@@ -126,10 +137,24 @@ export default async function CandidateDetailPage({
     notFound();
   }
 
-  const [profile, allCandidates, members, jobOptions, candidateInterviews, candidateOffers, emailTemplates, relatedDocuments, profileDocumentRequests, signableDocuments] =
+  // The list the user came from, so "Back" and the pager stay inside it.
+  const listParam = (await searchParams)[DIRECTORY_LIST_PARAM];
+  const listQuery = sanitizeDirectoryQuery(
+    typeof listParam === "string" ? listParam : null,
+  );
+
+  const [profile, neighbours, members, jobOptions, candidateInterviews, candidateOffers, emailTemplates, relatedDocuments, profileDocumentRequests, signableDocuments] =
     await Promise.all([
       getCandidateProfile(candidateId),
-      listCandidates(),
+      // Prev/next is a convenience: a failure here must not take the profile
+      // down with it.
+      getCandidateDirectoryNeighbours(
+        candidateId,
+        directoryFiltersFromQuery(listQuery),
+      ).catch((error) => {
+        log.error(error, "candidate pager lookup failed");
+        return null;
+      }),
       listWorkspaceMembers(),
       listJobOptions(),
       listCandidateInterviews(candidateId),
@@ -203,18 +228,23 @@ export default async function CandidateDetailPage({
     visibleApplicationIds.has(offer.applicationId),
   );
 
-  const scopedCandidates = (
-    await Promise.all(
-      allCandidates.map(async (candidateRow) => {
-        try {
-          await requireCandidatePermission("candidates:view", candidateRow.id);
-          return candidateRow;
-        } catch {
-          return null;
-        }
-      }),
-    )
-  ).filter((candidateRow): candidateRow is (typeof allCandidates)[number] => Boolean(candidateRow));
+  // The neighbours query knows nothing about role scope, so step outwards
+  // until the first candidate this user may open (a handful of checks at most).
+  const firstViewableCandidateId = async (candidateIds: string[]) => {
+    for (const neighbourId of candidateIds) {
+      try {
+        await requireCandidatePermission("candidates:view", neighbourId);
+        return neighbourId;
+      } catch {
+        // Not visible to this role; try the next one out.
+      }
+    }
+    return null;
+  };
+  const [prevId, nextId] = await Promise.all([
+    firstViewableCandidateId(neighbours?.previousIds ?? []),
+    firstViewableCandidateId(neighbours?.nextIds ?? []),
+  ]);
 
   const [calStatus, aiStatus, esignStatus, workspaceContext, canManageDsar, canDeleteCandidates, canManageDocuments, canCollaborate, canEditCandidates] = await Promise.all([
     getWorkspaceCalStatus(workspaceId),
@@ -273,25 +303,10 @@ export default async function CandidateDetailPage({
           application.jobId,
           application.currentStageId,
         ),
+        stages: await listMoveStageOptions(application.jobId),
       })),
     ),
   ]);
-
-  const railCandidates = scopedCandidates
-    .slice()
-    .sort((a, b) => {
-      const aTime = a.latestApplication?.appliedAt?.getTime() ?? 0;
-      const bTime = b.latestApplication?.appliedAt?.getTime() ?? 0;
-      return bTime - aTime;
-    })
-    .map((c) => ({
-      id: c.id,
-      fullName: c.fullName,
-      email: c.email,
-      avatarUrl: c.avatarUrl ?? null,
-      role: c.latestApplication?.jobTitle ?? null,
-      stage: c.latestApplication?.currentStageName ?? null,
-    }));
 
   const scheduleApplications = applications.map((application) => ({
     clientName: application.clientName,
@@ -300,9 +315,6 @@ export default async function CandidateDetailPage({
     currentStageName: application.currentStageName,
     status: application.status,
   }));
-  const activeIndex = railCandidates.findIndex((entry) => entry.id === candidate.id);
-  const prevId = activeIndex > 0 ? railCandidates[activeIndex - 1]?.id ?? null : null;
-  const nextId = activeIndex >= 0 ? railCandidates[activeIndex + 1]?.id ?? null : null;
   const actionCandidate = {
     id: candidate.id,
     workspaceId,
@@ -359,7 +371,7 @@ export default async function CandidateDetailPage({
       )}
       <div className="flex items-center justify-between gap-3">
         <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit">
-          <Link href="/dashboard/candidates">
+          <Link href={directoryHref(listQuery) as Route}>
             <ArrowLeft className="size-4" />
             Back to candidates
           </Link>
@@ -368,8 +380,9 @@ export default async function CandidateDetailPage({
         <CandidatePager
           prevId={prevId}
           nextId={nextId}
-          position={activeIndex >= 0 ? activeIndex + 1 : null}
-          total={railCandidates.length}
+          position={neighbours?.position ?? null}
+          total={neighbours?.total ?? 0}
+          listQuery={listQuery}
         />
       </div>
 

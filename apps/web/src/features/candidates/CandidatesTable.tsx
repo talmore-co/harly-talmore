@@ -1,8 +1,8 @@
 "use client";
 import { useRangeSelection } from "@/components/ui/use-range-selection";
-import { useRejectionConfirmation } from "./useRejectionConfirmation";
+import { useRejectionConfirmation, type RejectionChoice } from "./useRejectionConfirmation";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
@@ -28,7 +28,6 @@ import {
   trashCandidateAction,
 } from "@/features/candidates/actions";
 import { addToPoolAction, removeFromPoolAction } from "@/features/pool/actions";
-import { bulkDecisionConfirmationMessage } from "@/features/pipeline/confirmation";
 import { toSafeCsv } from "@/lib/csv";
 import { BulkEmailDrawer } from "@/features/candidates/BulkEmailDrawer";
 import type { EmailTemplateOption } from "@/features/candidates/EmailDrawer";
@@ -38,6 +37,17 @@ import {
   type ImportSource,
 } from "@/features/candidates/import/ImportCandidatesDrawer";
 import { AddCandidateDrawer } from "@/features/candidates/AddCandidateDrawer";
+import {
+  ConfirmActionDialog,
+  deleteCandidatesCopy,
+  hireCandidatesCopy,
+  type ConfirmActionCopy,
+} from "@/features/candidates/ConfirmActionDialog";
+import {
+  candidateProfileHref,
+  directoryHref,
+  directoryQueryWithFilter,
+} from "@/features/candidates/directory-params";
 import { ReferralBadge } from "@/features/candidates/referrals/ReferralBadge";
 import type { WorkspaceMemberOption } from "@/features/jobs/hiring-team-data";
 import { ApplicationStatusBadge } from "@/components/ui/StatusBadge";
@@ -87,6 +97,19 @@ export type CandidateRow = {
 };
 
 type SortKey = "recent" | "oldest" | "modified" | "name";
+
+/** Pause after the last keystroke before the search hits the server. */
+const SEARCH_DEBOUNCE_MS = 300;
+
+function pluralCandidates(count: number) {
+  return count === 1 ? "candidate" : "candidates";
+}
+
+/** "Ada Lovelace, Grace Hopper and 3 more": keeps a failure toast readable. */
+function summarizeNames(names: string[]) {
+  const shown = names.slice(0, 3).join(", ");
+  return names.length > 3 ? `${shown} and ${names.length - 3} more` : shown;
+}
 
 function uniqueSorted(values: (string | null)[]) {
   return Array.from(
@@ -142,6 +165,7 @@ export function CandidatesTable({
   rows,
   pageInfo,
   initialFilters,
+  listQuery = "",
   filterOptions,
   emailTemplates = [],
   importJobs = [],
@@ -167,6 +191,8 @@ export function CandidatesTable({
     tag: string;
     sort: string;
   };
+  /** The directory query string these rows were loaded with. */
+  listQuery?: string;
   emailTemplates?: EmailTemplateOption[];
   importJobs?: ImportJobOption[];
   initialImportSource?: ImportSource;
@@ -177,7 +203,12 @@ export function CandidatesTable({
   };
 }) {
   const router = useRouter();
-  const [query, setQuery] = useState(initialFilters?.query ?? "");
+  const serverQuery = initialFilters?.query ?? "";
+  const [query, setQuery] = useState(serverQuery);
+  // Searches this table sent to the URL whose results have not come back yet.
+  const [pendingQueries, setPendingQueries] = useState<string[]>([]);
+  const [seenServerQuery, setSeenServerQuery] = useState(serverQuery);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>((initialFilters?.sort as SortKey) ?? "recent");
   const [dept, setDept] = useState(initialFilters?.dept ?? FILTER_ALL);
   const [role, setRole] = useState(initialFilters?.role ?? FILTER_ALL);
@@ -188,14 +219,74 @@ export function CandidatesTable({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkEmailOpen, setBulkEmailOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [isExporting, startExport] = useTransition();
+  const [confirmation, setConfirmation] = useState<{
+    copy: ConfirmActionCopy;
+    run: () => void;
+  } | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  function navigateWithFilter(key: string, value: string) {
-    const params = new URLSearchParams(window.location.search);
-    if (!value || value === FILTER_ALL || (key === "sort" && value === "recent")) params.delete(key);
-    else params.set(key, value);
-    params.delete("page");
-    const queryString = params.toString();
-    router.push(`/dashboard/candidates${queryString ? `?${queryString}` : ""}` as Route);
+  // The server echoes every search we sent; anything else is a navigation we
+  // did not start (back/forward, a link), so the box adopts it. Typing ahead of
+  // a slow response must never be overwritten by that response.
+  if (seenServerQuery !== serverQuery) {
+    setSeenServerQuery(serverQuery);
+    const echo = pendingQueries.indexOf(serverQuery);
+    if (echo >= 0) {
+      setPendingQueries(pendingQueries.slice(echo + 1));
+    } else {
+      setPendingQueries([]);
+      setQuery(serverQuery);
+    }
+  }
+
+  useEffect(
+    () => () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    },
+    [],
+  );
+
+  function navigateWithFilter(
+    key: string,
+    value: string,
+    mode: "push" | "replace" = "push",
+  ) {
+    let search = window.location.search;
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = null;
+    // The search box is the source of truth for `q`: a search still waiting on
+    // its debounce, or one whose navigation has not landed in the URL yet,
+    // travels with the filter change instead of being dropped by it.
+    if (key !== "q") search = directoryQueryWithFilter(search, "q", query.trim());
+    const href = directoryHref(directoryQueryWithFilter(search, key, value)) as Route;
+    if (mode === "replace") router.replace(href);
+    else router.push(href);
+  }
+
+  function submitQuery(value: string) {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = null;
+    const next = value.trim();
+    const current = new URLSearchParams(window.location.search).get("q") ?? "";
+    if (next === current) return;
+    setPendingQueries((pending) => [...pending, next]);
+    // Replace, so a search does not leave one history entry per pause.
+    navigateWithFilter("q", next, "replace");
+  }
+
+  function changeQuery(value: string) {
+    setQuery(value);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      searchTimer.current = null;
+      submitQuery(value);
+    }, SEARCH_DEBOUNCE_MS);
+  }
+
+  function askConfirmation(copy: ConfirmActionCopy, run: () => void) {
+    setConfirmation({ copy, run });
+    setConfirmOpen(true);
   }
 
   const departments = useMemo(
@@ -213,37 +304,6 @@ export function CandidatesTable({
     [filterOptions?.tags, rows],
   );
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const base = rows.filter((r) => {
-      if (q) {
-        const hit =
-          r.fullName.toLowerCase().includes(q) ||
-          r.email.toLowerCase().includes(q) ||
-          (r.role ?? "").toLowerCase().includes(q) ||
-          (r.location ?? "").toLowerCase().includes(q);
-        if (!hit) return false;
-      }
-      if (dept !== FILTER_ALL && r.department !== dept) return false;
-      if (role !== FILTER_ALL && r.role !== role) return false;
-      if (stage !== FILTER_ALL && r.stage !== stage) return false;
-      if (status !== FILTER_ALL && r.status !== status) return false;
-      if (source !== FILTER_ALL && r.source !== source) return false;
-      if (tag !== FILTER_ALL && !r.tags.includes(tag)) return false;
-      return true;
-    });
-
-    return [...base].sort((a, b) => {
-      if (sortKey === "name") return a.fullName.localeCompare(b.fullName);
-      if (sortKey === "modified") return b.updatedAt - a.updatedAt;
-      if (sortKey === "oldest") return (a.appliedAt ?? 0) - (b.appliedAt ?? 0);
-      // "recent" , whichever happened last wins: new application OR last modified
-      const aRecent = Math.max(a.appliedAt ?? 0, a.updatedAt);
-      const bRecent = Math.max(b.appliedAt ?? 0, b.updatedAt);
-      return bRecent - aRecent;
-    });
-  }, [rows, query, dept, role, stage, status, source, tag, sortKey]);
-
   const filtersActive =
     dept !== FILTER_ALL ||
     role !== FILTER_ALL ||
@@ -254,6 +314,8 @@ export function CandidatesTable({
     query.trim() !== "";
 
   function clearFilters() {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = null;
     setQuery("");
     setDept(FILTER_ALL);
     setRole(FILTER_ALL);
@@ -265,23 +327,23 @@ export function CandidatesTable({
   }
 
   const allVisibleSelected =
-    filtered.length > 0 && filtered.every((r) => selected.has(r.id));
+    rows.length > 0 && rows.every((r) => selected.has(r.id));
 
   function toggleAll() {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (allVisibleSelected) filtered.forEach((r) => next.delete(r.id));
-      else filtered.forEach((r) => next.add(r.id));
+      if (allVisibleSelected) rows.forEach((r) => next.delete(r.id));
+      else rows.forEach((r) => next.add(r.id));
       return next;
     });
   }
 
-  const toggleOne = useRangeSelection(filtered.map((row) => row.id), setSelected);
+  const toggleOne = useRangeSelection(rows.map((row) => row.id), setSelected);
 
   const { confirmRejection, rejectionDialog } = useRejectionConfirmation();
 
   async function runBulk(next: "hired" | "rejected" | "active") {
-    const applicationIds = filtered
+    const applicationIds = rows
       .filter((r) => selected.has(r.id) && r.applicationId)
       .map((r) => r.applicationId as string);
 
@@ -289,15 +351,22 @@ export function CandidatesTable({
       toast.error("Selected candidates have no application to update.");
       return;
     }
-    const rejection = next === "rejected" ? await confirmRejection(applicationIds.length) : undefined;
-    if (rejection === null) return;
-    if (
-      applicationIds.length > 1 &&
-      next === "hired" &&
-      !window.confirm(bulkDecisionConfirmationMessage(next, applicationIds.length))
-    ) {
+    if (next === "hired") {
+      askConfirmation(hireCandidatesCopy({ count: applicationIds.length }), () =>
+        applyBulkStatus(applicationIds, next, undefined),
+      );
       return;
     }
+    const rejection = next === "rejected" ? await confirmRejection(applicationIds.length) : undefined;
+    if (rejection === null) return;
+    applyBulkStatus(applicationIds, next, rejection);
+  }
+
+  function applyBulkStatus(
+    applicationIds: string[],
+    next: "hired" | "rejected" | "active",
+    rejection: RejectionChoice | undefined,
+  ) {
     startTransition(async () => {
       const result = await bulkUpdateCandidateStatusAction({
         applicationIds,
@@ -327,8 +396,23 @@ export function CandidatesTable({
       toast.error("This candidate has no application to update.");
       return;
     }
+    if (next === "hired") {
+      askConfirmation(
+        hireCandidatesCopy({ name: row.fullName, jobTitle: row.role }),
+        () => applyRowStatus(row, next, undefined),
+      );
+      return;
+    }
     const rejection = next === "rejected" ? await confirmRejection(1) : undefined;
     if (rejection === null) return;
+    applyRowStatus(row, next, rejection);
+  }
+
+  function applyRowStatus(
+    row: CandidateRow,
+    next: "hired" | "rejected" | "active",
+    rejection: RejectionChoice | undefined,
+  ) {
     startTransition(async () => {
       const result = await bulkUpdateCandidateStatusAction({
         applicationIds: [row.applicationId as string],
@@ -348,13 +432,12 @@ export function CandidatesTable({
   }
 
   function runDelete(row: CandidateRow) {
-    if (
-      !window.confirm(
-        `Delete ${row.fullName} permanently? This removes their profile and related records.`,
-      )
-    ) {
-      return;
-    }
+    askConfirmation(deleteCandidatesCopy({ name: row.fullName }), () =>
+      deleteRow(row),
+    );
+  }
+
+  function deleteRow(row: CandidateRow) {
     startTransition(async () => {
       const result = await trashCandidateAction(row.id);
       if (result.success) {
@@ -396,34 +479,45 @@ export function CandidatesTable({
   }
 
   function runBulkDelete() {
-    const ids = filtered.filter((r) => selected.has(r.id)).map((r) => r.id);
+    const ids = rows.filter((r) => selected.has(r.id)).map((r) => r.id);
     if (ids.length === 0) return;
-    if (
-      !window.confirm(
-        `Delete ${ids.length} candidate${ids.length === 1 ? "" : "s"} permanently? This cannot be undone.`,
-      )
-    ) {
-      return;
-    }
+    askConfirmation(deleteCandidatesCopy({ count: ids.length }), () =>
+      deleteRows(ids),
+    );
+  }
+
+  function deleteRows(ids: string[]) {
     startTransition(async () => {
       const result = await bulkTrashCandidatesAction(ids);
-      if (result.success) {
-        const count = result.count ?? ids.length;
-        toast.success(
-          `Deleted ${count} candidate${count === 1 ? "" : "s"} permanently.`,
-        );
-        setSelected(new Set());
-        router.refresh();
-      } else {
-        toast.error(result.error ?? "Could not delete candidates.");
+      const failed = result.failed ?? [];
+      const count = result.count ?? (result.success ? ids.length : 0);
+      if (count > 0) {
+        toast.success(`Deleted ${count} ${pluralCandidates(count)} permanently.`);
       }
+      if (!result.success) {
+        const failedIds = new Set(failed.map((entry) => entry.candidateId));
+        const names = rows
+          .filter((r) => failedIds.has(r.id))
+          .map((r) => r.fullName);
+        const reasons = new Set(failed.map((entry) => entry.error));
+        toast.error(
+          names.length > 0
+            ? `Could not delete ${summarizeNames(names)}.${reasons.size === 1 ? ` ${failed[0]!.error}` : ""}`
+            : (result.error ?? "Could not delete candidates."),
+        );
+      }
+      // Whatever was deleted is gone even when others failed: refresh either
+      // way and keep only the candidates that still need attention selected.
+      setSelected(new Set(failed.map((entry) => entry.candidateId)));
+      router.refresh();
     });
   }
 
-  const selectedCount = filtered.filter((r) => selected.has(r.id)).length;
+  const selectedCount = rows.filter((r) => selected.has(r.id)).length;
+  const totalCount = pageInfo?.total ?? rows.length;
 
   function exportCsv() {
-    const exportRows = filtered.filter((r) => selected.has(r.id));
+    const exportRows = rows.filter((r) => selected.has(r.id));
     if (selectedCount > 0 && exportRows.length === 0) {
       toast.error("No candidates to export.");
       return;
@@ -436,7 +530,7 @@ export function CandidatesTable({
       return;
     }
 
-    startTransition(async () => {
+    startExport(async () => {
       const exportStatus =
         status === "active" ||
         status === "hired" ||
@@ -472,16 +566,26 @@ export function CandidatesTable({
   return (
     <div className="space-y-4">
       {rejectionDialog}
+      <ConfirmActionDialog
+        copy={confirmation?.copy ?? null}
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        onConfirm={() => {
+          setConfirmOpen(false);
+          confirmation?.run();
+        }}
+      />
       {/* Search */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 size-4.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => changeQuery(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") navigateWithFilter("q", query.trim());
+              if (e.key === "Enter") submitQuery(query);
             }}
+            aria-label="Search candidates"
             placeholder="Search candidates by name, email, role or location…"
             className="h-11 rounded-full pl-11"
           />
@@ -490,15 +594,19 @@ export function CandidatesTable({
           variant="outline"
           className="h-11 rounded-lg"
           onClick={exportCsv}
+          disabled={isExporting}
+          aria-busy={isExporting}
         >
           <Download className="size-4" />
           <span className="hidden sm:inline">
-            {selectedCount > 0
-              ? `Export selected (${selectedCount})`
-              : "Export CSV"}
+            {isExporting
+              ? "Exporting…"
+              : selectedCount > 0
+                ? `Export selected (${selectedCount})`
+                : "Export CSV"}
           </span>
           <span className="sm:hidden">
-            {selectedCount > 0 ? `(${selectedCount})` : "CSV"}
+            {isExporting ? "…" : selectedCount > 0 ? `(${selectedCount})` : "CSV"}
           </span>
         </Button>
         {manualCandidate ? (
@@ -588,15 +696,15 @@ export function CandidatesTable({
         ) : null}
         <p className="ml-auto text-sm text-muted-foreground">
           <span className="font-semibold tabular-nums text-foreground">
-            {pageInfo?.total ?? filtered.length}
+            {totalCount.toLocaleString()}
           </span>{" "}
-          {filtered.length === 1 ? "candidate" : "candidates"}
+          {pluralCandidates(totalCount)}
         </p>
       </div>
 
       {pageInfo && (pageInfo.page > 1 || pageInfo.hasNextPage) ? (
         <div className="flex items-center justify-between border-t pt-3 text-sm text-muted-foreground">
-          <span>Page {pageInfo.page} · {pageInfo.total.toLocaleString()} candidates</span>
+          <span>Page {pageInfo.page} · {pageInfo.total.toLocaleString()} {pluralCandidates(pageInfo.total)}</span>
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -699,18 +807,20 @@ export function CandidatesTable({
           </div>
 
           <div>
-            {filtered.map((row) => {
+            {rows.map((row) => {
               const isSelected = selected.has(row.id);
+              const profileHref = candidateProfileHref(row.id, listQuery) as Route;
               return (
                 <div
                   key={row.id}
                   role="button"
                   tabIndex={0}
                   data-state={isSelected ? "selected" : undefined}
-                  onClick={() => router.push(`/dashboard/candidates/${row.id}`)}
+                  onClick={() => router.push(profileHref)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter")
-                      router.push(`/dashboard/candidates/${row.id}`);
+                    // Keys pressed on the checkbox or the row menu are theirs.
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === "Enter") router.push(profileHref);
                   }}
                   className={cn(
                     "group grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2.5 rounded-xl border-b border-border/40 px-4 py-4 transition-all sm:grid-cols-[auto_minmax(0,1.4fr)_minmax(0,1fr)_7rem_2.25rem]",
@@ -729,7 +839,7 @@ export function CandidatesTable({
 
                   {/* Identity */}
                   <Link
-                    href={`/dashboard/candidates/${row.id}` as Route}
+                    href={profileHref}
                     onClick={(event) => event.stopPropagation()}
                     className="flex min-w-0 items-center gap-3"
                   >
@@ -836,9 +946,7 @@ export function CandidatesTable({
                     <RowActions
                       row={row}
                       disabled={isPending}
-                      onView={() =>
-                        router.push(`/dashboard/candidates/${row.id}`)
-                      }
+                      onView={() => router.push(profileHref)}
                       onStatus={(next) => runRowStatus(row, next)}
                       onDelete={() => runDelete(row)}
                       onTogglePool={() => runTogglePool(row)}
@@ -853,7 +961,7 @@ export function CandidatesTable({
               workspace with no candidates was being told its filters were
               wrong, which is both untrue and unhelpful.
             */}
-            {filtered.length === 0 ? (
+            {rows.length === 0 ? (
               filtersActive ? (
                 <EmptyState
                   variant="filtered"
@@ -880,7 +988,7 @@ export function CandidatesTable({
         <BulkEmailDrawer
           open={bulkEmailOpen}
           onOpenChange={setBulkEmailOpen}
-          candidateIds={filtered
+          candidateIds={rows
             .filter((r) => selected.has(r.id))
             .map((r) => r.id)}
           templates={emailTemplates}
@@ -968,7 +1076,7 @@ function RowActions({
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onSelect={onDelete}>
           <Trash2 className="size-4" />
-          Delete
+          Delete permanently
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

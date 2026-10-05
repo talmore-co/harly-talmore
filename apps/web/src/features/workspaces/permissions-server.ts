@@ -2,7 +2,7 @@ import "server-only";
 
 import type { Route } from "next";
 import { redirect } from "next/navigation";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
 import { db } from "@harly/db";
 import {
@@ -257,8 +257,13 @@ export async function requireCandidatePermission(
   permission: Permission,
   candidateId: string,
   actor?: WorkspaceContext,
+  options: { trashed?: boolean } = {},
 ) {
   const context = await requirePermission(permission, actor);
+  // Active candidates by default; trash actions look up soft-deleted rows.
+  const inRequestedState = options.trashed
+    ? isNotNull(candidates.deletedAt)
+    : isNull(candidates.deletedAt);
   const [candidate] = await db
     .select({ id: candidates.id })
     .from(candidates)
@@ -266,7 +271,7 @@ export async function requireCandidatePermission(
       and(
         eq(candidates.id, candidateId),
         eq(candidates.workspaceId, context.organization.id),
-        isNull(candidates.deletedAt),
+        inRequestedState,
       ),
     )
     .limit(1);
@@ -284,7 +289,7 @@ export async function requireCandidatePermission(
       and(
         eq(candidates.id, applications.candidateId),
         eq(candidates.workspaceId, context.organization.id),
-        isNull(candidates.deletedAt),
+        inRequestedState,
       ),
     )
     .where(
@@ -307,6 +312,20 @@ export async function requireCandidatePermission(
     }
   }
   throw new Error("You do not have access to this candidate.");
+}
+
+/**
+ * Same access rules as `requireCandidatePermission`, for a candidate that is
+ * in the trash (restore / delete forever).
+ */
+export async function requireTrashedCandidatePermission(
+  permission: Permission,
+  candidateId: string,
+  actor?: WorkspaceContext,
+) {
+  return requireCandidatePermission(permission, candidateId, actor, {
+    trashed: true,
+  });
 }
 
 /** Resolve an interview to its job, then enforce job-scoped access. */

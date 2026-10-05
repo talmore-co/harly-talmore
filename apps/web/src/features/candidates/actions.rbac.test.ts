@@ -3,8 +3,15 @@ import { z } from "zod";
 
 const mocks = vi.hoisted(() => ({
   requireCandidatePermission: vi.fn(),
+  requireTrashedCandidatePermission: vi.fn(),
   requirePermission: vi.fn(),
   requireJobPermission: vi.fn(),
+  getWorkspaceContext: vi.fn(),
+  deleteCandidate: vi.fn(),
+  restoreCandidate: vi.fn(),
+  enqueueCandidateDeletionJob: vi.fn(),
+  startCandidateDeletionJob: vi.fn(),
+  revalidatePath: vi.fn(),
 }));
 
 vi.mock("@harly/db", () => ({
@@ -24,10 +31,11 @@ vi.mock("@harly/db", () => ({
   mailThreads: {},
 }));
 vi.mock("@/features/workspaces/context", () => ({
-  getWorkspaceContext: vi.fn(),
+  getWorkspaceContext: mocks.getWorkspaceContext,
 }));
 vi.mock("@/features/workspaces/permissions-server", () => ({
   requireCandidatePermission: mocks.requireCandidatePermission,
+  requireTrashedCandidatePermission: mocks.requireTrashedCandidatePermission,
   requirePermission: mocks.requirePermission,
   requireJobPermission: mocks.requireJobPermission,
 }));
@@ -59,8 +67,8 @@ vi.mock("./referrals/service", () => ({
 vi.mock("@/features/pipeline/actions", () => ({ updateApplicationStatus: vi.fn() }));
 vi.mock("./data", () => ({
   permanentlyDeleteCandidate: vi.fn(),
-  deleteCandidate: vi.fn(),
-  restoreCandidate: vi.fn(),
+  deleteCandidate: mocks.deleteCandidate,
+  restoreCandidate: mocks.restoreCandidate,
   listCandidateDirectory: vi.fn(),
 }));
 vi.mock("@/lib/csv", () => ({ toSafeCsv: vi.fn() }));
@@ -80,19 +88,21 @@ vi.mock("@/lib/logger", () => ({
   createLogger: () => ({ error: vi.fn(), info: vi.fn(), warn: vi.fn() }),
 }));
 vi.mock("./deletion-jobs", () => ({
-  enqueueCandidateDeletionJob: vi.fn(),
+  enqueueCandidateDeletionJob: mocks.enqueueCandidateDeletionJob,
   markCandidateDeletionBlocked: vi.fn(),
   markCandidateDeletionCompleted: vi.fn(),
   markCandidateDeletionFailed: vi.fn(),
   requeueCandidateDeletionJob: vi.fn(),
-  startCandidateDeletionJob: vi.fn(),
+  startCandidateDeletionJob: mocks.startCandidateDeletionJob,
 }));
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 
 import {
   bulkTrashCandidatesAction,
   generateEmailDraftAction,
+  permanentlyDeleteCandidateAction,
   refineScorecardTextAction,
+  restoreCandidateAction,
   suggestScorecardAttributesAction,
 } from "./actions";
 import { deleteCandidate } from "./data";
@@ -171,5 +181,116 @@ describe("candidate AI authorization", () => {
       "collab:write",
       "candidate-1",
     );
+  });
+});
+
+describe("candidate trash actions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // The active-candidate lookup cannot see a trashed candidate.
+    mocks.requireCandidatePermission.mockRejectedValue(
+      new Error("Candidate not found."),
+    );
+    mocks.requireTrashedCandidatePermission.mockResolvedValue({});
+    mocks.getWorkspaceContext.mockResolvedValue({
+      organization: { id: "workspace-1" },
+      user: { id: "user-1", email: "recruiter@example.test" },
+    });
+  });
+
+  it("restores a trashed candidate through the trashed-aware lookup", async () => {
+    mocks.restoreCandidate.mockResolvedValue({ ok: true });
+
+    await expect(restoreCandidateAction("candidate-1")).resolves.toEqual({
+      success: true,
+    });
+    expect(mocks.requireTrashedCandidatePermission).toHaveBeenCalledWith(
+      "candidates:delete",
+      "candidate-1",
+    );
+    expect(mocks.requireCandidatePermission).not.toHaveBeenCalled();
+  });
+
+  it("does not restore when the trashed-aware lookup denies access", async () => {
+    mocks.requireTrashedCandidatePermission.mockRejectedValue(
+      new Error("You do not have access to this candidate."),
+    );
+
+    await expect(restoreCandidateAction("candidate-1")).rejects.toThrow(
+      "You do not have access to this candidate.",
+    );
+    expect(mocks.restoreCandidate).not.toHaveBeenCalled();
+  });
+
+  it("authorizes delete forever through the trashed-aware lookup", async () => {
+    mocks.enqueueCandidateDeletionJob.mockResolvedValue({
+      id: "job-1",
+      status: "completed",
+    });
+
+    await expect(
+      permanentlyDeleteCandidateAction("candidate-1"),
+    ).resolves.toEqual({ success: true });
+    expect(mocks.requireTrashedCandidatePermission).toHaveBeenCalledWith(
+      "candidates:delete",
+      "candidate-1",
+    );
+    expect(mocks.requireCandidatePermission).not.toHaveBeenCalled();
+  });
+});
+
+describe("bulk candidate deletion", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.requirePermission.mockResolvedValue({});
+    mocks.requireCandidatePermission.mockResolvedValue({});
+    mocks.getWorkspaceContext.mockResolvedValue({
+      organization: { id: "workspace-1" },
+      user: { id: "user-1", email: "recruiter@example.test" },
+    });
+    mocks.enqueueCandidateDeletionJob.mockImplementation(
+      async ({ candidateId }: { candidateId: string }) => ({
+        id: `job-${candidateId}`,
+        status: "pending",
+      }),
+    );
+    mocks.startCandidateDeletionJob.mockResolvedValue({ id: "job" });
+  });
+
+  it("revalidates and names the failures when only some deletions succeed", async () => {
+    mocks.deleteCandidate.mockImplementation(async (candidateId: string) =>
+      candidateId === "candidate-2"
+        ? { ok: false, error: "This candidate has documents under legal hold and cannot be erased yet." }
+        : { ok: true, stats: {} },
+    );
+
+    const result = await bulkTrashCandidatesAction([
+      "candidate-1",
+      "candidate-2",
+      "candidate-3",
+    ]);
+
+    expect(result).toEqual({
+      success: false,
+      error: "Some candidates could not be deleted.",
+      count: 2,
+      failed: [
+        {
+          candidateId: "candidate-2",
+          error:
+            "This candidate has documents under legal hold and cannot be erased yet.",
+        },
+      ],
+    });
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/dashboard/candidates");
+  });
+
+  it("reports full success without a failure list", async () => {
+    mocks.deleteCandidate.mockResolvedValue({ ok: true, stats: {} });
+
+    await expect(
+      bulkTrashCandidatesAction(["candidate-1", "candidate-2"]),
+    ).resolves.toEqual({ success: true, count: 2 });
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/dashboard/candidates");
   });
 });

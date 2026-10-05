@@ -50,6 +50,7 @@ import {
   requireCandidatePermission,
   requireJobPermission,
   requirePermission,
+  requireTrashedCandidatePermission,
 } from "@/features/workspaces/permissions-server";
 import { emitWebhookEvent } from "@/server/webhooks/emit";
 import {
@@ -2025,7 +2026,12 @@ export async function trashCandidateAction(
 /** Permanently delete multiple candidates and all related records. */
 export async function bulkTrashCandidatesAction(
   candidateIds: string[],
-): Promise<CandidateActionState & { count?: number }> {
+): Promise<
+  CandidateActionState & {
+    count?: number;
+    failed?: { candidateId: string; error: string }[];
+  }
+> {
   const parsed = candidateIdsSchema.safeParse(candidateIds);
   if (!parsed.success) {
     return { success: false, error: "Invalid selection." };
@@ -2041,7 +2047,7 @@ export async function bulkTrashCandidatesAction(
     return { success: false, error: "You do not have access to one or more selected candidates." };
   }
   const { user, organization } = await getWorkspaceContext();
-  const results = [];
+  const failed: { candidateId: string; error: string }[] = [];
   for (const candidateId of parsed.data) {
     const job = await enqueueCandidateDeletionJob({
       workspaceId: organization.id,
@@ -2049,24 +2055,21 @@ export async function bulkTrashCandidatesAction(
       requestedBy: user.email,
     });
     if (!job) {
-      results.push({ ok: false, error: "Could not queue candidate deletion." });
+      failed.push({ candidateId, error: "Could not queue candidate deletion." });
       continue;
     }
-    if (job.status === "completed") {
-      results.push({ ok: true });
-      continue;
-    }
+    if (job.status === "completed") continue;
     if (["processing", "blocked", "dead_letter"].includes(job.status)) {
-      results.push({
-        ok: false,
+      failed.push({
+        candidateId,
         error: "Candidate deletion is already being processed or blocked.",
       });
       continue;
     }
     const claimed = await startCandidateDeletionJob(job.id, `bulk:${user.id}`);
     if (!claimed) {
-      results.push({
-        ok: false,
+      failed.push({
+        candidateId,
         error: "Candidate deletion is already being processed.",
       });
       continue;
@@ -2090,20 +2093,23 @@ export async function bulkTrashCandidatesAction(
         result.error,
         `bulk:${user.id}`,
       );
-    results.push(result);
+    if (!result.ok) failed.push({ candidateId, error: result.error });
   }
-  const count = results.filter((result) => result.ok).length;
-  if (count !== results.length) {
+  const count = parsed.data.length - failed.length;
+
+  // Revalidate even on partial failure: the candidates that were deleted are
+  // gone and the list must not keep showing them.
+  revalidatePath("/dashboard/candidates");
+  revalidatePath("/dashboard/pipeline");
+  revalidatePath("/dashboard");
+  if (failed.length > 0) {
     return {
       success: false,
       error: "Some candidates could not be deleted.",
       count,
+      failed,
     };
   }
-
-  revalidatePath("/dashboard/candidates");
-  revalidatePath("/dashboard/pipeline");
-  revalidatePath("/dashboard");
   return { success: true, count };
 }
 
@@ -2111,7 +2117,7 @@ export async function bulkTrashCandidatesAction(
 export async function restoreCandidateAction(
   candidateId: string,
 ): Promise<CandidateActionState> {
-  await requireCandidatePermission("candidates:delete", candidateId);
+  await requireTrashedCandidatePermission("candidates:delete", candidateId);
   const result = await restoreCandidate(candidateId);
 
   if (!result.ok) {
@@ -2129,7 +2135,7 @@ export async function restoreCandidateAction(
 export async function permanentlyDeleteCandidateAction(
   candidateId: string,
 ): Promise<CandidateActionState> {
-  await requireCandidatePermission("candidates:delete", candidateId);
+  await requireTrashedCandidatePermission("candidates:delete", candidateId);
   const { organization, user } = await getWorkspaceContext();
   const job = await enqueueCandidateDeletionJob({
     workspaceId: organization.id,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { UserPlus } from "lucide-react";
 import { toast } from "@/lib/notification-island/toast";
@@ -9,6 +9,7 @@ import { replaceUrlParams } from "@/lib/url-params";
 import { createCandidate } from "@/features/candidates/actions";
 import type { ImportJobOption } from "@/features/candidates/import/ImportCandidatesDrawer";
 import type { WorkspaceMemberOption } from "@/features/jobs/hiring-team-data";
+import { UnsavedChangesDialog } from "@/components/focus-mode/UnsavedChangesDialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DrawerLayout } from "@/features/candidates/DrawerLayout";
@@ -58,6 +59,24 @@ export function AddCandidateDrawer({
   const [jobId, setJobId] = useState(NO_JOB);
   const [referredById, setReferredById] = useState(currentUserId);
   const [featured, setFeatured] = useState(false);
+  const [discardOpen, setDiscardOpen] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // The fields are uncontrolled, so "dirty" is read from the form itself.
+  function isDirty() {
+    if (referring) return true;
+    const form = formRef.current;
+    if (!form) return false;
+    return Array.from(new FormData(form).values()).some(
+      (value) => typeof value === "string" && value.trim() !== "",
+    );
+  }
+
+  function close() {
+    setDiscardOpen(false);
+    setOpen(false);
+    reset();
+  }
 
   function reset() {
     setReferring(false);
@@ -100,12 +119,19 @@ export function AddCandidateDrawer({
   }
 
   return (
+    <>
     <Sheet
       open={open}
       mobilePresentation="bottom-on-mobile"
       onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) reset();
+        if (next) {
+          setOpen(true);
+          return;
+        }
+        // Closing would wipe everything typed so far: ask first.
+        if (isPending) return;
+        if (isDirty()) setDiscardOpen(true);
+        else close();
       }}
     >
       <SheetTrigger asChild>
@@ -130,7 +156,12 @@ export function AddCandidateDrawer({
           </>
         }
       >
-        <form id="add-candidate-form" className="space-y-4" action={submit}>
+        <form
+          ref={formRef}
+          id="add-candidate-form"
+          className="space-y-4"
+          action={submit}
+        >
           <div className="grid grid-cols-2 gap-3">
             <Field name="firstName" label="First name" required />
             <Field name="lastName" label="Last name" required />
@@ -208,6 +239,12 @@ export function AddCandidateDrawer({
         </form>
       </DrawerLayout>
     </Sheet>
+    <UnsavedChangesDialog
+      open={discardOpen}
+      onConfirm={close}
+      onCancel={() => setDiscardOpen(false)}
+    />
+    </>
   );
 }
 
