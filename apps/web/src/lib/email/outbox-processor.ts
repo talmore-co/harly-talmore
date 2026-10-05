@@ -118,13 +118,35 @@ export async function processEmailOutbox(opts?: {
   const workspaceFilter = opts?.workspaceId
     ? sql`and "workspace_id" = ${opts.workspaceId}`
     : sql``;
+  // A row still `processing` after its lease expired belongs to a worker that
+  // died mid-delivery, so that attempt never reached markFailed. Count it
+  // here: without this a row that crashes the worker is reclaimed forever.
+  await db.execute(sql`
+    update "email_outbox"
+    set "status" = 'failed',
+        "attempts" = "attempts" + 1,
+        "last_error" = 'Delivery worker stopped repeatedly before finishing; retry budget exhausted.',
+        "next_retry_at" = null,
+        "locked_at" = null,
+        "locked_by" = null,
+        "updated_at" = now()
+    where "status" = 'processing'
+      and "locked_at" < now() - interval '5 minutes'
+      and "attempts" + 1 >= ${MAX_ATTEMPTS}
+      ${idsFilter}
+      ${workspaceFilter}
+  `);
   const claimed = (await db.execute(sql`
     with candidates as (
       select "id"
       from "email_outbox"
       where (
         ("status" = 'pending' and ("next_retry_at" is null or "next_retry_at" <= now()))
-        or ("status" = 'processing' and "locked_at" < now() - interval '5 minutes')
+        or (
+          "status" = 'processing'
+          and "locked_at" < now() - interval '5 minutes'
+          and "attempts" + 1 < ${MAX_ATTEMPTS}
+        )
       )
       ${idsFilter}
       ${workspaceFilter}
@@ -133,7 +155,9 @@ export async function processEmailOutbox(opts?: {
       limit ${opts?.limit ?? 50}
     )
     update "email_outbox" as queue
-    set "status" = 'processing', "locked_at" = now(), "locked_by" = ${workerId}, "updated_at" = now()
+    set "status" = 'processing',
+        "attempts" = queue."attempts" + case when queue."status" = 'processing' then 1 else 0 end,
+        "locked_at" = now(), "locked_by" = ${workerId}, "updated_at" = now()
     from candidates
     where queue."id" = candidates."id"
     returning queue."id"
@@ -321,7 +345,7 @@ async function deliverScheduledReport(row: OutboxRow): Promise<boolean> {
     companyName?: string;
   };
   if (!payload.to || !payload.subject || !payload.bodyHtml) {
-    await markFailed(row.id, "Scheduled report payload is incomplete.");
+    await markStale(row.id, "Scheduled report payload is incomplete.");
     return false;
   }
   const delivered = await sendWorkspaceEmail(row.workspaceId, {
@@ -344,7 +368,7 @@ async function deliverScheduledReport(row: OutboxRow): Promise<boolean> {
 async function deliverNativeSignatureInvitation(row: OutboxRow): Promise<boolean> {
   const payload = row.payload as { token?: { ciphertext: string; iv: string; tag: string }; recipientEmail?: string; recipientName?: string; documentName?: string; subject?: string; message?: string; expiresAt?: string } | null;
   if (!payload?.token || !payload.recipientEmail || !payload.documentName) {
-    await markFailed(row.id, "Invalid native signature invitation payload.");
+    await markStale(row.id, "Invalid native signature invitation payload.");
     return false;
   }
   const token = decryptSecret(payload.token);
@@ -371,7 +395,7 @@ async function deliverNativeSignatureInvitation(row: OutboxRow): Promise<boolean
 
 async function deliverNativeSignatureOtp(row: OutboxRow): Promise<boolean> {
   const payload = row.payload as { code?: { ciphertext: string; iv: string; tag: string }; recipientEmail?: string; recipientName?: string } | null;
-  if (!payload?.code || !payload.recipientEmail) { await markFailed(row.id, "Invalid native signature OTP payload."); return false; }
+  if (!payload?.code || !payload.recipientEmail) { await markStale(row.id, "Invalid native signature OTP payload."); return false; }
   const code = decryptSecret(payload.code);
   const delivered = await sendWorkspaceEmail(row.workspaceId, {
     to: payload.recipientEmail,
@@ -527,7 +551,7 @@ async function deliverOffer(row: OutboxRow): Promise<boolean> {
   } | null;
   const offerId = payload?.offerId;
   if (!offerId) {
-    await markFailed(row.id, "Missing offerId in payload.");
+    await markStale(row.id, "Missing offerId in payload.");
     return false;
   }
 
@@ -861,11 +885,11 @@ async function deliverApplicationReceived(
 
   if (variant === "candidate") {
     if (!p?.candidateEmail) {
-      await markFailed(row.id, "Missing candidateEmail in payload.");
+      await markStale(row.id, "Missing candidateEmail in payload.");
       return false;
     }
     if (!(await hasActiveCandidateRecipient(row.workspaceId, p.candidateEmail))) {
-      await markFailed(row.id, "The candidate is no longer active.");
+      await markStale(row.id, "The candidate is no longer active.");
       return false;
     }
     const jobBoardUrl = `${appBaseUrl()}/board/${p.workspaceSlug ?? ""}`;
@@ -905,11 +929,11 @@ async function deliverApplicationReceived(
     }
   } else {
     if (!p?.ownerEmail) {
-      await markFailed(row.id, "Missing ownerEmail in payload.");
+      await markStale(row.id, "Missing ownerEmail in payload.");
       return false;
     }
     if (p.candidateEmail && !(await hasActiveCandidateRecipient(row.workspaceId, p.candidateEmail))) {
-      await markFailed(row.id, "The candidate is no longer active.");
+      await markStale(row.id, "The candidate is no longer active.");
       return false;
     }
     const dashboardUrl = `${appBaseUrl()}/dashboard/candidates`;
@@ -976,11 +1000,11 @@ async function deliverPipelineEmail(row: OutboxRow): Promise<boolean> {
   } | null;
 
   if (!p?.candidateEmail) {
-    await markFailed(row.id, "Missing candidateEmail in payload.");
+    await markStale(row.id, "Missing candidateEmail in payload.");
     return false;
   }
   if (!(await hasActiveCandidateRecipient(row.workspaceId, p.candidateEmail))) {
-    await markFailed(row.id, "The candidate is no longer active.");
+    await markStale(row.id, "The candidate is no longer active.");
     return false;
   }
 
@@ -1125,17 +1149,17 @@ type InterviewEmailPayload = {
 async function deliverInterviewEmail(row: OutboxRow): Promise<boolean> {
   const payload = row.payload as InterviewEmailPayload | null;
   if (!payload?.candidateEmail || !payload.companyName || !payload.jobTitle) {
-    await markFailed(row.id, "Missing interview email recipient or context.");
+    await markStale(row.id, "Missing interview email recipient or context.");
     return false;
   }
   if (!(await hasActiveCandidateRecipient(row.workspaceId, payload.candidateEmail))) {
-    await markFailed(row.id, "The candidate is no longer active.");
+    await markStale(row.id, "The candidate is no longer active.");
     return false;
   }
 
   const when = payload.scheduledAt ? new Date(payload.scheduledAt) : null;
   if (!when || Number.isNaN(when.getTime())) {
-    await markFailed(row.id, "Missing or invalid interview schedule.");
+    await markStale(row.id, "Missing or invalid interview schedule.");
     return false;
   }
 
@@ -1327,14 +1351,14 @@ async function deliverOfferWithdrawn(row: OutboxRow): Promise<boolean> {
     jobTitle?: string;
   } | null;
   if (!payload?.candidateEmail || !payload.companyName || !payload.jobTitle) {
-    await markFailed(
+    await markStale(
       row.id,
       "Missing withdrawn-offer email recipient or context.",
     );
     return false;
   }
   if (!(await hasActiveCandidateRecipient(row.workspaceId, payload.candidateEmail))) {
-    await markFailed(row.id, "The candidate is no longer active.");
+    await markStale(row.id, "The candidate is no longer active.");
     return false;
   }
   const branding = await getWorkspaceEmailBranding(row.workspaceId);

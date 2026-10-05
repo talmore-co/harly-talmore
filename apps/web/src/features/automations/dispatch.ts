@@ -333,8 +333,12 @@ async function hasRecentRunningRun(
       .orderBy(desc(workflowRuns.startedAt))
       .limit(1);
     if (recent.length === 0) return false;
-    const identity = (value: Record<string, unknown>) =>
-      ["application", "candidate", "job", "interview"]
+    const collect = (
+      value: Record<string, unknown>,
+      nestedKeys: string[],
+      idKeys: string[],
+    ) =>
+      nestedKeys
         .map((key) => {
           const nested = value[key];
           return typeof nested === "object" && nested && "id" in nested
@@ -342,11 +346,21 @@ async function hasRecentRunningRun(
             : null;
         })
         .concat(
-          ["applicationId", "candidateId", "jobId", "interviewId"].map((key) =>
+          idKeys.map((key) =>
             typeof value[key] === "string" ? `${key}:${value[key]}` : null,
           ),
         )
         .filter((value): value is string => Boolean(value));
+    // A job is shared by every candidate applying to it, so it only identifies
+    // the aggregate for events that carry nothing narrower (e.g. job.published).
+    const identity = (value: Record<string, unknown>) => {
+      const narrow = collect(
+        value,
+        ["application", "candidate", "interview"],
+        ["applicationId", "candidateId", "interviewId"],
+      );
+      return narrow.length > 0 ? narrow : collect(value, ["job"], ["jobId"]);
+    };
     const currentIdentity = identity(payload);
     // A running action that emits the same event for the same aggregate is a
     // loop; an event for another candidate/application remains independent.

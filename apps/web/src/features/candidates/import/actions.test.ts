@@ -179,7 +179,9 @@ describe("importCandidatesAction", () => {
         application: expect.objectContaining({ id: "cand-new" }),
         source: "csv_import",
       }),
-      { actorId: "user-1", skipDomainEvent: true },
+      // The persisted event id keeps the workflow fast path and the
+      // domain-event consumer on a single run.
+      { actorId: "user-1", skipDomainEvent: true, eventId: expect.any(String) },
     );
   });
 

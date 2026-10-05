@@ -201,6 +201,64 @@ describe("workflow dispatcher — FASE 2.4 anti-loop", () => {
     expect(dbState.runsInserted).toHaveLength(0);
   });
 
+  it("does not skip another candidate applying to the same job", async () => {
+    dbState.workflows = [{ id: "wf-a", trigger: null }];
+    dbState.runningRuns = [
+      {
+        workflowId: "wf-a",
+        triggerEvent: "application.created",
+        triggerPayload: {
+          application: { id: "app-a", jobId: "job-1" },
+          candidate: { id: "cand-a" },
+          job: { id: "job-1" },
+        },
+      },
+    ];
+
+    await dispatchWorkflowEvent("ws-1", "application.created", {
+      application: { id: "app-b", jobId: "job-1" },
+      candidate: { id: "cand-b" },
+      job: { id: "job-1" },
+    });
+
+    expect(dbState.runsInserted).toHaveLength(1);
+  });
+
+  it("still skips a re-entrant event for the same application", async () => {
+    dbState.workflows = [{ id: "wf-a", trigger: null }];
+    dbState.runningRuns = [
+      {
+        workflowId: "wf-a",
+        triggerEvent: "application.stage_changed",
+        triggerPayload: { application: { id: "app-a" }, job: { id: "job-1" } },
+      },
+    ];
+
+    await dispatchWorkflowEvent("ws-1", "application.stage_changed", {
+      application: { id: "app-a" },
+      job: { id: "job-1" },
+    });
+
+    expect(dbState.runsInserted).toHaveLength(0);
+  });
+
+  it("matches job-only events on the job", async () => {
+    dbState.workflows = [{ id: "wf-a", trigger: null }];
+    dbState.runningRuns = [
+      {
+        workflowId: "wf-a",
+        triggerEvent: "job.published",
+        triggerPayload: { job: { id: "job-1" } },
+      },
+    ];
+
+    await dispatchWorkflowEvent("ws-1", "job.published", { job: { id: "job-1" } });
+    expect(dbState.runsInserted).toHaveLength(0);
+
+    await dispatchWorkflowEvent("ws-1", "job.published", { job: { id: "job-2" } });
+    expect(dbState.runsInserted).toHaveLength(1);
+  });
+
   it("does not skip when there are no running runs", async () => {
     dbState.workflows = [{ id: "wf-a", trigger: null }];
     dbState.runningRuns = [];

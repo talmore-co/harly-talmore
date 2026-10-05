@@ -950,13 +950,22 @@ export async function decideOffer(input: {
     });
   });
 
-  if (persistedEvent) {
-    await publishPersistedDomainEvents([persistedEvent]);
+  // Assigned inside the transaction callback, which control-flow analysis
+  // cannot see; widen it back from the declared initial `null`.
+  const hiredEvent = persistedEvent as Awaited<
+    ReturnType<typeof persistDomainEvent>
+  > | null;
+  if (hiredEvent) {
+    await publishPersistedDomainEvents([hiredEvent]);
     await emitWebhookEvent(workspaceId, "application.hired", {
       application: { id: offer.applicationId, jobId: offer.jobId },
       candidate: { id: offer.candidateId },
       offer: { id: offer.id, title: offer.title },
-    }, { actorId: context.user.id, skipDomainEvent: true });
+    }, {
+      actorId: context.user.id,
+      skipDomainEvent: true,
+      eventId: hiredEvent.eventId,
+    });
   }
 
   const decisionRecipient = await getOfferRecipient(

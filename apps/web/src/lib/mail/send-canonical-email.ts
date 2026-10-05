@@ -253,6 +253,9 @@ export async function sendCanonicalEmail(
       idempotentReplay: true,
     };
 
+  // Once the provider has accepted the message, a later bookkeeping failure
+  // must not make the reservation retryable: a retry would send it again.
+  let acceptedProviderMessageId: string | null | undefined;
   try {
     if (row.status === "pending") {
       const [sending] = await db
@@ -290,6 +293,7 @@ export async function sendCanonicalEmail(
       idempotencyKey: input.idempotencyKey,
       attachments: input.attachments,
     });
+    acceptedProviderMessageId = provider.messageId ?? null;
     const canonical = await insertCanonicalMessage({
       ...input,
       source: input.sourceHint ?? ("provider" as MailSource),
@@ -325,10 +329,14 @@ export async function sendCanonicalEmail(
       legacyWriteWarning,
     };
   } catch (error) {
+    const accepted = acceptedProviderMessageId !== undefined;
     await db
       .update(mailIdempotencyKeys)
       .set({
-        status: "failed",
+        status: accepted ? "unknown" : "failed",
+        ...(accepted
+          ? { providerMessageId: acceptedProviderMessageId ?? row.messageId }
+          : {}),
         error:
           error instanceof Error
             ? error.message.slice(0, 1000)

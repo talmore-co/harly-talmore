@@ -237,7 +237,9 @@ describe("decideOffer guards", () => {
       "ws-1",
       "application.hired",
       expect.objectContaining({ application: { id: "app-1", jobId: "job-1" } }),
-      { actorId: "user-1", skipDomainEvent: true },
+      // The persisted event id keeps the workflow fast path and the
+      // domain-event consumer on a single run.
+      { actorId: "user-1", skipDomainEvent: true, eventId: expect.any(String) },
     );
   });
 

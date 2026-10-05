@@ -838,6 +838,66 @@ describe("F1-12d reschedule honours the recruiter timezone", () => {
   });
 });
 
+describe("interview email outbox dedupe", () => {
+  function queueReschedule() {
+    txMock([], []);
+    mocks.selectQueue.push(
+      [
+        {
+          id: "iv-1",
+          status: "scheduled",
+          gcalEventId: null,
+          teamsMeetingId: null,
+          zoomMeetingId: null,
+          title: "Screening",
+          type: "screening",
+        },
+      ],
+      [
+        {
+          email: "c@example.com",
+          firstName: "C",
+          companyName: "A",
+          jobTitle: "J",
+          type: "screening",
+          mode: "phone",
+          interviewerId: null,
+          applicationId: "app-1",
+        },
+      ],
+      [{ meetLink: null }],
+    );
+  }
+
+  it("gives each reschedule its own key, even back to an already announced time", async () => {
+    const input = {
+      interviewId: "iv-1",
+      candidateId: "candidate-1",
+      scheduledAt: "2099-08-01T10:00",
+      timeZone: "UTC",
+      durationMins: 45,
+    };
+
+    // A → B, then (after a move elsewhere) → B again: the two emails carry an
+    // identical payload, so a payload-hash key would drop the second one.
+    queueReschedule();
+    expect((await rescheduleInterview(input)).success).toBe(true);
+    queueReschedule();
+    expect((await rescheduleInterview(input)).success).toBe(true);
+
+    expect(mocks.enqueueEmailOutbox).toHaveBeenCalledTimes(2);
+    const [first, second] = mocks.enqueueEmailOutbox.mock.calls;
+    expect(first?.[2]).toEqual(second?.[2]);
+    expect(first?.[3]).toEqual(
+      expect.stringContaining("interview-email:interview.rescheduled:iv-1:"),
+    );
+    expect(second?.[3]).toEqual(
+      expect.stringContaining("interview-email:interview.rescheduled:iv-1:"),
+    );
+    expect(second?.[3]).not.toBe(first?.[3]);
+  });
+});
+
 describe("interview business state guards", () => {
   it("does not reschedule an interview that was already canceled", async () => {
     mocks.selectQueue.push([

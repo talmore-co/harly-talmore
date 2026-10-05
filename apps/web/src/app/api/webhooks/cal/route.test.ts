@@ -285,7 +285,7 @@ describe("POST /api/webhooks/cal", () => {
       "ws-1",
       "interview.rescheduled",
       expect.objectContaining({ timeZone: "Asia/Manila" }),
-      undefined,
+      expect.stringContaining("interview-email:interview.rescheduled:interview-1:"),
       undefined,
     );
   });

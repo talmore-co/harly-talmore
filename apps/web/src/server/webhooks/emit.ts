@@ -12,6 +12,7 @@ import { notifyInboxEvent } from "@/server/notify/inbox";
 import { notifyOutlookEvent } from "@/server/notify/outlook";
 import { notifyZoomEvent } from "@/server/notify/zoom";
 import { dispatchWorkflowEvent } from "@/features/automations/dispatch";
+import { isWorkflowEvent } from "@/features/automations/schema";
 import { createLogger } from "@/lib/logger";
 import { emitDomainEvent } from "@/server/events/emit";
 
@@ -146,10 +147,23 @@ export async function emitWebhookEvent(
   // trigger matches this event and kicks off a best-effort run per match
   // (decision D3 — same pattern as the chat notify above). The run row is
   // persisted before execution, so a crash leaves it reclaimable by the cron.
+  const sourceEventId =
+    persistedEventId ??
+    (typeof data.eventId === "string" ? data.eventId : undefined);
+  // The caller already persisted the durable event but did not tell us its id.
+  // A run created here would carry no source event id, so the outbox consumer
+  // would create a second run for the same event. Leave it to that consumer.
+  if (options.skipDomainEvent && !sourceEventId) {
+    if (isWorkflowEvent(event)) {
+      log.warn(
+        { workspaceId, event },
+        "workflow fast path skipped: persisted event id was not provided",
+      );
+    }
+    return;
+  }
   void dispatchWorkflowEvent(workspaceId, event, data, {
-    sourceEventId:
-      persistedEventId ??
-      (typeof data.eventId === "string" ? data.eventId : undefined),
+    sourceEventId,
     parentRunId: options.parentRunId,
   }).catch((err) =>
     log.error(err, "dispatchWorkflowEvent failed"),

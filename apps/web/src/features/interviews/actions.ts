@@ -71,6 +71,7 @@ import {
   enqueueEmailOutbox,
   processEmailOutbox,
 } from "@/lib/email/outbox-processor";
+import { interviewEmailDedupeKey } from "@/lib/email/interview-email-dedupe";
 import { findWorkspaceMember } from "./core";
 import { lockInterviewerSchedule } from "./booking-lock";
 import { hasBookingReservation } from "@/lib/cal/booking-reservations";
@@ -97,13 +98,21 @@ async function queueInterviewEmail(
   kind: "interview.scheduled" | "interview.rescheduled" | "interview.canceled",
   payload: Record<string, unknown>,
   actorId?: string,
+  /** Id of the domain event persisted with this interview change. */
+  actionId?: string,
 ): Promise<"sent" | "failed"> {
   try {
     const id = await enqueueEmailOutbox(
       workspaceId,
       kind,
       payload,
-      undefined,
+      typeof payload.interviewId === "string"
+        ? interviewEmailDedupeKey({
+            kind,
+            interviewId: payload.interviewId,
+            actionId,
+          })
+        : undefined,
       actorId,
     );
     const result = await processEmailOutbox({ ids: [id], workspaceId });
@@ -776,6 +785,7 @@ export async function scheduleInterview(
             interviewerName,
           },
           user.id,
+          scheduledEvent.current?.eventId,
         );
         if (emailStatus === "failed") {
           warnings.push(
@@ -806,7 +816,11 @@ export async function scheduleInterview(
           location: data.location ?? null,
           interviewerId: data.interviewerId ?? null,
         },
-      }, { actorId: user.id, skipDomainEvent: true });
+      }, {
+        actorId: user.id,
+        skipDomainEvent: true,
+        eventId: scheduledEvent.current?.eventId,
+      });
       warning =
         warnings.length > 0 ? [...new Set(warnings)].join(" ") : undefined;
     }
@@ -1055,6 +1069,7 @@ export async function setInterviewStatus(input: {
             replyTo,
           },
           user.id,
+          statusEvent.current?.eventId,
         );
       }
     }
@@ -1069,7 +1084,11 @@ export async function setInterviewStatus(input: {
     const event = `interview.${parsed.data.status}` as const;
     void emitWebhookEvent(workspace.id, event, {
       interview: serializeInterview(updatedInterview),
-    }, { actorId: user.id, skipDomainEvent: true });
+    }, {
+      actorId: user.id,
+      skipDomainEvent: true,
+      eventId: statusEvent.current?.eventId,
+    });
 
     return {
       success: true,
@@ -1541,6 +1560,7 @@ export async function rescheduleInterview(input: {
           replyTo,
         },
         user.id,
+        persistedEvent?.eventId,
       );
     }
 
@@ -2192,6 +2212,7 @@ export async function updateInterview(input: {
           replyTo,
         },
         user.id,
+        persistedEvent?.eventId,
       );
     }
 

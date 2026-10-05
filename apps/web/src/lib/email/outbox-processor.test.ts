@@ -73,6 +73,10 @@ vi.mock("@/lib/logger", () => ({
   getServerLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), child: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() }) }),
 }));
 
+import { PgDialect } from "drizzle-orm/pg-core";
+import type { SQL } from "drizzle-orm";
+import { db } from "@harly/db";
+
 import { processEmailOutbox } from "./outbox-processor";
 
 const PENDING = {
@@ -251,5 +255,56 @@ describe("email_outbox worker", () => {
     expect(result).toEqual({ processed: 1, sent: 1, failed: 0 });
     expect(mocks.sendWorkspaceEmail).toHaveBeenCalledTimes(1);
     expect(mocks.insertCanonicalMessage).not.toHaveBeenCalled();
+  });
+
+  it("ends an interview email for a deleted candidate instead of retrying it", async () => {
+    mocks.selectQueue.push(
+      [{ ...PENDING, kind: "interview.scheduled", payload: { candidateEmail: "c@example.com", companyName: "Talmore", jobTitle: "Test role", scheduledAt: "2026-09-17T07:00:00Z" } }],
+      [], // no active candidate with that email
+    );
+
+    const result = await processEmailOutbox();
+
+    expect(result).toEqual({ processed: 1, sent: 0, failed: 1 });
+    expect(mocks.sendWorkspaceEmail).not.toHaveBeenCalled();
+    const terminal = mocks.updateCalls.find((c) => c.set.lastError !== undefined);
+    expect(terminal?.set).toMatchObject({ status: "failed", nextRetryAt: null, lastError: "The candidate is no longer active." });
+    // markFailed (retry with backoff) is the only writer of `attempts`.
+    expect(terminal?.set).not.toHaveProperty("attempts");
+  });
+
+  it("ends a row with an unusable payload instead of retrying it", async () => {
+    mocks.selectQueue.push([{ ...PENDING, kind: "interview.rescheduled", payload: { candidateEmail: "c@example.com" } }]);
+
+    await processEmailOutbox();
+
+    const terminal = mocks.updateCalls.find((c) => c.set.lastError !== undefined);
+    expect(terminal?.set).toMatchObject({ status: "failed", nextRetryAt: null });
+    expect(terminal?.set).not.toHaveProperty("attempts");
+  });
+
+  it("counts a crashed attempt when reclaiming and dead-letters at the maximum", async () => {
+    const execute = vi.mocked(db.execute);
+    execute.mockClear();
+    mocks.selectQueue.push([]);
+
+    await processEmailOutbox();
+
+    const dialect = new PgDialect();
+    const [deadLetter, claim] = execute.mock.calls.map(
+      ([query]) => dialect.sqlToQuery(query as SQL),
+    );
+    const flat = (text: string) => text.replaceAll(/\s+/g, " ");
+
+    // Stale rows whose crashed attempt exhausts the budget become terminal.
+    expect(flat(deadLetter!.sql)).toContain(`set "status" = 'failed', "attempts" = "attempts" + 1`);
+    expect(flat(deadLetter!.sql)).toContain(`where "status" = 'processing' and "locked_at" < now() - interval '5 minutes' and "attempts" + 1 >= $1`);
+    expect(deadLetter!.params).toEqual([5]);
+
+    // The rest are reclaimed with that crashed attempt counted; a normal
+    // pending claim is not counted here (markFailed counts its failure).
+    expect(flat(claim!.sql)).toContain(`"status" = 'processing' and "locked_at" < now() - interval '5 minutes' and "attempts" + 1 < $1`);
+    expect(flat(claim!.sql)).toContain(`"attempts" = queue."attempts" + case when queue."status" = 'processing' then 1 else 0 end`);
+    expect(claim!.params[0]).toBe(5);
   });
 });

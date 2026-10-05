@@ -334,6 +334,7 @@ export async function createInterviewForApi(input: {
     actorUserId: input.actorUserId,
     interview: created,
     action: "scheduled",
+    eventId: event.eventId,
   });
   const refreshed = await getInterviewForApi({
     workspaceId: input.workspaceId,
@@ -341,7 +342,11 @@ export async function createInterviewForApi(input: {
   });
   await emitWebhookEvent(input.workspaceId, "interview.scheduled", {
     interview: serializeInterview(refreshed),
-  }, { actorId: input.actorUserId, skipDomainEvent: true });
+  }, {
+    actorId: input.actorUserId,
+    skipDomainEvent: true,
+    eventId: event.eventId,
+  });
   return refreshed;
 }
 
@@ -461,6 +466,7 @@ export async function updateInterviewForApi(input: {
     interview: updated,
     previous: current,
     action: "rescheduled",
+    eventId: event.eventId,
   });
   const refreshed = await getInterviewForApi({
     workspaceId: input.workspaceId,
@@ -534,6 +540,7 @@ export async function setInterviewStatusForApi(input: {
       interview: updated,
       previous: current,
       action: "canceled",
+      eventId: persistedEvent.eventId,
     });
   }
   const refreshed = await getInterviewForApi({
@@ -542,6 +549,10 @@ export async function setInterviewStatusForApi(input: {
   });
   await emitWebhookEvent(input.workspaceId, event, {
     interview: serializeInterview(refreshed),
-  }, { actorId: input.actorUserId, skipDomainEvent: true });
+  }, {
+    actorId: input.actorUserId,
+    skipDomainEvent: true,
+    eventId: persistedEvent.eventId,
+  });
   return refreshed;
 }

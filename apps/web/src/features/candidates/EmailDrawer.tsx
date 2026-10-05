@@ -124,7 +124,7 @@ export function EmailDrawer({
               }
               return { subject: result.subject, body: result.body };
             }}
-            onSend={async ({ subject, html, text, attachments }) => {
+            onSend={async ({ subject, html, text, attachments, idempotencyKey }) => {
               const result = await sendCandidateMessage({
                 candidateId,
                 workspaceId,
@@ -133,6 +133,7 @@ export function EmailDrawer({
                 subject,
                 body: text,
                 html,
+                idempotencyKey,
                 attachments: attachments.map((file) => ({ filename: file.filename, contentType: file.contentType, base64: file.base64 })),
               });
               if (!result.success) return { ok: false, error: result.error ?? "Could not send the email." };
