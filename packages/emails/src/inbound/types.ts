@@ -28,7 +28,9 @@ export type InboundProviderId = "resend" | "postmark";
  * A provider-specific inbound email adapter. `parse` is async because some
  * providers (Resend) only send metadata in the webhook payload and require
  * a follow-up API call to fetch the body/attachments; others (Postmark)
- * resolve synchronously from the payload alone.
+ * resolve synchronously from the payload alone. `parse` resolves to `null`
+ * for a verified webhook that is not an inbound email (for example a delivery
+ * status event); callers acknowledge those without processing.
  */
 export interface InboundEmailAdapter {
   provider: InboundProviderId;
@@ -36,5 +38,5 @@ export interface InboundEmailAdapter {
   parse(
     rawBody: string,
     ctx: { apiKey?: string },
-  ): Promise<CanonicalInboundEmail>;
+  ): Promise<CanonicalInboundEmail | null>;
 }

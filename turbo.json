@@ -3,6 +3,11 @@
   "globalPassThroughEnv": [
     "DATABASE_URL",
     "HARLY_URL",
+    "PORT",
+    "HARLY_SETUP_SECRET",
+    "HARLY_INITIAL_ADMIN_EMAIL",
+    "STORAGE_UPLOAD_SECRET",
+    "UPLOADS_DIR",
     "HARLY_DEV_MEMORY_MB",
     "NEXT_PUBLIC_APP_URL",
     "OPENHIRE_APP_NAME",

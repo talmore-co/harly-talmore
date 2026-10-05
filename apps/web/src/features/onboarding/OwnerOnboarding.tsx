@@ -207,11 +207,11 @@ export function OwnerOnboarding({
     return true;
   }
 
+  // Skipping leaves the step's form unsaved, so a failing save can never block
+  // the way forward. Continue is the path that persists.
   function skip() {
     setError(null);
-    startTransition(async () => {
-      if (await persistCurrent()) setStep((s) => s + 1);
-    });
+    setStep((s) => s + 1);
   }
 
   function next() {

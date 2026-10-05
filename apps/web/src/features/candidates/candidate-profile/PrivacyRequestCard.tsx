@@ -211,7 +211,7 @@ export function PrivacyRequestCard({
         {request.status === "blocked" && request.reviewDueAt ? (
           <p className="mt-2 text-xs text-muted-foreground">
             Legal hold review due{" "}
-            {new Date(request.reviewDueAt).toLocaleDateString()}.
+            <ShortDate value={request.reviewDueAt} />.
           </p>
         ) : null}
 

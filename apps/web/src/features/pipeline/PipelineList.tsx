@@ -197,8 +197,8 @@ export function PipelineList({
 
   async function setStatus(status: "hired" | "rejected" | "active") {
     if (selectedIds.length === 0) return;
-    const sendRejectionEmail = status === "rejected" ? await confirmRejection(selectedIds.length) : false;
-    if (sendRejectionEmail === null) return;
+    const rejection = status === "rejected" ? await confirmRejection(selectedIds.length) : undefined;
+    if (rejection === null) return;
     if (status === "hired" && !(await confirmHire(selectedIds.length))) {
       return;
     }
@@ -207,7 +207,9 @@ export function PipelineList({
         applicationIds: selectedIds,
         workspaceId,
         status,
-        sendRejectionEmail,
+        sendRejectionEmail: rejection?.sendEmail ?? false,
+        rejectionReason: rejection?.reason,
+        rejectionNote: rejection?.note,
       });
       afterBulk(result, "Updated");
     });

@@ -436,7 +436,7 @@ async function inviteOneMember(
           dashboardUrl: `${appUrl}/login`,
           branding,
         }),
-      });
+      }, undefined, "transactional");
     }
 
     await logAuditEvent({
@@ -494,7 +494,7 @@ async function inviteOneMember(
       acceptUrl,
       branding,
     }),
-  });
+  }, undefined, "transactional");
 
   await logAuditEvent({
     workspaceId: context.organization.id,
@@ -1005,7 +1005,7 @@ export async function resendWorkspaceInvitationAction(
         acceptUrl,
         branding,
       }),
-    });
+    }, undefined, "transactional");
 
     await logAuditEvent({
       workspaceId: context.organization.id,

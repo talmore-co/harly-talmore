@@ -1,5 +1,4 @@
 import {
-  getTaskCounts,
   listTaskContextOptions,
   listTasks,
   listWorkspaceMembers,
@@ -10,10 +9,9 @@ import { requirePagePermission } from "@/features/workspaces/permissions-server"
 export const dynamic = "force-dynamic";
 
 export default async function TasksPage() {
-  await requirePagePermission("tasks:read");
-  const [tasks, counts, members, contextOptions] = await Promise.all([
+  const context = await requirePagePermission("tasks:read");
+  const [tasks, members, contextOptions] = await Promise.all([
     listTasks(),
-    getTaskCounts(),
     listWorkspaceMembers(),
     listTaskContextOptions(),
   ]);
@@ -22,7 +20,7 @@ export default async function TasksPage() {
     <TasksView
       tasks={tasks}
       members={members}
-      counts={counts}
+      currentUserId={context.user.id}
       contextOptions={contextOptions}
     />
   );

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Download, FileSpreadsheet, Upload } from "lucide-react";
 import { TalentSourcerLogo } from "@/components/ui/icons/brands";
 import { TalentSourcerImportPanel } from "@/features/talentsourcer/ImportPanel";
+import { RecruitCrmImportPanel } from "@/features/recruitcrm/ImportPanel";
 import { ImportSearchSelect } from "./ImportSearchSelect";
 import { toast } from "@/lib/notification-island/toast";
 
@@ -62,6 +63,7 @@ export type ImportJobOption = { id: string; title: string };
 export type ImportSource =
   | "csv"
   | "talentsourcer"
+  | "recruitcrm"
   | "greenhouse"
   | "workable"
   | "ashby"
@@ -78,6 +80,7 @@ type SourceOption = {
 };
 
 const IMPORT_SOURCE_OPTIONS: SourceOption[] = [
+  { value: "recruitcrm", label: "Recruit CRM", logo: Download, hint: "Candidates & old jobs" },
   { value: "talentsourcer", label: "TalentSourcer AI", logo: TalentSourcerLogo, hint: "Shortlists & interested" },
   {
     value: "csv",
@@ -385,7 +388,7 @@ export function ImportCandidatesDrawer({
             Import candidates
           </span>
         }
-        description="Bring candidates into a job from a CSV file or another ATS."
+        description="Import candidates from a CSV file, sourcing tool or another ATS."
         className="sm:max-w-2xl"
         footer={
           <>
@@ -413,14 +416,10 @@ export function ImportCandidatesDrawer({
           </>
         }
       >
-        {jobs.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Create a job before importing candidates. Every imported row is
-            added to a job&apos;s pipeline.
-          </p>
-        ) : (
-          <div className="space-y-5">
-            <ImportSearchSelect label="Job" value={jobId} onChange={setJobId} options={jobs.map(job => ({ id: job.id, name: job.title }))} disabled={isPending} />
+        <div className="space-y-5">
+            {source !== "recruitcrm" && (jobs.length === 0
+              ? <p className="text-sm text-muted-foreground">Create a job before importing from this source. Every imported row is added to a job&apos;s pipeline.</p>
+              : <ImportSearchSelect label="Job" value={jobId} onChange={setJobId} options={jobs.map(job => ({ id: job.id, name: job.title }))} disabled={isPending} />)}
 
             <div className="space-y-2">
               <Label>Source</Label>
@@ -468,6 +467,7 @@ export function ImportCandidatesDrawer({
             </div>
 
             {source === "talentsourcer" && <TalentSourcerImportPanel key={jobId} jobId={jobId} />}
+            {source === "recruitcrm" && <RecruitCrmImportPanel jobs={jobs} />}
             {source === "csv" ? (
               <div className="space-y-2">
                 <Label htmlFor="import-file">CSV file</Label>
@@ -837,8 +837,7 @@ export function ImportCandidatesDrawer({
                 ) : null}
               </div>
             ) : null}
-          </div>
-        )}
+        </div>
       </DrawerLayout>
     </Sheet>
   );

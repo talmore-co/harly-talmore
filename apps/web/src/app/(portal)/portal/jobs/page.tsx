@@ -7,6 +7,7 @@ import type { Route } from "next";
 import { db, jobs } from "@harly/db";
 import { PORTAL_SESSION_COOKIE, resolvePortalSession } from "@/lib/portal-auth";
 import { PortalShell } from "@/features/portal/PortalShellServer";
+import { publicJobVisibilityConditions } from "@/features/jobs/data";
 import {
   MapPinIcon,
   CurrencyDollarIcon,
@@ -71,7 +72,7 @@ export default async function PortalJobsPage() {
     .where(
       and(
         eq(jobs.workspaceId, session.workspaceId),
-        eq(jobs.status, "open"),
+        publicJobVisibilityConditions(),
       ),
     )
     .orderBy(desc(jobs.publishedAt));

@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import type { Route } from "next";
 import { Search } from "lucide-react";
 
@@ -14,6 +15,8 @@ import { FilterPill, FILTER_ALL } from "@/components/ui/FilterPill";
 import { JobIdentity } from "@/features/jobs/JobIdentity";
 import { formatEmploymentType, formatWorkplaceType } from "@/lib/format";
 import { pipelineStageColor } from "@/features/pipeline/stage-color";
+import { rememberJobsListQuery } from "@/features/jobs/list-return";
+import { replaceUrlParams } from "@/lib/url-params";
 
 export type JobRow = {
   clientId: string | null;
@@ -33,7 +36,7 @@ export type JobRow = {
   createdAt: Date;
 };
 
-type SortKey = "recent" | "oldest" | "applicants" | "title";
+type SortKey = "recent" | "oldest" | "candidates" | "title";
 
 function uniqueSorted(values: (string | null)[]) {
   return Array.from(
@@ -52,11 +55,11 @@ const STATUS_LABELS: Record<string, string> = {
 const EMPLOYMENT_OPTIONS = ["full_time", "part_time", "contract", "internship"];
 const WORKPLACE_OPTIONS = ["remote", "hybrid", "onsite"];
 
-const SORT_OPTIONS = ["recent", "oldest", "applicants", "title"];
+const SORT_OPTIONS = ["recent", "oldest", "candidates", "title"];
 const SORT_LABELS: Record<string, string> = {
   recent: "Most recent",
   oldest: "Oldest",
-  applicants: "Most applicants",
+  candidates: "Most candidates",
   title: "Title A–Z",
 };
 
@@ -69,17 +72,70 @@ export function JobsTable({
   clientFilter?: ReactNode;
   showClient?: boolean;
 }) {
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState(FILTER_ALL);
-  const [dept, setDept] = useState(FILTER_ALL);
-  const [employment, setEmployment] = useState(FILTER_ALL);
-  const [workplace, setWorkplace] = useState(FILTER_ALL);
-  const [sortKey, setSortKey] = useState<SortKey>("recent");
-
   const departments = useMemo(
     () => uniqueSorted(jobs.map((j) => j.department)),
     [jobs],
   );
+
+  // Filters, sort and search live in the URL (q, status, dept, type,
+  // workplace, sort) so they survive opening a job and coming back. Local
+  // state keeps typing responsive; every change is mirrored into the URL.
+  const searchParams = useSearchParams();
+  const fromUrl = (key: string, allowed: string[], fallback: string) => {
+    const value = searchParams.get(key);
+    return value && allowed.includes(value) ? value : fallback;
+  };
+  const [query, setQueryState] = useState(() => searchParams.get("q") ?? "");
+  const [status, setStatusState] = useState(() =>
+    fromUrl("status", STATUS_OPTIONS, FILTER_ALL),
+  );
+  const [dept, setDeptState] = useState(() =>
+    fromUrl("dept", departments, FILTER_ALL),
+  );
+  const [employment, setEmploymentState] = useState(() =>
+    fromUrl("type", EMPLOYMENT_OPTIONS, FILTER_ALL),
+  );
+  const [workplace, setWorkplaceState] = useState(() =>
+    fromUrl("workplace", WORKPLACE_OPTIONS, FILTER_ALL),
+  );
+  const [sortKey, setSortKeyState] = useState<SortKey>(
+    () => fromUrl("sort", SORT_OPTIONS, "recent") as SortKey,
+  );
+
+  const urlValue = (value: string) => (value === FILTER_ALL ? null : value);
+  const setQuery = (value: string) => {
+    setQueryState(value);
+    replaceUrlParams({ q: value.trim() || null });
+  };
+  const setStatus = (value: string) => {
+    setStatusState(value);
+    replaceUrlParams({ status: urlValue(value) });
+  };
+  const setDept = (value: string) => {
+    setDeptState(value);
+    replaceUrlParams({ dept: urlValue(value) });
+  };
+  const setEmployment = (value: string) => {
+    setEmploymentState(value);
+    replaceUrlParams({ type: urlValue(value) });
+  };
+  const setWorkplace = (value: string) => {
+    setWorkplaceState(value);
+    replaceUrlParams({ workplace: urlValue(value) });
+  };
+  const setSortKey = (value: SortKey) => {
+    setSortKeyState(value);
+    replaceUrlParams({ sort: value === "recent" ? null : value });
+  };
+
+  // The job editor's "Jobs" button returns to the jobs list with the same
+  // query. This table also renders on a client's page, which must not
+  // overwrite it.
+  const onJobsList = usePathname() === "/dashboard/jobs";
+  const currentQuery = searchParams.toString();
+  useEffect(() => {
+    if (onJobsList) rememberJobsListQuery(currentQuery);
+  }, [onJobsList, currentQuery]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -112,7 +168,7 @@ export function JobsTable({
 
     return [...base].sort((a, b) => {
       if (sortKey === "title") return a.title.localeCompare(b.title);
-      if (sortKey === "applicants") return b.applicants - a.applicants;
+      if (sortKey === "candidates") return b.applicants - a.applicants;
       if (sortKey === "oldest")
         return a.createdAt.getTime() - b.createdAt.getTime();
       return b.createdAt.getTime() - a.createdAt.getTime();
@@ -127,11 +183,18 @@ export function JobsTable({
     query.trim() !== "";
 
   function clearFilters() {
-    setQuery("");
-    setStatus(FILTER_ALL);
-    setDept(FILTER_ALL);
-    setEmployment(FILTER_ALL);
-    setWorkplace(FILTER_ALL);
+    setQueryState("");
+    setStatusState(FILTER_ALL);
+    setDeptState(FILTER_ALL);
+    setEmploymentState(FILTER_ALL);
+    setWorkplaceState(FILTER_ALL);
+    replaceUrlParams({
+      q: null,
+      status: null,
+      dept: null,
+      type: null,
+      workplace: null,
+    });
   }
 
   return (
@@ -208,7 +271,7 @@ export function JobsTable({
           <span className="font-semibold tabular-nums text-foreground">
             {filtered.length}
           </span>{" "}
-          {filtered.length === 1 ? "role" : "roles"}
+          {filtered.length === 1 ? "job" : "jobs"}
         </p>
       </div>
 
@@ -238,9 +301,13 @@ export function JobsTable({
 
             <div className="col-span-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 lg:col-span-1 lg:pt-1">
               <div className="flex items-baseline gap-3">
-                <span className="text-sm font-semibold tabular-nums">
+                <Link
+                  href={`/dashboard/pipeline?job=${job.id}` as Route}
+                  aria-label={`Open pipeline for ${job.title}: ${job.applicants} ${job.applicants === 1 ? "candidate" : "candidates"}`}
+                  className="rounded-sm text-sm font-semibold tabular-nums underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
                   {job.applicants} <span className="text-xs font-normal text-muted-foreground">{job.applicants === 1 ? "candidate" : "candidates"}</span>
-                </span>
+                </Link>
                 {job.newApplicants > 0 ? (
                   <span className="text-[0.65rem] font-medium text-primary">
                     <span title="Added in the last 7 days">+{job.newApplicants} new</span>

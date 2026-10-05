@@ -4,6 +4,7 @@ import { and, eq, sql } from "drizzle-orm";
 
 import { db, jobs, organization, workspaceSettings } from "@harly/db";
 import { PortalLoginForm } from "@/features/portal/PortalLoginForm";
+import { publicJobVisibilityConditions } from "@/features/jobs/data";
 import {
   getPortalGitHubCredentials,
   getPortalGoogleCredentials,
@@ -45,7 +46,7 @@ async function getOrgBranding(workspaceId: string) {
   const deptRows = await db
     .selectDistinct({ department: jobs.department })
     .from(jobs)
-    .where(and(eq(jobs.workspaceId, workspaceId), eq(jobs.status, "open")))
+    .where(and(eq(jobs.workspaceId, workspaceId), publicJobVisibilityConditions()))
     .orderBy(sql`${jobs.department} asc nulls last`)
     .limit(6);
 

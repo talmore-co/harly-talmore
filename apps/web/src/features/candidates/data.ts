@@ -64,6 +64,12 @@ import type {
   CandidateExperienceEntry,
 } from "@harly/db";
 import { getWorkspaceContext } from "@/features/workspaces/context";
+import {
+  candidateIdInScope,
+  jobIdInScope,
+  jobScopeWhere,
+  requireCandidateListAccess,
+} from "@/features/workspaces/role-scope";
 import { deleteConversationsForCandidate } from "@/features/ai-chat/data";
 import {
   interviewTypeLabel,
@@ -255,7 +261,10 @@ export function workspaceStorageKeyFromUrl(
 }
 
 export async function listCandidates() {
-  const { organization: workspace } = await getWorkspaceContext();
+  const {
+    context: { organization: workspace },
+    actor,
+  } = await requireCandidateListAccess();
 
   const rows = await db
     .select({
@@ -286,6 +295,8 @@ export async function listCandidates() {
       and(
         eq(applications.workspaceId, workspace.id),
         eq(applications.candidateId, candidates.id),
+        // Scoped roles only ever see applications on jobs inside their scope.
+        jobIdInScope(actor, applications.jobId),
       ),
     )
     .leftJoin(
@@ -303,6 +314,7 @@ export async function listCandidates() {
       and(
         eq(candidates.workspaceId, workspace.id),
         isNull(candidates.deletedAt),
+        candidateIdInScope(actor, candidates.id),
       ),
     )
     .orderBy(desc(candidates.createdAt), desc(applications.appliedAt));
@@ -471,7 +483,15 @@ export async function listCandidates() {
 export async function listCandidateDirectory(
   input: CandidateDirectoryFilters = {},
 ): Promise<CandidateDirectoryPage> {
-  const { organization: workspace } = await getWorkspaceContext();
+  const {
+    context: { organization: workspace },
+    actor,
+    restricted,
+  } = await requireCandidateListAccess();
+  // For a scoped role the "latest application" and the application count are
+  // computed over in-scope applications only, so a row never surfaces the job,
+  // stage or status of an application the role could not open.
+  const scopedApplication = jobIdInScope(actor, applications.jobId);
   const pageSize = Math.min(Math.max(input.pageSize ?? 50, 10), 100);
   const page = Math.max(Math.floor(input.page ?? 1), 1);
   const query = input.query?.trim().replace(/\s+/g, " ").slice(0, 100) ?? "";
@@ -489,7 +509,7 @@ export async function listCandidateDirectory(
       currentStageId: applications.currentStageId,
     })
     .from(applications)
-    .where(eq(applications.workspaceId, workspace.id))
+    .where(and(eq(applications.workspaceId, workspace.id), scopedApplication))
     .orderBy(
       asc(applications.candidateId),
       desc(applications.appliedAt),
@@ -503,7 +523,7 @@ export async function listCandidateDirectory(
       value: sql<number>`count(*)::int`.as("value"),
     })
     .from(applications)
-    .where(eq(applications.workspaceId, workspace.id))
+    .where(and(eq(applications.workspaceId, workspace.id), scopedApplication))
     .groupBy(applications.candidateId)
     .as("application_counts");
 
@@ -511,6 +531,11 @@ export async function listCandidateDirectory(
     eq(candidates.workspaceId, workspace.id),
     isNull(candidates.deletedAt),
   ];
+  // `latest_application` is already limited to in-scope applications, so its
+  // presence is exactly "has an application the role may access". Candidates
+  // without one (including talent-pool-only candidates) stay hidden, matching
+  // requireCandidatePermission on the detail page.
+  if (restricted) predicates.push(isNotNull(latestApplication.id));
 
   if (query) {
     predicates.push(
@@ -742,33 +767,36 @@ export async function listCandidateDirectory(
 }
 
 export async function listCandidateDirectoryFacets(): Promise<CandidateDirectoryFacets> {
-  const { organization: workspace } = await getWorkspaceContext();
+  const {
+    context: { organization: workspace },
+    actor,
+  } = await requireCandidateListAccess();
   const [departmentRows, roleRows, stageRows, sourceRows, tagRows] = await Promise.all([
     db
       .selectDistinct({ value: jobs.department })
       .from(jobs)
-      .where(and(eq(jobs.workspaceId, workspace.id), isNull(jobs.deletedAt), isNotNull(jobs.department)))
+      .where(and(eq(jobs.workspaceId, workspace.id), isNull(jobs.deletedAt), isNotNull(jobs.department), jobScopeWhere(actor)))
       .orderBy(asc(jobs.department)),
     db
       .selectDistinct({ value: jobs.title })
       .from(jobs)
-      .where(and(eq(jobs.workspaceId, workspace.id), isNull(jobs.deletedAt)))
+      .where(and(eq(jobs.workspaceId, workspace.id), isNull(jobs.deletedAt), jobScopeWhere(actor)))
       .orderBy(asc(jobs.title)),
     db
       .selectDistinct({ value: jobStages.name })
       .from(jobStages)
-      .where(eq(jobStages.workspaceId, workspace.id))
+      .where(and(eq(jobStages.workspaceId, workspace.id), jobIdInScope(actor, jobStages.jobId)))
       .orderBy(asc(jobStages.name)),
     db
       .selectDistinct({ value: applications.source })
       .from(applications)
       .innerJoin(jobs, and(eq(jobs.id, applications.jobId), eq(jobs.workspaceId, workspace.id), isNull(jobs.deletedAt)))
-      .where(and(eq(applications.workspaceId, workspace.id), isNotNull(applications.source)))
+      .where(and(eq(applications.workspaceId, workspace.id), isNotNull(applications.source), jobScopeWhere(actor)))
       .orderBy(asc(applications.source)),
     db
       .selectDistinct({ value: candidateTags.label })
       .from(candidateTags)
-      .where(and(eq(candidateTags.workspaceId, workspace.id), isNotNull(candidateTags.label)))
+      .where(and(eq(candidateTags.workspaceId, workspace.id), isNotNull(candidateTags.label), candidateIdInScope(actor, candidateTags.candidateId)))
       .orderBy(asc(candidateTags.label)),
   ]);
 
@@ -821,6 +849,8 @@ export async function getCandidateProfile(candidateId: string) {
       currentStageId: applications.currentStageId,
       currentStageName: jobStages.name,
       status: applications.status,
+      rejectionReason: applications.rejectionReason,
+      rejectionNote: applications.rejectionNote,
       appliedAt: applications.appliedAt,
       source: applications.source,
     })
@@ -1479,7 +1509,10 @@ export type TrashedCandidateItem = {
 
 /** Candidates moved to the trash (soft-deleted), most recently deleted first. */
 export async function listTrashedCandidates(): Promise<TrashedCandidateItem[]> {
-  const { organization: workspace } = await getWorkspaceContext();
+  const {
+    context: { organization: workspace },
+    actor,
+  } = await requireCandidateListAccess();
 
   const rows = await db
     .select({
@@ -1495,6 +1528,7 @@ export async function listTrashedCandidates(): Promise<TrashedCandidateItem[]> {
       and(
         eq(candidates.workspaceId, workspace.id),
         isNotNull(candidates.deletedAt),
+        candidateIdInScope(actor, candidates.id),
       ),
     )
     .orderBy(desc(candidates.deletedAt));
@@ -2220,6 +2254,8 @@ export async function permanentlyDeleteCandidate(
         ),
       );
     await tx.execute(sql`delete from talentsourcer_import_items where candidate_id = ${candidateId}::uuid and batch_id in (select id from talentsourcer_import_batches where workspace_id = ${workspace.id})`);
+    const { eraseRecruitCrmCandidate } = await import("@/features/recruitcrm/cleanup");
+    await eraseRecruitCrmCandidate(tx, workspace.id, candidateId);
     return tx
       .delete(candidates)
       .where(

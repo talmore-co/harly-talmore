@@ -67,6 +67,7 @@ The scheduler calls these private endpoints with
 
 - `POST /api/cron/email-outbox` every 60 seconds
 - `POST /api/cron/domain-events` every 15 seconds (replay committed realtime events after a failed fast publish)
+- `POST /api/cron/recruitcrm-imports` every 15 seconds (only does work while a Recruit CRM import is queued)
 - `POST /api/cron/webhooks/dispatch` every 60 seconds
 - `POST /api/cron/interview-sync` every 60 seconds
 - `POST /api/cron/mailbox-sync` every 120 seconds

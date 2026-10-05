@@ -18,6 +18,7 @@ import {
   WarningCircleIcon,
 } from "@/components/ui/icons/phosphor";
 import { cn } from "@/lib/utils";
+import { toast } from "@/lib/notification-island/toast";
 import { InboxConversationList } from "@/features/mailbox/InboxConversationList";
 import { InboxNewThreadSheet } from "@/features/mailbox/InboxNewThreadSheet";
 import { InboxPeopleList, type InboxPerson } from "@/features/mailbox/InboxPeopleList";
@@ -296,7 +297,6 @@ export function RecruitingInbox({
   const [activeThreadId, setActiveThreadId] = useState<string | undefined>(initialThreadId ?? Object.keys(messages)[0]);
   const [mobileView, setMobileView] = useState<"people" | "conversations" | "thread">(initialThreadId ? "thread" : "people");
   const [newThreadOpen, setNewThreadOpen] = useState(false);
-  const [announcement, setAnnouncement] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [suggestedReply, setSuggestedReply] = useState<{ threadId: string; body: string } | null>(null);
   const [pending, startTransition] = useTransition();
@@ -391,23 +391,41 @@ export function RecruitingInbox({
   const drafts = useRef(new Map<string, ComposerDraft>());
   const [detailsOpen, setDetailsOpen] = useState(false);
 
-  async function runAction<T extends { ok: boolean; error?: string }>(fn: () => Promise<T>, success: string) {
+  // `success` is omitted for changes the list already shows (marking read).
+  async function runAction<T extends { ok: boolean; error?: string }>(fn: () => Promise<T>, success?: string, undo?: () => void) {
     try {
       const result = await fn();
       if (result.ok) {
-        setAnnouncement(success);
+        if (success) toast.success(success, undo ? { action: { label: "Undo", onClick: undo } } : undefined);
         router.refresh();
-      } else setAnnouncement(result.error ?? "Action failed.");
+      } else toast.error(result.error ?? "Action failed.");
       return result;
     } catch {
-      const result = { ok: false, error: "You do not have permission to change this thread." } as T;
-      setAnnouncement(result.error ?? "Action failed.");
+      // A missing permission comes back as `{ ok: false }` with its own
+      // message; a throw means the request itself failed.
+      const result = { ok: false, error: "Something went wrong. Please try again." } as T;
+      toast.error(result.error);
       return result;
     }
   }
 
   function handleMarkRead(target: InboxThread) {
-    startTransition(() => { void runAction(() => markInboxThreadReadAction({ threadId: target.id, source: target.source }), `Marked “${target.subject}” as read.`); });
+    startTransition(() => { void runAction(() => markInboxThreadReadAction({ threadId: target.id, source: target.source })); });
+  }
+
+  function restoreThread(target: InboxThread) {
+    startTransition(() => { void runAction(() => updateMailboxThreadAction({ threadId: target.id, status: "open" }), "Thread moved back to the inbox."); });
+  }
+
+  // Archive and spam are one click, so each offers an Undo that reopens it.
+  function closeThread(target: InboxThread, status: "archived" | "spam", onDone?: () => void) {
+    startTransition(() => {
+      void runAction(
+        () => updateMailboxThreadAction({ threadId: target.id, status }),
+        status === "archived" ? "Thread archived." : "Thread marked as spam.",
+        () => restoreThread(target),
+      ).then((result) => { if (result.ok) onDone?.(); });
+    });
   }
 
   function handleSelectPerson(person: InboxPerson) {
@@ -437,8 +455,9 @@ export function RecruitingInbox({
 
   async function retrySync() {
     setSyncing(true);
-    const result = await retryMailboxSyncAction().catch(() => ({ ok: false as const, error: "You do not have permission to sync the mailbox." }));
-    setAnnouncement(result.ok ? `Sync complete. Imported ${"imported" in result ? result.imported : 0} messages; skipped ${"skipped" in result ? result.skipped : 0} duplicates.` : result.error ?? "Sync failed.");
+    const result = await retryMailboxSyncAction().catch(() => ({ ok: false as const, error: "Sync failed. Please try again." }));
+    if (result.ok) toast.success(`Sync complete. Imported ${"imported" in result ? result.imported : 0} messages; skipped ${"skipped" in result ? result.skipped : 0} duplicates.`);
+    else toast.error(("error" in result ? result.error : undefined) ?? "Sync failed.");
     setSyncing(false);
     router.refresh();
   }
@@ -473,8 +492,9 @@ export function RecruitingInbox({
       onCandidateChange={(candidateId) => runAction(() => linkMailboxThreadToCandidateAction({ threadId: contextThread.id, candidateId }), candidateId ? "Candidate linked." : "Candidate unlinked.")}
       onApplicationChange={(applicationId) => runAction(() => linkMailboxThreadToApplicationAction({ threadId: contextThread.id, applicationId: applicationId ?? null }), applicationId ? "Application linked." : "Application unlinked.")}
       onCreateCandidate={() => { startTransition(() => { void runAction(() => createCandidateFromMailboxThreadAction({ threadId: contextThread.id }), "Candidate created from this thread."); }); }}
-      onArchive={() => { startTransition(() => { void runAction(() => updateMailboxThreadAction({ threadId: contextThread.id, status: "archived" }), "Thread archived."); }); }}
-      onMarkSpam={() => { startTransition(() => { void runAction(() => updateMailboxThreadAction({ threadId: contextThread.id, status: "spam" }), "Thread marked as spam."); }); }}
+      onArchive={() => closeThread(contextThread, "archived")}
+      onMarkSpam={() => closeThread(contextThread, "spam")}
+      onRestore={() => restoreThread(contextThread)}
       onSummarize={() => summarizeMailboxThreadAction({ threadId: contextThread.id })}
       onSuggestReply={() => suggestMailboxReplyAction({ threadId: contextThread.id }).then((result) => { if (result.ok && result.draft) setSuggestedReply({ threadId: contextThread.id, body: result.draft.body }); return result; })}
     />
@@ -482,7 +502,6 @@ export function RecruitingInbox({
 
   return (
     <div className="-mx-4 -mb-6 -mt-2 flex h-[calc(100%+2rem)] min-h-0 flex-col overflow-hidden border-t border-border/70 duration-300 animate-in fade-in md:-mx-6 lg:-mx-8 lg:-mb-8 lg:-mt-3 lg:h-[calc(100%+2.75rem)]">
-      {announcement ? <div role="status" className="flex items-center justify-between gap-3 border-b bg-muted/40 px-4 py-2 text-xs"><span>{announcement}</span><button type="button" onClick={() => setAnnouncement("")} className="underline underline-offset-2">Dismiss</button></div> : null}
       <InboxCommandBar
         filter={filter}
         counts={counts}
@@ -526,7 +545,8 @@ export function RecruitingInbox({
                  companyName={mailboxStatus.companyName}
                  senderName={mailboxStatus.senderName}
                  markReadOnOpen={mobileView === "thread"}
-                 onArchive={() => { startTransition(() => { void runAction(() => updateMailboxThreadAction({ threadId: thread.id, status: "archived" }), "Thread archived.").then((result) => { if (result.ok) handleFilterChange(filter); }); }); }}
+                 onArchive={thread.status === "open" ? () => closeThread(thread, "archived", () => handleFilterChange(filter)) : undefined}
+                 onRestore={thread.status === "open" ? undefined : () => restoreThread(thread)}
                 messages={threadMessages}
                 isPending={pending}
                 canReply={mailboxStatus.canReply}
@@ -534,7 +554,7 @@ export function RecruitingInbox({
                  onBack={() => setMobileView("people")}
                  onMarkRead={handleMarkRead}
                  onMarkUnread={() => { startTransition(() => { void runAction(() => markMailboxThreadUnreadAction({ threadId: thread.id }), "Marked unread."); }); }}
-                onSendReply={(payload) => replyMailboxThreadAction({ threadId: thread.id, body: payload.body, html: payload.html, subject: payload.subject, idempotencyKey: payload.idempotencyKey, attachments: payload.attachments.map((file) => ({ filename: file.filename, contentType: file.contentType, base64: file.base64 })) }).then((result) => { if (result.ok) { setAnnouncement(result.sentCopySaved === false ? "Reply sent, but the copy could not be saved in Sent." : "Reply sent."); router.refresh(); } return result; })}
+                onSendReply={(payload) => replyMailboxThreadAction({ threadId: thread.id, body: payload.body, html: payload.html, subject: payload.subject, idempotencyKey: payload.idempotencyKey, attachments: payload.attachments.map((file) => ({ filename: file.filename, contentType: file.contentType, base64: file.base64 })) }).then((result) => { if (result.ok) { toast.success(result.sentCopySaved === false ? "Reply sent, but the copy could not be saved in Sent." : "Reply sent."); router.refresh(); } return result; })}
                 actionsSlot={actionsPanel}
               />
             ) : (
