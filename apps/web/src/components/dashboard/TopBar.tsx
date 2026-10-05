@@ -47,6 +47,19 @@ type TopBarProps = {
 };
 
 /**
+ * Sections whose pages already open with their own heading or greeting; the
+ * small-screen title row would only repeat it.
+ */
+const SECTIONS_WITH_OWN_HEADING = new Set<string>([
+  "/dashboard",
+  "/dashboard/clients",
+  "/dashboard/placements",
+  "/dashboard/reports",
+  "/people",
+  "/settings",
+]);
+
+/**
  * Quiet chrome (DESIGN.md , Top Bar). Mobile trigger + section label left,
  * workspace pill centered, compact cluster right.
  *
@@ -156,6 +169,25 @@ export function TopBar({
         taskDueCount={taskDueCount}
         userPermissions={userPermissions}
       />
+
+      {/* Small screens have no room for the section label inside the bar, and
+          most list pages render no heading of their own, so it sits on a slim
+          row directly under the bar instead. */}
+      {activeNav &&
+      !stickyBarVisible &&
+      !SECTIONS_WITH_OWN_HEADING.has(activeNav.href) ? (
+        <div className="flex min-w-0 items-center gap-1.5 px-4 pb-1.5 md:hidden">
+          {SectionIcon ? (
+            <SectionIcon
+              className="size-4 shrink-0 text-soft-ink"
+              strokeWidth={1.5}
+            />
+          ) : null}
+          <h1 className="truncate text-[15px] font-semibold tracking-tight text-near-ink">
+            {activeNav.label}
+          </h1>
+        </div>
+      ) : null}
     </div>
   );
 }
