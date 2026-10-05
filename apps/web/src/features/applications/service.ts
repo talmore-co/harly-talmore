@@ -16,6 +16,11 @@ import {
   type Application,
 } from "@harly/db";
 import { statusForStageName, rejectionSourceForStageName } from "@/features/pipeline/state";
+import {
+  parseRejectionDetails,
+  rejectionDetailsPatch,
+  type RejectionDetails,
+} from "@/features/pipeline/rejection-reasons";
 
 import { emitWebhookEvent } from "@/server/webhooks/emit";
 import {
@@ -475,6 +480,7 @@ export async function moveApplicationStageForApi(input: {
           pipelineOrder: next?.value ?? 1,
           status: nextStatus,
           rejectionSource: rejectionSourceForStageName(stage.name),
+          ...rejectionDetailsPatch(application.status, nextStatus),
           updatedAt: new Date(),
         })
         .where(
@@ -590,6 +596,7 @@ async function setApplicationStatus(
   },
   status: "hired" | "rejected",
   event: "application.hired" | "application.rejected",
+  rejection?: RejectionDetails,
 ): Promise<Application> {
   const attemptStatus = async (): Promise<Application> => {
     const application = await getApplicationForApi(input);
@@ -622,6 +629,7 @@ async function setApplicationStatus(
         .set({
           status,
           rejectionSource: status === "rejected" ? "agency" : null,
+          ...rejectionDetailsPatch(application.status, status, rejection),
           ...(terminalStage ? { currentStageId: terminalStage.id } : {}),
           updatedAt: new Date(),
         })
@@ -699,10 +707,24 @@ export function hireApplicationForApi(input: {
   return setApplicationStatus(input, "hired", "application.hired");
 }
 
-export function rejectApplicationForApi(input: {
+/**
+ * The optional reason and note are internal: they are stored on the
+ * application but never serialized into API responses, events or webhooks.
+ */
+export async function rejectApplicationForApi(input: {
   workspaceId: string;
   applicationId: string;
   actorId?: string;
+  rejectionReason?: string | null;
+  rejectionNote?: string | null;
 }): Promise<Application> {
-  return setApplicationStatus(input, "rejected", "application.rejected");
+  const { rejectionReason, rejectionNote, ...target } = input;
+  const rejection = parseRejectionDetails({ rejectionReason, rejectionNote });
+  if (!rejection.ok) throw ApiError.unprocessable(rejection.error);
+  return setApplicationStatus(
+    target,
+    "rejected",
+    "application.rejected",
+    rejection.details,
+  );
 }

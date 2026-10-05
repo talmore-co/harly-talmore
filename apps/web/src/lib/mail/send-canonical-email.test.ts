@@ -8,6 +8,9 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/features/candidates/contact-restrictions", () => ({
+  assertCandidateContactAllowed: vi.fn(async () => undefined),
+}));
 vi.mock("@harly/db", () => ({
   db: {
     insert: () => ({

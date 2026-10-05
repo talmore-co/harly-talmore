@@ -30,6 +30,7 @@ export function InboxActionsPanel({
   onCreateCandidate,
   onArchive,
   onMarkSpam,
+  onRestore,
   onSummarize,
   onSuggestReply,
 }: {
@@ -44,6 +45,8 @@ export function InboxActionsPanel({
   onCreateCandidate: () => void;
   onArchive: () => void;
   onMarkSpam: () => void;
+  /** Reopen an archived or spam thread. */
+  onRestore: () => void;
   onSummarize: () => Promise<{ ok: boolean; summary?: AiSummary; error?: string }>;
   onSuggestReply: () => Promise<{ ok: boolean; draft?: { body: string }; error?: string }>;
 }) {
@@ -184,8 +187,14 @@ export function InboxActionsPanel({
           <section className="border-t border-border/70 pt-4">
             <h3 className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">Thread actions</h3>
             <div className="mt-2 space-y-1">
-              <Button className="w-full justify-start" size="sm" variant="ghost" disabled={isPending} onClick={onArchive}><TrayIcon className="size-4" /> Archive thread</Button>
-              <Button className="w-full justify-start text-destructive hover:text-destructive" size="sm" variant="ghost" disabled={isPending} onClick={onMarkSpam}><ProhibitIcon className="size-4" /> Mark as spam</Button>
+              {thread.status === "open" ? (
+                <>
+                  <Button className="w-full justify-start" size="sm" variant="ghost" disabled={isPending} onClick={onArchive}><TrayIcon className="size-4" /> Archive thread</Button>
+                  <Button className="w-full justify-start text-destructive hover:text-destructive" size="sm" variant="ghost" disabled={isPending} onClick={onMarkSpam}><ProhibitIcon className="size-4" /> Mark as spam</Button>
+                </>
+              ) : (
+                <Button className="w-full justify-start" size="sm" variant="ghost" disabled={isPending} onClick={onRestore}><TrayIcon className="size-4" /> {thread.status === "spam" ? "Not spam" : "Move to inbox"}</Button>
+              )}
             </div>
           </section>
         ) : null}

@@ -264,7 +264,39 @@ integration("workspace interview reminders", () => {
       await prepareInterviewReminder(workspaceId, queued!.payload, now),
     ).toBeNull();
   });
+  it("queues one reminder for an interview created inside the reminder window", async () => {
+    await configure();
+    const soon = new Date(now.getTime() + 3 * 3600000);
+    await db
+      .update(interviews)
+      .set({ scheduledAt: soon, createdAt: now })
+      .where(eq(interviews.id, interviewId));
+    await dispatchInterviewReminders(new Date(now.getTime() + 60000));
+    await dispatchInterviewReminders(new Date(now.getTime() + 120000));
+    const queued = await rows();
+    expect(queued).toHaveLength(1);
+    expect(
+      await prepareInterviewReminder(
+        workspaceId,
+        queued[0]!.payload,
+        new Date(now.getTime() + 120000),
+      ),
+    ).not.toBeNull();
+    // Once the interview has started, nothing is sent.
+    expect(
+      await prepareInterviewReminder(
+        workspaceId,
+        queued[0]!.payload,
+        new Date(soon.getTime() + 1),
+      ),
+    ).toBeNull();
+  });
   it("does not backfill before enablement or after an outage longer than one hour", async () => {
+    // Created well before the reminder became due, and before enablement.
+    await db
+      .update(interviews)
+      .set({ createdAt: new Date(now.getTime() - 2 * 86400000) })
+      .where(eq(interviews.id, interviewId));
     await configure({}, now);
     await dispatchInterviewReminders(now);
     expect(await rows()).toHaveLength(0);

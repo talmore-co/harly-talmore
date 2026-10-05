@@ -1,4 +1,5 @@
 "use server";
+import { assertCandidateContactAllowed, ContactRestrictedError } from "@/features/candidates/contact-restrictions";
 import { definitionSchema, freezeCriteria, responsesSchema, ScorecardValidationError, type ScorecardSubmission } from "./scorecard-definition";
 
 import { createElement } from "react";
@@ -62,6 +63,11 @@ import {
 } from "./referrals/service";
 import { updateApplicationStatus } from "@/features/pipeline/actions";
 import {
+  REJECTION_NOTE_MAX_LENGTH,
+  REJECTION_REASONS,
+  type RejectionReasonCode,
+} from "@/features/pipeline/rejection-reasons";
+import {
   permanentlyDeleteCandidate,
   deleteCandidate,
   restoreCandidate,
@@ -101,6 +107,8 @@ const bulkStatusSchema = z.object({
   status: z.enum(["active", "hired", "rejected", "withdrawn"]),
   sendRejectionEmail: z.boolean().optional().default(false),
   rejectionSource: z.enum(["agency", "client"]).optional(),
+  rejectionReason: z.enum(REJECTION_REASONS.map((reason) => reason.code)).nullish(),
+  rejectionNote: z.string().trim().max(REJECTION_NOTE_MAX_LENGTH).nullish(),
 });
 
 const emailLog = createLogger("candidate-email");
@@ -173,6 +181,8 @@ export async function bulkUpdateCandidateStatusAction(input: {
   status: "active" | "hired" | "rejected" | "withdrawn";
   sendRejectionEmail?: boolean;
   rejectionSource?: "agency" | "client";
+  rejectionReason?: RejectionReasonCode | null;
+  rejectionNote?: string | null;
 }): Promise<{ success: boolean; error?: string; warning?: string }> {
   const parsed = bulkStatusSchema.safeParse(input);
   if (!parsed.success) {
@@ -188,6 +198,8 @@ export async function bulkUpdateCandidateStatusAction(input: {
     status: parsed.data.status,
     sendRejectionEmail: parsed.data.sendRejectionEmail,
     rejectionSource: parsed.data.rejectionSource,
+    rejectionReason: parsed.data.rejectionReason,
+    rejectionNote: parsed.data.rejectionNote,
   });
 
   if (result.success) {
@@ -831,6 +843,12 @@ export async function updateCandidateProfile(input: {
 
     return { success: true };
   } catch (error) {
+    if (isCandidateEmailConflict(error)) {
+      return {
+        success: false,
+        error: "A candidate with this email already exists.",
+      };
+    }
     const message = "Unable to update candidate.";
 
     console.error("Failed to update candidate profile", error);
@@ -1775,6 +1793,12 @@ export async function sendCandidateMessage(input: {
     if (!recipient?.email) return { success: false, error: "Add an email address to this candidate before sending email." };
     const recipientEmail = recipient.email.trim().toLowerCase();
     if (parsed.data.toEmail.trim().toLowerCase() !== recipientEmail) return { success: false, error: "The candidate email changed. Review the recipient before sending." };
+    try {
+      await assertCandidateContactAllowed(input.workspaceId, { candidateId: input.candidateId, email: recipientEmail });
+    } catch (error) {
+      if (error instanceof ContactRestrictedError) return { success: false, error: error.message };
+      throw error;
+    }
 
     // Latest application for this candidate , used to route inbound replies
     // back to the right thread via a Reply-To token, when inbound is on.
@@ -2007,7 +2031,15 @@ export async function bulkTrashCandidatesAction(
     return { success: false, error: "Invalid selection." };
   }
 
-  await requirePermission("candidates:delete");
+  const actor = await requirePermission("candidates:delete");
+  // Same per-candidate scope check as trashCandidateAction, for the whole
+  // selection, before anything is deleted.
+  try {
+    for (const candidateId of parsed.data)
+      await requireCandidatePermission("candidates:delete", candidateId, actor);
+  } catch {
+    return { success: false, error: "You do not have access to one or more selected candidates." };
+  }
   const { user, organization } = await getWorkspaceContext();
   const results = [];
   for (const candidateId of parsed.data) {

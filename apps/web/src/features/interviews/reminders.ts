@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, gt, gte, isNull, lte, notExists, sql } from "drizzle-orm";
+import { and, eq, gt, gte, isNull, lte, notExists, or, sql } from "drizzle-orm";
 import {
   applications,
   candidates,
@@ -109,10 +109,13 @@ export async function prepareInterviewReminder(
     return null;
   const dueAt =
     row.interview.scheduledAt.getTime() - config.settings.hoursBefore * 3600000;
+  // An interview booked inside the reminder window is due from the moment it
+  // was created, so it is picked up by the next run instead of never.
+  const effectiveDueAt = Math.max(dueAt, row.interview.createdAt.getTime());
   if (
-    dueAt < Date.parse(config.savedAt) ||
+    effectiveDueAt < Date.parse(config.savedAt) ||
     dueAt > now.getTime() ||
-    dueAt < now.getTime() - 3600000
+    effectiveDueAt < now.getTime() - 3600000
   )
     return null;
   const when = new Intl.DateTimeFormat("en", {
@@ -184,7 +187,11 @@ async function queueWorkspaceReminders(
           ? sql`coalesce(${interviews.source}, '') not in ('cal.com', 'cal.com-personal')`
           : undefined,
         gt(interviews.scheduledAt, now),
-        gte(interviews.scheduledAt, new Date(lower + offset)),
+        or(
+          gte(interviews.scheduledAt, new Date(lower + offset)),
+          // Created inside the reminder window: due since creation.
+          gte(interviews.createdAt, new Date(lower)),
+        ),
         lte(interviews.scheduledAt, new Date(now.getTime() + offset)),
         notExists(
           db

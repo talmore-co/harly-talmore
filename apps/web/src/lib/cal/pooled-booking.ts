@@ -57,6 +57,8 @@ async function invitationContext(token: string) {
   );
   if (!target?.candidate.email || target.application.currentStageId !== invitation.stageId)
     throw unavailable();
+  const { assertCandidateContactAllowed } = await import("@/features/candidates/contact-restrictions");
+  try { await assertCandidateContactAllowed(invitation.workspaceId, { candidateId: target.candidate.id }, "contact"); } catch { throw unavailable(); }
   return { invitation, target };
 }
 
@@ -194,6 +196,12 @@ async function reconcileKnownBooking(
   return current ?? invitation;
 }
 
+/**
+ * How long an unanswered provider write keeps its host slot before a
+ * conclusive "no such booking" lookup may hand the invitation back.
+ */
+export const POOLED_BOOKING_RELEASE_GRACE_MS = 30 * 60000;
+
 export async function reconcilePooledBookings() {
   const pending = await db
     .select()
@@ -227,7 +235,7 @@ export async function reconcilePooledBookings() {
           invitation.selectedEventId,
         ]);
         if (!host) return;
-        uid = await findPooledCalBooking(
+        const lookup = await findPooledCalBooking(
           personalCalApiKey(host.connection),
           host.event.eventTypeId,
           invitation.bookingStartAt,
@@ -235,13 +243,48 @@ export async function reconcilePooledBookings() {
           invitation.id,
           invitation.bookingRequestId,
         );
+        uid = lookup.uid;
+        if (
+          !uid &&
+          lookup.conclusive &&
+          invitation.bookingAttemptAt &&
+          invitation.bookingAttemptAt.getTime() <
+            Date.now() - POOLED_BOOKING_RELEASE_GRACE_MS
+        ) {
+          // The provider never created this booking. Free the host slot and let
+          // the candidate choose again. The request id is kept so a late webhook
+          // for this attempt can still confirm the invitation.
+          const released = await db
+            .update(automationBookingInvitations)
+            .set({ bookingState: "open", updatedAt: new Date() })
+            .where(
+              and(
+                eq(automationBookingInvitations.id, invitation.id),
+                eq(
+                  automationBookingInvitations.bookingRequestId,
+                  invitation.bookingRequestId,
+                ),
+                inArray(automationBookingInvitations.bookingState, [
+                  "booking",
+                  "review",
+                ]),
+                isNull(automationBookingInvitations.bookingUid),
+              ),
+            )
+            .returning({ id: automationBookingInvitations.id });
+          return released.length > 0;
+        }
       }
       if (uid) await syncPersonalCalBooking(invitation.selectedEventId, uid);
+      return false;
     }),
   );
   return {
     checked: pending.length,
     failed: results.filter((result) => result.status === "rejected").length,
+    released: results.filter(
+      (result) => result.status === "fulfilled" && result.value === true,
+    ).length,
   };
 }
 

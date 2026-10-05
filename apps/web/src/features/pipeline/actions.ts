@@ -35,6 +35,10 @@ import {
   type PipelineApplicationStatus,
 } from "@/features/pipeline/state";
 import {
+  parseRejectionDetails,
+  rejectionDetailsPatch,
+} from "@/features/pipeline/rejection-reasons";
+import {
   enqueueEmailOutbox,
   processEmailOutbox,
 } from "@/lib/email/outbox-processor";
@@ -65,6 +69,9 @@ type UpdateApplicationStatusInput = {
   sendRejectionEmail?: boolean;
   hireDetails?: { hiredOn: string; hireTerms: string };
   rejectionSource?: "agency" | "client";
+  /** Internal only; see features/pipeline/rejection-reasons.ts. */
+  rejectionReason?: string | null;
+  rejectionNote?: string | null;
 };
 
 type UpdateStageEmailSettingsInput = {
@@ -321,6 +328,7 @@ export async function moveApplicationInPipeline(
               currentStageId: input.toStageId,
               status: nextStatus,
               ...(changedStage || changedStatus ? { rejectionSource: rejectionSourceForStageName(application.toStageName) } : {}),
+              ...rejectionDetailsPatch(application.status, nextStatus),
               updatedAt: now,
             })
             .where(
@@ -810,6 +818,7 @@ export async function bulkMoveApplications(
                   currentStageId: input.toStageId,
                   status: nextStatus,
                   rejectionSource: rejectionSourceForStageName(toStageName),
+                  ...rejectionDetailsPatch(appData.status, nextStatus),
                   updatedAt: now,
                 })
                 .where(
@@ -1075,6 +1084,9 @@ export async function updateApplicationStatus(
     const hireDetails = input?.hireDetails === undefined ? undefined : hireDetailsSchema.parse(input.hireDetails);
     if (input?.rejectionSource !== undefined && (input.status !== "rejected" || !["agency", "client"].includes(input.rejectionSource))) return { success: false, error: "Invalid rejection source." };
     if (hireDetails && (input.status !== "hired" || input.applicationIds.length !== 1)) return { success: false, error: "Hire details require a single hired application." };
+    const rejection = parseRejectionDetails(input ?? {});
+    if (!rejection.ok) return { success: false, error: rejection.error };
+    if (input?.status !== "rejected" && (rejection.details.reason || rejection.details.note)) return { success: false, error: "A rejection reason requires a rejected status." };
     if (
       !input ||
       !Array.isArray(input.applicationIds) ||
@@ -1259,6 +1271,7 @@ export async function updateApplicationStatus(
                 status: input.status,
                 currentStageId: targetStageId,
                 rejectionSource: input.status === "rejected" ? input.rejectionSource ?? "agency" : null,
+                ...rejectionDetailsPatch(application.status, input.status, rejection.details),
                 ...(hireDetails ? { hiredOn: hireDetails.hiredOn, hireTerms: hireDetails.hireTerms } : {}),
                 updatedAt: now,
               })
@@ -1360,7 +1373,13 @@ export async function updateApplicationStatus(
                 entityType: "application",
                 entityId: application.id,
                 type: `application.${input.status}`,
-                metadata: { status: input.status },
+                // The free-text note stays on the application row only.
+                metadata: {
+                  status: input.status,
+                  ...(input.status === "rejected" && rejection.details.reason
+                    ? { rejectionReason: rejection.details.reason }
+                    : {}),
+                },
               });
 
               if (

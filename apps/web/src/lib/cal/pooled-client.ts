@@ -55,7 +55,11 @@ export async function createPersonalCalBooking(
     );
 }
 
-/** Positive matches only. An empty result never proves a timed-out write failed. */
+/**
+ * `uid` is set for exactly one positive match. `conclusive` is true when every
+ * page was read and nothing matched. On its own that never proves a recent
+ * timed-out write failed, so callers must also wait out a grace period.
+ */
 export async function findPooledCalBooking(
   apiKey: string,
   eventTypeId: number,
@@ -63,7 +67,7 @@ export async function findPooledCalBooking(
   durationMins: number,
   invitationId: string,
   requestId: string,
-) {
+): Promise<{ uid: string | null; conclusive: boolean }> {
   const pageSchema = z.object({
     data: z.array(
       z.object({
@@ -99,14 +103,11 @@ export async function findPooledCalBooking(
         booking.metadata?.talmoreInvitationId === invitationId &&
         booking.metadata?.talmoreBookingRequestId === requestId,
     );
-    if (matches.length === 1) return matches[0]!.uid;
-    if (
-      matches.length > 1 ||
-      !result.pagination.hasMore ||
-      !result.pagination.nextCursor
-    )
-      return null;
+    if (matches.length === 1) return { uid: matches[0]!.uid, conclusive: true };
+    if (matches.length > 1) return { uid: null, conclusive: false };
+    if (!result.pagination.hasMore) return { uid: null, conclusive: true };
+    if (!result.pagination.nextCursor) return { uid: null, conclusive: false };
     query.set("cursor", result.pagination.nextCursor);
   }
-  return null;
+  return { uid: null, conclusive: false };
 }

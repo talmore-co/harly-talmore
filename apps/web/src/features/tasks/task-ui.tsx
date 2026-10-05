@@ -65,12 +65,20 @@ export const PRIORITY: Record<
 
 export type TaskHandlers = {
   pending: Set<string>;
-  cycle: (task: TaskItem) => void;
+  /** Complete an open task, or reopen a completed/canceled one. */
+  toggleDone: (task: TaskItem) => void;
   setStatus: (id: string, status: TaskStatus) => void;
   remove: (id: string) => void;
   add: (status: TaskStatus) => void;
   edit: (task: TaskItem) => void;
 };
+
+/** Accessible name for the one-click status toggle on rows and cards. */
+export function toggleDoneLabel(task: Pick<TaskItem, "status" | "title">) {
+  if (task.status === "completed") return `Reopen “${task.title}”`;
+  if (task.status === "canceled") return `Reopen canceled “${task.title}”`;
+  return `Mark “${task.title}” as done`;
+}
 
 // ── due-date urgency ─────────────────────────────────────────────────────────
 

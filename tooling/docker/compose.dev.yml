@@ -1,9 +1,8 @@
-name: curious-monkey
+name: ${COMPOSE_PROJECT_NAME:-curious-monkey}
 
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: harly-postgres
     restart: unless-stopped
     mem_limit: ${HARLY_DEV_POSTGRES_MEMORY:-512m}
     cpus: ${HARLY_DEV_POSTGRES_CPUS:-1.0}
@@ -18,7 +17,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s

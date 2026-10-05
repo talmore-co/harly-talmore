@@ -15,6 +15,7 @@ import { PORTAL_SESSION_COOKIE, resolvePortalSession } from "@/lib/portal-auth";
 import { PortalShell } from "@/features/portal/PortalShellServer";
 import { JobApplyForm } from "@/features/portal/JobApplyForm";
 import { isCurrentJobQuestion } from "@/features/jobs/config";
+import { publicJobVisibilityConditions } from "@/features/jobs/data";
 import {
   MapPinIcon,
   CurrencyDollarIcon,
@@ -78,8 +79,7 @@ export default async function JobDetailPage({ params }: PageProps) {
       and(
         eq(jobs.id, jobId),
         eq(jobs.workspaceId, session.workspaceId),
-        eq(jobs.status, "open"),
-        isNull(jobs.deletedAt),
+        publicJobVisibilityConditions(),
       ),
     )
     .limit(1);

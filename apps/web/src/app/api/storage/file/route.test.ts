@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => ({
   select: vi.fn(),
+  ilike: vi.fn(),
   getWorkspaceContextOrNull: vi.fn(),
   requireCandidatePermission: vi.fn(),
   read: vi.fn(),
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("drizzle-orm", () => ({
   and: vi.fn(),
   eq: vi.fn(),
+  ilike: mocks.ilike,
   or: vi.fn(),
 }));
 
@@ -129,6 +131,46 @@ describe("private resume route authorization", () => {
       "candidate-1",
     );
     expect(mocks.read).toHaveBeenCalledWith(RESUME_KEY);
+  });
+
+  it("asks the database for rows containing the key, verbatim or percent-encoded", async () => {
+    const key = "workspaces/workspace-1/resumes/candidate_1/100%.pdf";
+    mocks.select.mockReturnValue(
+      makeSelectReturning([
+        {
+          candidateId: "candidate-1",
+          fileUrl: `/api/storage/file?key=${encodeURIComponent(key)}`,
+        },
+      ]),
+    );
+
+    const response = await GET(request(key));
+
+    expect(response.status).toBe(200);
+    const patterns = mocks.ilike.mock.calls.map((call) => call[1]);
+    // LIKE wildcards inside the key are escaped so they only match themselves.
+    expect(patterns).toEqual([
+      "%workspaces/workspace-1/resumes/candidate\\_1/100\\%.pdf%",
+      "%workspaces\\%2Fworkspace-1\\%2Fresumes\\%2Fcandidate\\_1\\%2F100\\%25.pdf%",
+    ]);
+    expect(mocks.read).toHaveBeenCalledWith(key);
+  });
+
+  it("does not serve a row the database returned for a different key", async () => {
+    mocks.select.mockReturnValue(
+      makeSelectReturning([
+        {
+          candidateId: "candidate-1",
+          fileUrl: `/uploads/${RESUME_KEY}.bak`,
+        },
+      ]),
+    );
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(404);
+    expect(mocks.requireCandidatePermission).not.toHaveBeenCalled();
+    expect(mocks.read).not.toHaveBeenCalled();
   });
 
   it("resolves a legacy unscoped resume key within the current workspace", async () => {

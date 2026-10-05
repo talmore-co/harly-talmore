@@ -1462,6 +1462,10 @@ export const candidates = pgTable(
     firstName: text("first_name").notNull(),
     lastName: text("last_name").notNull(),
     email: text("email"),
+    emailOptedOut: boolean("email_opted_out").default(false).notNull(),
+    contactOffLimits: boolean("contact_off_limits").default(false).notNull(),
+    contactOffLimitsUntil: timestamp("contact_off_limits_until", { withTimezone: true }),
+    contactRestrictionReason: text("contact_restriction_reason"),
     phone: text("phone"),
     address: text("address"),
     location: text("location"),
@@ -1520,6 +1524,70 @@ export const candidates = pgTable(
     index("candidates_skills_idx").using("gin", table.skills),
   ],
 );
+
+export const recruitCrmConnections = pgTable("recruitcrm_connections", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: text("workspace_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  accountAnchor: text("account_anchor").notNull(),
+  token: jsonb("token").$type<{ ciphertext: string; iv: string; tag: string }>(),
+  revision: uuid("revision").defaultRandom().notNull(),
+  checkedAt: timestamp("checked_at", { withTimezone: true }),
+  rateWindowAt: timestamp("rate_window_at", { withTimezone: true }).defaultNow().notNull(),
+  rateCount: integer("rate_count").default(0).notNull(),
+  retryAt: timestamp("retry_at", { withTimezone: true }),
+  ...timestamps(),
+}, table => [uniqueIndex("recruitcrm_workspace_account_idx").on(table.workspaceId, table.accountAnchor)]);
+
+export const recruitCrmCandidateLinks = pgTable("recruitcrm_candidate_links", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: text("workspace_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  connectionId: uuid("connection_id").notNull().references(() => recruitCrmConnections.id, { onDelete: "cascade" }),
+  externalSlug: text("external_slug").notNull(),
+  candidateId: uuid("candidate_id").notNull().references(() => candidates.id, { onDelete: "cascade" }),
+  ...timestamps(),
+}, table => [uniqueIndex("recruitcrm_candidate_identity_idx").on(table.workspaceId, table.connectionId, table.externalSlug), index("recruitcrm_links_candidate_idx").on(table.workspaceId, table.candidateId)]);
+
+export const recruitCrmImportBatches = pgTable("recruitcrm_import_batches", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: text("workspace_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  actorId: text("actor_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  connectionId: uuid("connection_id").notNull().references(() => recruitCrmConnections.id, { onDelete: "cascade" }),
+  connectionRevision: uuid("connection_revision").notNull(),
+  jobId: uuid("job_id").references(() => jobs.id, { onDelete: "cascade" }),
+  stageId: uuid("stage_id").references(() => jobStages.id, { onDelete: "cascade" }),
+  includeNotes: boolean("include_notes").default(false).notNull(),
+  includeCv: boolean("include_cv").default(true).notNull(),
+  source: jsonb("source").$type<{ kind: "search" | "job"; jobSlug?: string; version?: 1; field?: "first_name" | "last_name" | "email" | "linkedin" | "position" | "city" | "country"; query?: string; ownerId?: string; statusId?: string }>().notNull(),
+  importAll: boolean("import_all").default(false).notNull(),
+  discoveryStatus: text("discovery_status").default("preview").notNull(),
+  nextPage: integer("next_page").default(2).notNull(),
+  hasMore: boolean("has_more").default(false).notNull(),
+  discoveryLeaseId: uuid("discovery_lease_id"),
+  discoveryLockedAt: timestamp("discovery_locked_at", { withTimezone: true }),
+  discoveryRetryAt: timestamp("discovery_retry_at", { withTimezone: true }).defaultNow().notNull(),
+  discoveryError: text("discovery_error"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  ...timestamps(),
+}, table => [index("recruitcrm_batches_workspace_idx").on(table.workspaceId, table.createdAt), index("recruitcrm_batches_discovery_idx").on(table.discoveryStatus, table.discoveryRetryAt)]);
+
+export const recruitCrmImportItems = pgTable("recruitcrm_import_items", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: text("workspace_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  batchId: uuid("batch_id").notNull().references(() => recruitCrmImportBatches.id, { onDelete: "cascade" }),
+  externalSlug: text("external_slug").notNull(),
+  candidateId: uuid("candidate_id").references(() => candidates.id, { onDelete: "set null" }),
+  applicationId: uuid("application_id").references(() => applications.id, { onDelete: "set null" }),
+  status: text("status").default("ready").notNull(),
+  step: text("step").default("profile").notNull(),
+  snapshot: jsonb("snapshot").$type<Record<string, unknown>>().notNull(),
+  detail: jsonb("detail").$type<Record<string, unknown>>().default(sql`'{}'::jsonb`).notNull(),
+  reason: text("reason"),
+  retryAt: timestamp("retry_at", { withTimezone: true }).defaultNow().notNull(),
+  leaseId: uuid("lease_id"),
+  lockedAt: timestamp("locked_at", { withTimezone: true }),
+  ...timestamps(),
+}, table => [uniqueIndex("recruitcrm_batch_slug_idx").on(table.batchId, table.externalSlug), index("recruitcrm_items_due_idx").on(table.status, table.retryAt), index("recruitcrm_items_candidate_idx").on(table.workspaceId, table.candidateId)]);
 
 export const talentSourcerCandidateLinks = pgTable("talentsourcer_candidate_links", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -1624,6 +1692,11 @@ export const applications = pgTable(
     hiredOn: text("hired_on"),
     hireTerms: text("hire_terms"),
     rejectionSource: text("rejection_source").$type<"agency" | "client">(),
+    // Internal only: why the application was rejected. Codes live in
+    // apps/web/src/features/pipeline/rejection-reasons.ts. Never expose these
+    // to candidates (portal, emails, webhooks, public API).
+    rejectionReason: text("rejection_reason"),
+    rejectionNote: text("rejection_note"),
     questionnaireScoreSnapshot: jsonb("questionnaire_score_snapshot"),
     attribution: jsonb("attribution"),
     id: uuid("id").defaultRandom().primaryKey(),

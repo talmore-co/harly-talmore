@@ -41,6 +41,7 @@ type CalWebhookBody = {
   triggerEvent?: string;
   payload?: {
     uid?: string;
+    rescheduleUid?: string;
     bookingId?: number;
     eventTypeId?: number;
     startTime?: string;
@@ -86,6 +87,18 @@ function activeCandidateForInterview(workspaceId: string) {
         ),
       ),
   );
+}
+
+/** The candidate's own time zone, so the email does not default to UTC. */
+function attendeeTimeZone(
+  attendees: CalAttendee[] | undefined,
+  candidateEmail: string,
+): string | undefined {
+  const withZone = (attendees ?? []).filter((attendee) => attendee.timeZone);
+  const candidate = withZone.find(
+    (attendee) => attendee.email?.toLowerCase() === candidateEmail.toLowerCase(),
+  );
+  return (candidate ?? withZone[0])?.timeZone;
 }
 
 function actionForEvent(event: string): CalAction | null {
@@ -250,6 +263,7 @@ async function sendCalInterviewEmail(input: {
   context: Awaited<ReturnType<typeof resolveApplication>>;
   /** Id of the domain event persisted with this booking change. */
   eventId?: string;
+  attendees?: CalAttendee[];
 }) {
   if (!input.context?.email) return;
   try {
@@ -267,6 +281,8 @@ async function sendCalInterviewEmail(input: {
         jobTitle: input.context.jobTitle,
         interviewType: "Screening interview",
         scheduledAt: input.interview.scheduledAt.toISOString(),
+        // Invalid or missing zones fall back to UTC when the email is rendered.
+        timeZone: attendeeTimeZone(input.attendees, input.context.email),
         mode: input.interview.mode,
         location: input.interview.meetLink ?? input.interview.location ?? undefined,
         durationMins: input.interview.durationMins,
@@ -411,12 +427,14 @@ export async function POST(request: NextRequest) {
     if (personal) return NextResponse.json({ ok: true, skipped: "personal event subscription" });
   }
 
-  const currentWhere = and(
-    eq(interviews.workspaceId, workspaceId),
-    eq(interviews.calBookingUid, uid),
-    isNull(interviews.calConnectionId),
-    activeCandidateForInterview(workspaceId),
-  );
+  const whereBookingUid = (bookingUid: string) =>
+    and(
+      eq(interviews.workspaceId, workspaceId),
+      eq(interviews.calBookingUid, bookingUid),
+      isNull(interviews.calConnectionId),
+      activeCandidateForInterview(workspaceId),
+    );
+  const currentWhere = whereBookingUid(uid);
 
   if (action === "canceled") {
     const transition = await db.transaction(async (tx) => {
@@ -478,6 +496,7 @@ export async function POST(request: NextRequest) {
       interview: latest,
       context,
       eventId: transition.event.eventId,
+      attendees: payload.attendees,
     });
     await emitWebhookEvent(workspaceId, "interview.canceled", {
       interview: serializeCalInterview(latest),
@@ -495,11 +514,24 @@ export async function POST(request: NextRequest) {
       ? Math.max(5, Math.round((end.getTime() - when.getTime()) / 60000))
       : 45;
 
-  const [existing] = await db
+  let [existing] = await db
     .select()
     .from(interviews)
     .where(currentWhere)
     .limit(1);
+  // Cal.com issues a new uid when a booking is rescheduled and reports the
+  // previous one as rescheduleUid. Follow it to the interview we already have.
+  const previousUid =
+    action === "rescheduled" ? asString(payload.rescheduleUid) : null;
+  let existingWhere = currentWhere;
+  if (!existing && previousUid && previousUid !== uid) {
+    existingWhere = whereBookingUid(previousUid);
+    [existing] = await db
+      .select()
+      .from(interviews)
+      .where(existingWhere)
+      .limit(1);
+  }
   if (existing && (existing.status !== "scheduled" || action === "scheduled")) {
     return NextResponse.json({ ok: true, skipped: "duplicate or terminal booking" });
   }
@@ -508,13 +540,14 @@ export async function POST(request: NextRequest) {
       const [current] = await tx
         .select()
         .from(interviews)
-        .where(currentWhere)
+        .where(existingWhere)
         .limit(1);
       if (!current || current.status !== "scheduled") {
         return { changed: false as const, interview: current ?? null, event: null };
       }
       const nextLocation = asString(payload.location) ?? current.location;
       if (
+        current.calBookingUid === uid &&
         current.scheduledAt.getTime() === when.getTime() &&
         current.durationMins === durationMins &&
         current.location === nextLocation
@@ -527,6 +560,8 @@ export async function POST(request: NextRequest) {
           scheduledAt: when,
           durationMins,
           location: nextLocation,
+          // Later events for this booking arrive under the new uid.
+          calBookingUid: uid,
           updatedAt: new Date(),
         })
         .where(
@@ -585,6 +620,7 @@ export async function POST(request: NextRequest) {
       interview: latest,
       context,
       eventId: transition.event.eventId,
+      attendees: payload.attendees,
     });
     await emitWebhookEvent(workspaceId, "interview.rescheduled", {
       interview: serializeCalInterview(latest),
@@ -675,6 +711,7 @@ export async function POST(request: NextRequest) {
     interview: latest,
     context: application,
     eventId: transition.event.eventId,
+    attendees: payload.attendees,
   });
   await emitWebhookEvent(workspaceId, "interview.scheduled", {
     interview: serializeCalInterview(latest),

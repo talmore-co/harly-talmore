@@ -478,6 +478,13 @@ export async function mergeCandidateRecords(input: {
           .update(candidates)
           .set({
             ...fields,
+            emailOptedOut: primary.emailOptedOut || source.emailOptedOut,
+            contactOffLimits: primary.contactOffLimits || source.contactOffLimits,
+            contactOffLimitsUntil: (primary.contactOffLimits && !primary.contactOffLimitsUntil) || (source.contactOffLimits && !source.contactOffLimitsUntil)
+              ? null : primary.contactOffLimitsUntil && source.contactOffLimitsUntil
+                ? new Date(Math.max(primary.contactOffLimitsUntil.getTime(), source.contactOffLimitsUntil.getTime()))
+                : primary.contactOffLimitsUntil || source.contactOffLimitsUntil,
+            contactRestrictionReason: [primary.contactRestrictionReason, source.contactRestrictionReason].filter(Boolean).join("; ") || null,
             skills: union(
               primary.skills as unknown[],
               source.skills as unknown[],

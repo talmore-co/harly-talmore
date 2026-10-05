@@ -96,7 +96,7 @@ export default async function DashboardJobPage({
             workspaceSlug={workspace.slug}
             slug={job.slug}
           />
-          <JobStatusActions job={job} />
+          <JobStatusActions job={job} canPublish={await can("jobs:publish")} />
         </>
       }
     />

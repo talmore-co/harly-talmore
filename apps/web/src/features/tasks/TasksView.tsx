@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { KanbanSquare, List, Plus, Search } from "lucide-react";
 import { toast } from "@/lib/notification-island/toast";
 
 import { cn } from "@/lib/utils";
+import { replaceUrlParams } from "@/lib/url-params";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -24,16 +25,28 @@ import { TaskList } from "./TaskList";
 import { type TaskHandlers } from "./task-ui";
 import { taskDueState, type TaskItem, type TaskStatus } from "./shared";
 import { TASK_PRIORITIES, TASK_PRIORITY_LABELS, TASK_STATUSES, TASK_STATUS_LABELS } from "./shared";
+import {
+  ASSIGNEE_ME,
+  DEFAULT_TASK_FILTERS,
+  FILTER_ANY,
+  STATUS_OPEN,
+  filterTasks,
+  matchesAssignee,
+  parseTaskFilters,
+  type TaskFilters,
+} from "./filters";
 import type { TaskContextOptions } from "./TaskLinkFields";
 
 type Member = { id: string; name: string; image: string | null };
 type View = "list" | "board";
 
-const NEXT_STATUS: Record<TaskStatus, TaskStatus> = {
-  pending: "in_progress",
-  in_progress: "completed",
-  completed: "pending",
-  canceled: "pending",
+/** URL param per filter; a filter at its default is left out of the URL. */
+const FILTER_PARAM: Record<keyof TaskFilters, string> = {
+  query: "q",
+  assignee: "assignee",
+  priority: "priority",
+  status: "status",
+  due: "due",
 };
 
 function SummaryChip({ count, label, tone }: { count: number; label: string; tone: string }) {
@@ -49,11 +62,12 @@ function SummaryChip({ count, label, tone }: { count: number; label: string; ton
 export function TasksView({
   tasks: initialTasks,
   members,
+  currentUserId,
   contextOptions,
 }: {
   tasks: TaskItem[];
   members: Member[];
-  counts: Record<string, number>;
+  currentUserId: string;
   contextOptions: TaskContextOptions;
 }) {
   // Optimistic edits are derived on top of the server's `initialTasks` , a
@@ -63,16 +77,36 @@ export function TasksView({
   const [statusOverride, setStatusOverride] = useState<Record<string, TaskStatus>>({});
   const [removed, setRemoved] = useState<Set<string>>(() => new Set());
   const [pending, setPending] = useState<Set<string>>(() => new Set());
-  const [view, setView] = useState<View>("list");
+  // Filters and the list/board choice live in the URL so a reload or a shared
+  // link shows the same tasks. Local state keeps typing responsive.
+  const searchParams = useSearchParams();
+  const [view, setViewState] = useState<View>(() =>
+    searchParams.get("view") === "board" ? "board" : "list",
+  );
+  const [filters, setFilters] = useState<TaskFilters>(() =>
+    parseTaskFilters(
+      searchParams,
+      members.map((m) => m.id),
+    ),
+  );
   const [createOpen, setCreateOpen] = useState(false);
   const [createStatus, setCreateStatus] = useState<TaskStatus>("pending");
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
-  const [query, setQuery] = useState("");
-  const [assignee, setAssignee] = useState("all");
-  const [priority, setPriority] = useState("all");
-  const [status, setStatus] = useState("all");
-  const [due, setDue] = useState("all");
   const router = useRouter();
+  const { query, assignee, priority, status, due } = filters;
+
+  function setFilter(key: keyof TaskFilters, value: string) {
+    setFilters((current) => ({ ...current, [key]: value }));
+    const stored = key === "query" ? value.trim() : value;
+    replaceUrlParams({
+      [FILTER_PARAM[key]]: stored === DEFAULT_TASK_FILTERS[key] ? null : stored,
+    });
+  }
+
+  function setView(next: View) {
+    setViewState(next);
+    replaceUrlParams({ view: next === "list" ? null : next });
+  }
 
   const tasks = useMemo(
     () =>
@@ -118,7 +152,7 @@ export function TasksView({
 
   const runRemove = useCallback(
     async (id: string) => {
-      if (!window.confirm("Archive this task? It will leave the active task list.")) return;
+      if (!window.confirm("Delete this task? It will be removed for everyone.")) return;
       setPending((p) => new Set(p).add(id));
       setRemoved((r) => new Set(r).add(id));
       const res = await deleteTask(id);
@@ -140,7 +174,14 @@ export function TasksView({
   const handlers = useMemo<TaskHandlers>(
     () => ({
       pending,
-      cycle: (task) => runStatus(task.id, NEXT_STATUS[task.status]),
+      // One click completes an open task; clicking a finished one reopens it.
+      toggleDone: (task) =>
+        runStatus(
+          task.id,
+          task.status === "pending" || task.status === "in_progress"
+            ? "completed"
+            : "pending",
+        ),
       setStatus: (id, status) => runStatus(id, status),
       remove: (id) => runRemove(id),
       add: (status) => {
@@ -152,28 +193,25 @@ export function TasksView({
     [pending, runStatus, runRemove],
   );
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return tasks.filter((t) => {
-      if (assignee !== "all" && t.ownerId !== assignee) return false;
-      if (priority !== "all" && t.priority !== priority) return false;
-      if (status !== "all" && t.status !== status) return false;
-      const dueState = taskDueState(t.dueDate);
-      if (due === "due" && !dueState) return false;
-      if (due === "overdue" && dueState !== "overdue") return false;
-      if (due === "no_due" && t.dueDate) return false;
-      if (!q) return true;
-      return [t.title, t.candidateName, t.jobTitle, t.ownerName]
-        .filter(Boolean)
-        .some((v) => v!.toLowerCase().includes(q));
-    });
-  }, [tasks, query, assignee, priority, status, due]);
+  // The board's columns are the statuses, so the status filter only narrows
+  // the list view.
+  const filtered = useMemo(
+    () =>
+      filterTasks(
+        tasks,
+        view === "board" ? { ...filters, status: FILTER_ANY } : filters,
+        currentUserId,
+      ),
+    [tasks, filters, view, currentUserId],
+  );
 
+  // Counts follow the assignee filter so "open" matches what the list shows.
   const summary = useMemo(() => {
     let open = 0;
     let overdue = 0;
     let done = 0;
     for (const t of tasks) {
+      if (!matchesAssignee(t, assignee, currentUserId)) continue;
       if (t.status === "completed") done += 1;
       else if (t.status === "pending" || t.status === "in_progress") {
         open += 1;
@@ -181,7 +219,7 @@ export function TasksView({
       }
     }
     return { open, overdue, done };
-  }, [tasks]);
+  }, [tasks, assignee, currentUserId]);
 
   return (
     <div className="space-y-5">
@@ -194,18 +232,19 @@ export function TasksView({
             type="search"
             aria-label="Search tasks"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => setFilter("query", e.target.value)}
             placeholder="Search tasks…"
             className="w-full pl-9"
           />
         </div>
 
-        <Select value={assignee} onValueChange={setAssignee}>
+        <Select value={assignee} onValueChange={(v) => setFilter("assignee", v)}>
           <SelectTrigger aria-label="Filter by assignee" className="w-full sm:w-44">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All assignees</SelectItem>
+            <SelectItem value={ASSIGNEE_ME}>Assigned to me</SelectItem>
+            <SelectItem value={FILTER_ANY}>All assignees</SelectItem>
             {members.map((m) => (
               <SelectItem key={m.id} value={m.id}>
                 {m.name}
@@ -214,7 +253,7 @@ export function TasksView({
           </SelectContent>
         </Select>
 
-        <Select value={priority} onValueChange={setPriority}>
+        <Select value={priority} onValueChange={(v) => setFilter("priority", v)}>
           <SelectTrigger aria-label="Filter by priority" className="w-full sm:w-36">
             <SelectValue />
           </SelectTrigger>
@@ -228,19 +267,22 @@ export function TasksView({
           </SelectContent>
         </Select>
 
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger aria-label="Filter by status" className="w-full sm:w-36">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            {TASK_STATUSES.map((item) => (
-              <SelectItem key={item} value={item}>{TASK_STATUS_LABELS[item]}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {view === "list" ? (
+          <Select value={status} onValueChange={(v) => setFilter("status", v)}>
+            <SelectTrigger aria-label="Filter by status" className="w-full sm:w-36">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={STATUS_OPEN}>Open</SelectItem>
+              <SelectItem value={FILTER_ANY}>All statuses</SelectItem>
+              {TASK_STATUSES.map((item) => (
+                <SelectItem key={item} value={item}>{TASK_STATUS_LABELS[item]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
 
-        <Select value={due} onValueChange={setDue}>
+        <Select value={due} onValueChange={(v) => setFilter("due", v)}>
           <SelectTrigger aria-label="Filter by due date" className="w-full sm:w-36">
             <SelectValue />
           </SelectTrigger>
@@ -298,10 +340,10 @@ export function TasksView({
           handlers={handlers}
           filtersActive={
             query.trim() !== "" ||
-            assignee !== "all" ||
-            priority !== "all" ||
-            status !== "all" ||
-            due !== "all"
+            assignee !== DEFAULT_TASK_FILTERS.assignee ||
+            priority !== DEFAULT_TASK_FILTERS.priority ||
+            status !== DEFAULT_TASK_FILTERS.status ||
+            due !== DEFAULT_TASK_FILTERS.due
           }
         />
       ) : (

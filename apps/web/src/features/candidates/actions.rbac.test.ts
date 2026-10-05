@@ -90,10 +90,50 @@ vi.mock("./deletion-jobs", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import {
+  bulkTrashCandidatesAction,
   generateEmailDraftAction,
   refineScorecardTextAction,
   suggestScorecardAttributesAction,
 } from "./actions";
+import { deleteCandidate } from "./data";
+import { enqueueCandidateDeletionJob } from "./deletion-jobs";
+
+describe("bulk candidate deletion authorization", () => {
+  const actor = { organization: { id: "workspace-1" }, user: { id: "user-1" } };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.requirePermission.mockResolvedValue(actor);
+  });
+
+  it("checks role scope for every selected candidate before deleting any", async () => {
+    mocks.requireCandidatePermission.mockImplementation(
+      async (_permission: string, candidateId: string) => {
+        if (candidateId === "candidate-2") {
+          throw new Error("You do not have access to this candidate.");
+        }
+        return actor;
+      },
+    );
+
+    const result = await bulkTrashCandidatesAction(["candidate-1", "candidate-2"]);
+
+    expect(result.success).toBe(false);
+    expect(mocks.requirePermission).toHaveBeenCalledWith("candidates:delete");
+    expect(mocks.requireCandidatePermission).toHaveBeenCalledWith(
+      "candidates:delete",
+      "candidate-1",
+      actor,
+    );
+    expect(mocks.requireCandidatePermission).toHaveBeenCalledWith(
+      "candidates:delete",
+      "candidate-2",
+      actor,
+    );
+    expect(enqueueCandidateDeletionJob).not.toHaveBeenCalled();
+    expect(deleteCandidate).not.toHaveBeenCalled();
+  });
+});
 
 describe("candidate AI authorization", () => {
   beforeEach(() => {

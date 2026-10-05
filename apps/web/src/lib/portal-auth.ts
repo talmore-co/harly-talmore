@@ -35,6 +35,7 @@ export type PortalWorkspace = {
 export const PORTAL_SESSION_COOKIE = "harly_portal_session";
 const SESSION_TTL_DAYS = 30;
 const MAGIC_LINK_TTL_MINUTES = 15;
+const MAGIC_LINK_RETENTION_HOURS = 24;
 
 function hashToken(raw: string): string {
   return createHash("sha256").update(raw).digest("hex");
@@ -335,14 +336,31 @@ export async function createMagicLinkToken(
 ): Promise<string> {
   const raw = generateToken();
   const tokenHash = hashToken(raw);
-  const expiresAt = new Date(Date.now() + MAGIC_LINK_TTL_MINUTES * 60_000);
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + MAGIC_LINK_TTL_MINUTES * 60_000);
+  // Invalidate superseded links instead of deleting them: the per-recipient
+  // send limit counts recent rows, so they have to outlive their replacement.
+  await db
+    .update(candidatePortalMagicLinks)
+    .set({ usedAt: now })
+    .where(
+      and(
+        eq(candidatePortalMagicLinks.email, email.toLowerCase()),
+        eq(candidatePortalMagicLinks.workspaceId, workspaceId),
+        isNull(candidatePortalMagicLinks.usedAt),
+      ),
+    );
+  // Rows this old are long expired and no longer count towards any limit.
   await db
     .delete(candidatePortalMagicLinks)
     .where(
       and(
         eq(candidatePortalMagicLinks.email, email.toLowerCase()),
         eq(candidatePortalMagicLinks.workspaceId, workspaceId),
-        isNull(candidatePortalMagicLinks.usedAt),
+        lt(
+          candidatePortalMagicLinks.createdAt,
+          new Date(now.getTime() - MAGIC_LINK_RETENTION_HOURS * 3_600_000),
+        ),
       ),
     );
   await db

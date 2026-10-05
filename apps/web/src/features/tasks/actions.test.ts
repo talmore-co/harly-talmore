@@ -130,6 +130,22 @@ describe("Tasks actions , RBAC (F2-04 / readiness)", () => {
     expect(mocks.dbTransaction).not.toHaveBeenCalled();
   });
 
+  it("blocks deleting tasks on an inaccessible application", async () => {
+    mocks.existingApplicationId = "22222222-2222-4222-8222-222222222222";
+    mocks.requireApplicationPermission.mockRejectedValue(new Error("No application access"));
+    const result = await deleteTask("55555555-5555-4555-8555-555555555555");
+    expect(result.success).toBe(false);
+    expect(mocks.requireApplicationPermission).toHaveBeenCalledWith("candidates:view", mocks.existingApplicationId);
+    expect(mocks.dbTransaction).not.toHaveBeenCalled();
+  });
+
+  it("deletes tasks without an application link without an application check", async () => {
+    const result = await deleteTask("55555555-5555-4555-8555-555555555555");
+    expect(result.success).toBe(true);
+    expect(mocks.requireApplicationPermission).not.toHaveBeenCalled();
+    expect(mocks.dbTransaction).toHaveBeenCalledTimes(1);
+  });
+
   it("returns the validation error instead of attempting a task insert", async () => {
     mocks.assertTaskReferences.mockRejectedValue(
       ApiError.unprocessable("Candidate does not belong to this workspace."),

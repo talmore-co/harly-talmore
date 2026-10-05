@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import {
+  Copy,
   ExternalLink,
+  KanbanSquare,
   Link2,
   MoreHorizontal,
   Pencil,
@@ -12,6 +14,7 @@ import {
 import { toast } from "@/lib/notification-island/toast";
 
 import { restoreJobAction, trashJobAction } from "./actions";
+import { duplicateJobAction } from "./duplicate-actions";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -47,6 +50,22 @@ export function JobActionsMenu({
   function copyLink() {
     void navigator.clipboard.writeText(publicUrl());
     toast.success("Public link copied.");
+  }
+
+  function duplicate() {
+    startTransition(async () => {
+      try {
+        const result = await duplicateJobAction(jobId);
+        if (!result.success) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success("Job duplicated as a draft.");
+        router.push(`/dashboard/jobs/${result.jobId}`);
+      } catch {
+        toast.error("Could not duplicate the job.");
+      }
+    });
   }
 
   function moveToTrash() {
@@ -94,6 +113,16 @@ export function JobActionsMenu({
         >
           <Pencil />
           Edit
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => router.push(`/dashboard/pipeline?job=${jobId}`)}
+        >
+          <KanbanSquare />
+          Open pipeline
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={duplicate}>
+          <Copy />
+          Duplicate
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <a href={`/jobs/${slug}`} target="_blank" rel="noreferrer">

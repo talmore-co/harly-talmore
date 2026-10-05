@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq, ilike, or } from "drizzle-orm";
 
 import { candidateFiles, db } from "@harly/db";
 import { getWorkspaceContextOrNull } from "@/features/workspaces/context";
@@ -26,12 +26,36 @@ function contentTypeFor(key: string) {
   return CONTENT_TYPES[extension] ?? "application/octet-stream";
 }
 
+function containsPattern(value: string) {
+  return `%${value.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
+}
+
+/**
+ * A stored file URL holds the storage key either verbatim (upload paths, S3
+ * URLs) or percent-encoded in a `key` query parameter. Let the database narrow
+ * the rows to those forms rather than scanning a capped slice of the
+ * workspace, then confirm the exact key with the same parser as before.
+ */
 async function findCandidateFileForKey(workspaceId: string, key: string) {
+  const encodings = new Set([
+    key,
+    encodeURIComponent(key),
+    new URLSearchParams({ key }).toString().slice("key=".length),
+  ]);
   const rows = await db
     .select({ candidateId: candidateFiles.candidateId, fileUrl: candidateFiles.fileUrl })
     .from(candidateFiles)
-    .where(eq(candidateFiles.workspaceId, workspaceId))
-    .limit(5000);
+    .where(
+      and(
+        eq(candidateFiles.workspaceId, workspaceId),
+        or(
+          ...[...encodings].map((value) =>
+            ilike(candidateFiles.fileUrl, containsPattern(value)),
+          ),
+        ),
+      ),
+    )
+    .limit(100);
 
   return (
     rows.find((row) => resumeKeyFromUrl(row.fileUrl) === key) ?? null
