@@ -16,6 +16,7 @@ import {
 } from "./data";
 import { jobFormSchema, jobStatusSchema } from "./validation";
 import {
+  getRolePermissions,
   requireJobPermission,
   requirePermission,
 } from "@/features/workspaces/permissions-server";
@@ -101,7 +102,16 @@ export async function createJobAction(formData: FormData) {
   // on the edit form); "Save as draft" is the only path that should leave the
   // job unpublished. Without this, a new job always sat in draft regardless
   // of which button was pressed.
-  if (formData.get("intent") !== "draft") {
+  //
+  // Publishing needs jobs:publish on top of jobs:create. A creator without it
+  // still gets the job saved, as a draft that someone with publish rights can
+  // open later, instead of losing the form to a permission error.
+  if (
+    formData.get("intent") !== "draft" &&
+    (await getRolePermissions(context.organization.id, context.roleKey)).includes(
+      "jobs:publish",
+    )
+  ) {
     await updateJobStatus(job.id, "open");
   }
 
@@ -137,6 +147,10 @@ export async function updateJobStatusAction(formData: FormData) {
   const jobId = String(formData.get("jobId") ?? "");
   const context = await requireJobPermission("jobs:edit", jobId);
   const status = jobStatusSchema.parse(formData.get("status"));
+  // Closing or moving back to draft is an edit; making a job public is not.
+  if (status === "open") {
+    await requireJobPermission("jobs:publish", jobId, context);
+  }
   if (status === "open" && await getPendingJobApproval(jobId)) {
     throw new Error("Job has a pending approval request.");
   }
