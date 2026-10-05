@@ -21,11 +21,17 @@ function parseMonthParam(raw: string | undefined): { year: number; month: number
 }
 
 type CalendarsPageProps = {
-  searchParams: Promise<{ month?: string; day?: string }>;
+  searchParams: Promise<{
+    month?: string;
+    day?: string;
+    job?: string;
+    interviewer?: string;
+    type?: string;
+  }>;
 };
 
 export default async function CalendarsPage({ searchParams }: CalendarsPageProps) {
-  const { month: monthRaw, day } = await searchParams;
+  const { month: monthRaw, day, job, interviewer, type } = await searchParams;
   if (validDashboardDay(day)) {
     const profile = await getOwnProfileAction();
     const timeZone = dashboardTimeZone(profile?.timezone);
@@ -36,7 +42,8 @@ export default async function CalendarsPage({ searchParams }: CalendarsPageProps
 
   const monthStart = new Date(year, month - 1, 1);
   const gridStart = new Date(monthStart);
-  gridStart.setDate(gridStart.getDate() - gridStart.getDay());
+  // Weeks start on Monday, matching the grid CalendarBoard renders.
+  gridStart.setDate(gridStart.getDate() - ((gridStart.getDay() + 6) % 7));
   const gridEnd = new Date(gridStart);
   gridEnd.setDate(gridEnd.getDate() + 42);
 
@@ -53,6 +60,7 @@ export default async function CalendarsPage({ searchParams }: CalendarsPageProps
       interviews={interviews}
       jobOptions={jobs.map((j) => ({ value: j.id, label: j.title }))}
       interviewerOptions={members.map((m) => ({ value: m.userId, label: m.name }))}
+      initialFilters={{ job, interviewer, type }}
     />
   );
 }
