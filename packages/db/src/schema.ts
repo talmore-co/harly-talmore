@@ -1692,6 +1692,11 @@ export const applications = pgTable(
     hiredOn: text("hired_on"),
     hireTerms: text("hire_terms"),
     rejectionSource: text("rejection_source").$type<"agency" | "client">(),
+    // Internal only: why the application was rejected. Codes live in
+    // apps/web/src/features/pipeline/rejection-reasons.ts. Never expose these
+    // to candidates (portal, emails, webhooks, public API).
+    rejectionReason: text("rejection_reason"),
+    rejectionNote: text("rejection_note"),
     questionnaireScoreSnapshot: jsonb("questionnaire_score_snapshot"),
     attribution: jsonb("attribution"),
     id: uuid("id").defaultRandom().primaryKey(),
