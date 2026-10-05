@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/notification-island/toast";
 
@@ -42,6 +42,8 @@ export function BulkEmailDrawer({
   const [body, setBody] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [isPending, startTransition] = useTransition();
+  // One id per bulk send: a retried submit replays, a later send goes out.
+  const batchIdRef = useRef<string | null>(null);
 
   function applyTemplate(templateId: string) {
     const template = templates.find((t) => t.id === templateId);
@@ -53,10 +55,12 @@ export function BulkEmailDrawer({
 
   function send() {
     startTransition(async () => {
+      batchIdRef.current ??= crypto.randomUUID();
       const result = await sendBulkCandidateEmail({
         candidateIds,
         subject,
         body,
+        batchId: batchIdRef.current,
       });
       if (!result.success) {
         toast.error(result.error ?? "Could not send the emails.");
@@ -67,6 +71,7 @@ export function BulkEmailDrawer({
           ? `${result.sent} sent, ${result.failed} failed.`
           : `Email queued for ${result.sent} candidate${result.sent === 1 ? "" : "s"}.`,
       );
+      batchIdRef.current = null;
       onOpenChange(false);
       setSubject("");
       setBody("");

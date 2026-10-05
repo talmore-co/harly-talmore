@@ -39,6 +39,10 @@ import { getWorkspaceEmailSender } from "@/lib/email";
 import { getInboundReplyTo } from "@/lib/email/inbound-token";
 import { insertCanonicalMessage } from "@/lib/mail/canonical";
 import { sendCanonicalEmail } from "@/lib/mail/send-canonical-email";
+import {
+  bulkCandidateEmailIdempotencyKey,
+  candidateMessageIdempotencyKey,
+} from "./email-idempotency";
 import { isMailUnificationEnabled } from "@/lib/mail/feature-flag";
 import {
   requireApplicationPermission,
@@ -693,7 +697,11 @@ export async function createCandidate(input: {
       workspace.id,
       "candidate.created",
       { candidate: serializeCandidate(candidate) },
-      { skipDomainEvent: true, actorId: user.id },
+      {
+        skipDomainEvent: true,
+        actorId: user.id,
+        eventId: candidateEvent.eventId,
+      },
     );
     await logAuditEvent({
       workspaceId: workspace.id,
@@ -1302,6 +1310,7 @@ const bulkEmailSchema = z.object({
   candidateIds: z.array(z.uuid()).min(1).max(50),
   subject: z.string().trim().min(1, "Subject is required.").max(300),
   body: z.string().trim().min(1, "Message body is required.").max(10_000),
+  batchId: z.string().trim().min(1).max(100).optional(),
 });
 
 /**
@@ -1313,6 +1322,8 @@ export async function sendBulkCandidateEmail(input: {
   candidateIds: string[];
   subject: string;
   body: string;
+  /** One id per bulk send; makes a retried submit a replay, not a resend. */
+  batchId?: string;
 }): Promise<{
   success: boolean;
   error?: string;
@@ -1408,6 +1419,7 @@ export async function sendBulkCandidateEmail(input: {
   }
   let sent = 0;
   let failed = 0;
+  const batchId = parsed.data.batchId ?? randomUUID();
 
   for (const candidate of rows) {
     if (!candidate.email) { failed += 1; continue; }
@@ -1432,7 +1444,10 @@ export async function sendBulkCandidateEmail(input: {
       try {
         await sendCanonicalEmail({
           workspaceId: workspace.id,
-          idempotencyKey: `bulk-candidate:${candidate.id}:${subject}:${body}`,
+          idempotencyKey: bulkCandidateEmailIdempotencyKey({
+            batchId,
+            candidateId: candidate.id,
+          }),
           candidateId: candidate.id,
           applicationId: applicationId ?? null,
           toEmail: candidate.email,
@@ -1736,6 +1751,8 @@ export async function sendCandidateMessage(input: {
     base64: string;
   }>;
   threadId?: string | null;
+  /** Generated once per compose session by the client. */
+  idempotencyKey?: string;
 }): Promise<{ success: boolean; error?: string; delivered?: boolean }> {
   try {
     const parsed = messageSchema.safeParse(input);
@@ -1810,9 +1827,10 @@ export async function sendCandidateMessage(input: {
     if (await isMailUnificationEnabled(input.workspaceId)) {
       const canonical = await sendCanonicalEmail({
         workspaceId: input.workspaceId,
-        idempotencyKey:
-          parsed.data.idempotencyKey ??
-          `candidate-message:${input.candidateId}:${parsed.data.subject}:${parsed.data.body}`,
+        idempotencyKey: candidateMessageIdempotencyKey({
+          candidateId: input.candidateId,
+          clientKey: parsed.data.idempotencyKey,
+        }),
         candidateId: input.candidateId,
         applicationId:
           explicitThread?.applicationId ?? latestApplication?.id ?? null,
