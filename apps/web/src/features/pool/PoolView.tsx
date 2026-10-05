@@ -18,6 +18,12 @@ import { toast } from "@/lib/notification-island/toast";
 import { removeFromPoolAction, bulkRemoveFromPoolAction } from "@/features/pool/actions";
 import type { PoolCandidate } from "@/features/pool/data";
 import { AssignToJobModal } from "@/features/pool/AssignToJobModal";
+import {
+  allVisibleSelected,
+  toggleVisibleSelection,
+  visibleSelection,
+} from "@/features/pool/selection";
+import { ShortDate } from "@/lib/date-hydration";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -100,14 +106,13 @@ export function PoolView({ candidates, openJobs = [] }: PoolViewProps) {
     return result;
   }, [candidates, search, sourceFilter]);
 
-  const toggleSelect = useRangeSelection(filtered.map((row) => row.candidateId), setSelectedIds);
+  const visibleIds = filtered.map((row) => row.candidateId);
+  const toggleSelect = useRangeSelection(visibleIds, setSelectedIds);
+  // Bulk actions and counts use only the selected rows the filter still shows.
+  const actionableIds = visibleSelection(selectedIds, visibleIds);
 
   function toggleSelectAll() {
-    if (selectedIds.size === filtered.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filtered.map((c) => c.candidateId)));
-    }
+    setSelectedIds((current) => toggleVisibleSelection(current, visibleIds));
   }
 
   function removeCandidate(candidateId: string) {
@@ -128,17 +133,20 @@ export function PoolView({ candidates, openJobs = [] }: PoolViewProps) {
   }
 
   function bulkRemove() {
-    if (selectedIds.size === 0) return;
+    const candidateIds = actionableIds;
+    if (candidateIds.length === 0) return;
     startTransition(async () => {
-      const result = await bulkRemoveFromPoolAction({
-        candidateIds: Array.from(selectedIds),
-      });
+      const result = await bulkRemoveFromPoolAction({ candidateIds });
       if (!result.success) {
         toast.error(result.error ?? "Could not remove candidates.");
         return;
       }
-      setSelectedIds(new Set());
-      toast.success(`Removed ${selectedIds.size} candidate${selectedIds.size === 1 ? "" : "s"} from pool.`);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const id of candidateIds) next.delete(id);
+        return next;
+      });
+      toast.success(`Removed ${candidateIds.length} candidate${candidateIds.length === 1 ? "" : "s"} from pool.`);
       router.refresh();
     });
   }
@@ -218,10 +226,10 @@ export function PoolView({ candidates, openJobs = [] }: PoolViewProps) {
             </>
           )}
         </div>
-        {selectedIds.size > 0 && (
+        {actionableIds.length > 0 && (
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">
-              {selectedIds.size} selected
+              {actionableIds.length} selected
             </span>
             {openJobs.length > 0 && (
               <Button
@@ -270,7 +278,7 @@ export function PoolView({ candidates, openJobs = [] }: PoolViewProps) {
             <tr className="border-b bg-muted/50">
               <th className="w-10 px-3 py-2.5">
                 <Checkbox
-                  checked={selectedIds.size === filtered.length && filtered.length > 0}
+                  checked={allVisibleSelected(selectedIds, visibleIds)}
                   onCheckedChange={toggleSelectAll}
                 />
               </th>
@@ -364,7 +372,7 @@ export function PoolView({ candidates, openJobs = [] }: PoolViewProps) {
                   </Badge>
                 </td>
                 <td className="px-3 py-3 text-muted-foreground whitespace-nowrap" suppressHydrationWarning>
-                  {new Date(candidate.addedAt).toLocaleDateString()}
+                  <ShortDate value={candidate.addedAt} />
                 </td>
                 <td className="px-3 py-3">
                   <DropdownMenu>
@@ -432,12 +440,12 @@ export function PoolView({ candidates, openJobs = [] }: PoolViewProps) {
             setBulkAssignModal(open);
             if (!open) setSelectedIds(new Set());
           }}
-          candidateId={Array.from(selectedIds)[0] ?? ""}
-          candidateName={`${selectedIds.size} candidates`}
+          candidateId={actionableIds[0] ?? ""}
+          candidateName={`${actionableIds.length} candidates`}
           candidateEmail=""
           jobs={openJobs}
           isBulk
-          bulkCandidateIds={Array.from(selectedIds)}
+          bulkCandidateIds={actionableIds}
         />
       )}
     </div>

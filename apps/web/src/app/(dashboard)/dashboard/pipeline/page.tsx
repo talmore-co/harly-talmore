@@ -13,6 +13,7 @@ import { PipelineList } from "@/features/pipeline/PipelineList";
 import { PipelineSummaryCard } from "@/features/pipeline/PipelineSummaryCard";
 import { PipelineViewToggle } from "@/features/pipeline/PipelineViewToggle";
 import { getPipelineData, type PipelineData } from "@/features/pipeline/data";
+import { listJobClientNames } from "@/features/jobs/data";
 import { getWorkspaceAiStatus } from "@/lib/ai/config";
 
 export const dynamic = "force-dynamic";
@@ -56,13 +57,17 @@ export default async function PipelinePage({
     );
   }
 
-  const clientOptions = await can("clients:view") ? await listClientOptions() : [];
+  const canViewClients = await can("clients:view");
+  const [clientOptions, jobClientNames] = canViewClients
+    ? await Promise.all([listClientOptions(), listJobClientNames()])
+    : [[], {}];
   const toolbar = (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <Suspense>
         <PipelineJobSelect
           jobs={data.jobs}
           selectedJobId={data.selectedJob.id}
+          clientNames={jobClientNames}
         />
       </Suspense>
       {allJobs && clientOptions.length ? <Suspense><PipelineClientFilter clients={clientOptions} /></Suspense> : null}

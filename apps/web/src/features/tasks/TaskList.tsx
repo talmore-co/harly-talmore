@@ -78,7 +78,9 @@ export function TaskList({
   return (
     <div className="space-y-5">
       {groups.map((group) => {
-        const isCollapsed = collapsed.has(group.key);
+        // A lone group (e.g. the status filter set to Done) is never hidden
+        // behind its own header.
+        const isCollapsed = groups.length > 1 && collapsed.has(group.key);
         return (
           <section key={group.key}>
             <button

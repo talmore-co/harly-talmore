@@ -32,6 +32,7 @@ import { ReviewSection } from "./sections/ReviewSection";
 import { JobEditorTopBar } from "./JobEditorTopBar";
 import { JobEditorRail, type EditorRailSection } from "./JobEditorRail";
 import { JobLivePreview, type PreviewJobDraft } from "./JobLivePreview";
+import { jobsListHref } from "./list-return";
 import { FocusModeShell } from "@/components/focus-mode/FocusModeShell";
 import { useUnsavedChangesGuard } from "@/components/focus-mode/useUnsavedChangesGuard";
 import { UnsavedChangesDialog } from "@/components/focus-mode/UnsavedChangesDialog";
@@ -322,7 +323,7 @@ export function JobForm({
 
   async function handleExit() {
     if (!(await confirmDiscard())) return;
-    window.location.href = "/dashboard/jobs";
+    window.location.href = jobsListHref();
   }
 
   function jumpToSection(key: SectionKey) {

@@ -203,6 +203,22 @@ export async function listJobOptions() {
     .orderBy(desc(jobs.createdAt));
 }
 
+/** Client name per job id, for pickers that show whose job it is. */
+export async function listJobClientNames(): Promise<Record<string, string>> {
+  const { organization: workspace } = await getWorkspaceContext();
+
+  const rows = await db
+    .select({ jobId: jobs.id, clientName: clients.name })
+    .from(jobs)
+    .innerJoin(
+      clients,
+      and(eq(clients.id, jobs.clientId), eq(clients.workspaceId, workspace.id)),
+    )
+    .where(and(eq(jobs.workspaceId, workspace.id), isNull(jobs.deletedAt)));
+
+  return Object.fromEntries(rows.map((row) => [row.jobId, row.clientName]));
+}
+
 /** Jobs list enriched with per-role applicant counts for the dashboard table. */
 async function jobListAccess() {
   const context = await requirePermission("jobs:view");

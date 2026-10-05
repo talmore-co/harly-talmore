@@ -14,6 +14,7 @@ import {
   RelativeDate,
   STATUS_COLOR,
   STATUS_ICON,
+  toggleDoneLabel,
   type TaskHandlers,
 } from "./task-ui";
 
@@ -33,10 +34,10 @@ export function TaskRow({ task, handlers }: { task: TaskItem; handlers: TaskHand
     >
       <button
         type="button"
-        onClick={() => handlers.cycle(task)}
+        onClick={() => handlers.toggleDone(task)}
         title={TASK_STATUS_LABELS[task.status]}
-        aria-label={`Status: ${TASK_STATUS_LABELS[task.status]}. Advance.`}
-        className={cn("shrink-0 rounded-full transition hover:scale-110 active:scale-95", STATUS_COLOR[task.status])}
+        aria-label={toggleDoneLabel(task)}
+        className={cn("shrink-0 rounded-full transition hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95", STATUS_COLOR[task.status])}
       >
         <StatusIcon className="size-5" strokeWidth={2} />
       </button>
@@ -99,12 +100,13 @@ export function TaskRow({ task, handlers }: { task: TaskItem; handlers: TaskHand
         )}
       </div>
 
-      <div className="flex shrink-0 items-center gap-4">
+      <div className="flex shrink-0 items-center gap-2 sm:gap-4">
         <span className={cn("hidden items-center gap-1.5 text-xs font-medium sm:inline-flex", prio.text)}>
           <Flag className="size-3.5" strokeWidth={2} />
           {TASK_PRIORITY_LABELS[task.priority]}
         </span>
-        <span className="hidden w-16 items-center gap-1.5 text-xs sm:inline-flex">
+        {/* Small screens show the due date only when there is one. */}
+        <span className={cn("items-center gap-1.5 text-xs sm:inline-flex sm:w-16", task.dueDate ? "inline-flex" : "hidden")}>
           <Calendar className="size-3.5 text-muted-foreground/50" />
           <RelativeDate iso={task.dueDate} />
         </span>

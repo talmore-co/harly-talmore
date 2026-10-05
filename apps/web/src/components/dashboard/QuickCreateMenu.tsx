@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { Route } from "next";
 import { Briefcase, CalendarPlus, Plus, UserPlus } from "lucide-react";
 
 import {
@@ -28,7 +29,8 @@ function Items() {
         </Link>
       </DropdownMenuItem>
       <DropdownMenuItem asChild className="gap-2.5">
-        <Link href="/dashboard/candidates">
+        {/* `add=candidate` opens the Add-candidate drawer on the list. */}
+        <Link href={"/dashboard/candidates?add=candidate" as Route}>
           <UserPlus className="size-4 text-soft-ink" strokeWidth={1.8} />
           Add candidate
         </Link>

@@ -107,7 +107,7 @@ function IntegrationRow({
         aria-label={`Open ${integration.name}`}
         className={cn(
           base,
-          "rounded-lg hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none",
+          "rounded-lg hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-near-ink",
         )}
       >
         {inner}

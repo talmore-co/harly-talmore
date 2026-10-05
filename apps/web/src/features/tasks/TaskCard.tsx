@@ -36,6 +36,7 @@ import {
   RelativeDate,
   STATUS_COLOR,
   STATUS_ICON,
+  toggleDoneLabel,
   type TaskHandlers,
 } from "./task-ui";
 
@@ -160,10 +161,10 @@ export function TaskCardView({
           <button
             type="button"
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => handlers.cycle(task)}
+            onClick={() => handlers.toggleDone(task)}
             title={TASK_STATUS_LABELS[task.status]}
-            aria-label={`Status: ${TASK_STATUS_LABELS[task.status]}. Advance.`}
-            className={cn("mt-0.5 shrink-0 rounded-full transition hover:scale-110 active:scale-95", STATUS_COLOR[task.status])}
+            aria-label={toggleDoneLabel(task)}
+            className={cn("mt-0.5 shrink-0 rounded-full transition hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95", STATUS_COLOR[task.status])}
           >
             <StatusIcon className="size-[18px]" strokeWidth={2} />
           </button>
