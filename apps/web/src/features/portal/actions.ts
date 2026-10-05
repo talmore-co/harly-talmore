@@ -4,8 +4,10 @@ import { scoreQuestionnaire } from "@/features/applications/questionnaire-score"
 import { isCurrentJobQuestion } from "@/features/jobs/config";
 
 import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
+import type { Route } from "next";
 import { createElement } from "react";
-import { and, eq, asc, count, desc, gt, isNull, sql } from "drizzle-orm";
+import { and, eq, asc, count, desc, gt, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import {
@@ -33,14 +35,19 @@ import {
 } from "@harly/emails";
 import {
   PORTAL_SESSION_COOKIE,
+  consumeMagicLinkToken,
   createMagicLinkToken,
+  createPortalSession,
   deletePortalSession,
+  findOrCreateCandidateByEmail,
   getSinglePortalWorkspace,
+  isPortalEnabled,
   resolvePortalSession,
 } from "@/lib/portal-auth";
 import { getWorkspaceEmailSender } from "@/lib/email";
 import { createLogger } from "@/lib/logger";
 import { normalizeJobApplicationConfig } from "@/features/jobs/config";
+import { publicJobVisibilityConditions } from "@/features/jobs/data";
 import { validatePortalApplication } from "@/features/portal/application-validation";
 import { sendApplicationReceivedEmails } from "@/features/applications/notifications";
 import { verifyResumeUpload } from "@/features/applications/resume-upload";
@@ -130,7 +137,8 @@ export async function sendPortalMagicLinkAction(
   try {
     const token = await createMagicLinkToken(workspaceId, parsed.data);
     const appUrl = getHarlyPublicOrigin();
-    const url = `${appUrl}/api/portal/auth/magic?token=${token}`;
+    // The link opens a confirmation page; only submitting it uses the token.
+    const url = `${appUrl}/portal/login/confirm?token=${token}`;
 
     // The candidate asked for this link, so contact restrictions do not apply.
     const sender = await getWorkspaceEmailSender(workspaceId, undefined, "transactional");
@@ -150,6 +158,48 @@ export async function sendPortalMagicLinkAction(
     log.error(err, "sendPortalMagicLinkAction failed");
     return { ok: false, error: "Could not send the sign-in link. Try again." };
   }
+}
+
+/**
+ * Completes a magic-link sign-in. The token is consumed here, on an explicit
+ * form submission, and never by merely opening the emailed link.
+ */
+export async function confirmPortalMagicLinkAction(
+  formData: FormData,
+): Promise<void> {
+  const token = formData.get("token");
+  if (typeof token !== "string" || !token) {
+    redirect("/portal/login?error=missing_token" as Route);
+  }
+
+  const result = await consumeMagicLinkToken(token);
+  if (!result) redirect("/portal/login?error=invalid_token" as Route);
+
+  const workspaceId = result.workspaceId;
+  if (!(await isPortalEnabled(workspaceId))) {
+    redirect("/portal/login?error=no_workspace" as Route);
+  }
+
+  let candidateId: string;
+  try {
+    candidateId = await findOrCreateCandidateByEmail(workspaceId, result.email);
+  } catch {
+    redirect("/portal/login?error=unavailable" as Route);
+  }
+
+  const ua = (await headers()).get("user-agent") ?? undefined;
+  const raw = await createPortalSession(candidateId, workspaceId, ua);
+
+  const cookieStore = await cookies();
+  cookieStore.set(PORTAL_SESSION_COOKIE, raw, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30,
+  });
+
+  redirect("/portal/dashboard" as Route);
 }
 
 export async function signOutPortalAction(): Promise<void> {
@@ -194,7 +244,9 @@ export async function applyToJobAction(
         and(
           eq(jobs.id, input.jobId),
           eq(jobs.workspaceId, session.workspaceId),
-          isNull(jobs.deletedAt),
+          // Same rules as the public board: open, published, not past its
+          // closing date and not deleted.
+          publicJobVisibilityConditions(),
         ),
       )
       .limit(1);

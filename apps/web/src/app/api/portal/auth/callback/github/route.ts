@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { type NextRequest } from "next/server";
 import type { Route } from "next";
 
@@ -56,6 +56,9 @@ export async function GET(request: NextRequest) {
 
     redirect(oauthState!.next as Route);
   } catch (err) {
+    // redirect() works by throwing. Let the redirects above through instead of
+    // reporting a successful sign-in as a failure.
+    unstable_rethrow(err);
     console.error("GitHub OAuth callback error:", err);
     redirect("/portal/login?error=oauth_failed" as Route);
   }

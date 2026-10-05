@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   emitWebhookEvent: vi.fn(),
   sendApplicationReceivedEmails: vi.fn(),
   getApplicationConflictMessage: vi.fn(),
+  publicJobVisibilityConditions: vi.fn(),
 }));
 
 vi.mock("next/headers", () => ({
@@ -57,6 +58,9 @@ vi.mock("@/features/jobs/config", async (importOriginal) => ({
     questions: [],
     sections: { profile: { resume: { visibility: "optional" } } },
   }),
+}));
+vi.mock("@/features/jobs/data", () => ({
+  publicJobVisibilityConditions: mocks.publicJobVisibilityConditions,
 }));
 vi.mock("@/features/portal/application-validation", () => ({
   validatePortalApplication: mocks.validatePortalApplication,
@@ -187,6 +191,17 @@ describe("applyToJobAction", () => {
       payload: {},
     });
     seedDbSelects();
+  });
+
+  it("rejects a job the public board would not show", async () => {
+    mocks.dbSelect.mockReset();
+    mocks.dbSelect.mockReturnValueOnce(query([]));
+
+    await expect(
+      applyToJobAction({ jobId: "job-1", answers: {} }),
+    ).resolves.toEqual({ ok: false, error: "Job is no longer open." });
+    expect(mocks.publicJobVisibilityConditions).toHaveBeenCalledTimes(1);
+    expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
   it("persists the same durable event and assigns portal source/order", async () => {
