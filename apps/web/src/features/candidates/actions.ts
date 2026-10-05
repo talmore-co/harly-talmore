@@ -1989,7 +1989,15 @@ export async function bulkTrashCandidatesAction(
     return { success: false, error: "Invalid selection." };
   }
 
-  await requirePermission("candidates:delete");
+  const actor = await requirePermission("candidates:delete");
+  // Same per-candidate scope check as trashCandidateAction, for the whole
+  // selection, before anything is deleted.
+  try {
+    for (const candidateId of parsed.data)
+      await requireCandidatePermission("candidates:delete", candidateId, actor);
+  } catch {
+    return { success: false, error: "You do not have access to one or more selected candidates." };
+  }
   const { user, organization } = await getWorkspaceContext();
   const results = [];
   for (const candidateId of parsed.data) {

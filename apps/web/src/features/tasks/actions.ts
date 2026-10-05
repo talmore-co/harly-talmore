@@ -462,6 +462,21 @@ export async function deleteTask(
     const { organization: workspace, user } =
       await requirePermission("tasks:write");
 
+    // Same application scope check as updateTask: a task linked to an
+    // application can only be deleted by someone who can access it.
+    const [existing] = await db
+      .select({ applicationId: tasks.applicationId })
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.id, taskId),
+          eq(tasks.workspaceId, workspace.id),
+          isNull(tasks.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (existing?.applicationId) await requireApplicationPermission("candidates:view", existing.applicationId);
+
     let domainEvent: PersistedDomainEvent | undefined;
     const deleted = await db.transaction(async (tx) => {
       const rows = await tx

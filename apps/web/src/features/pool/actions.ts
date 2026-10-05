@@ -12,7 +12,11 @@ import {
   jobStages,
   poolEntries,
 } from "@harly/db";
-import { requirePermission } from "@/features/workspaces/permissions-server";
+import {
+  requireCandidatePermission,
+  requireJobPermission,
+  requirePermission,
+} from "@/features/workspaces/permissions-server";
 import {
   ACTIVE_POOL_ENTRY_CONFLICT_MESSAGE,
   isActivePoolEntryUniqueViolation,
@@ -182,7 +186,8 @@ export async function assignFromPoolToJobAction(input: {
   const parsed = assignFromPoolSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Invalid input." };
 
-  const { organization: workspace } = await requirePermission("candidates:edit");
+  const context = await requirePermission("candidates:edit");
+  const workspace = context.organization;
 
   // Verify candidate exists
   const [candidate] = await db
@@ -217,6 +222,24 @@ export async function assignFromPoolToJobAction(input: {
 
   if (!job) {
     return { success: false, error: "Job is not open or was not found." };
+  }
+
+  // Workspace-level candidates:edit is not enough: the target job and the
+  // candidate must both be inside the actor's role scope. Without the
+  // candidate check a scoped role could pull an out-of-scope candidate into
+  // one of its own jobs and gain access to the profile that way.
+  try {
+    await requireJobPermission("candidates:edit", parsed.data.jobId, context);
+    await requireCandidatePermission(
+      "candidates:edit",
+      parsed.data.candidateId,
+      context,
+    );
+  } catch {
+    return {
+      success: false,
+      error: "Your role does not have access to this job or candidate.",
+    };
   }
 
   // Check for duplicate application
