@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { eq } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 import { db, emailOutbox } from "@harly/db";
 import { processEmailOutbox } from "@/lib/email/outbox-processor";
 import { authorizeCron } from "@/server/cron-auth";
@@ -16,12 +16,12 @@ export async function POST(request: NextRequest) {
   const run = startCronRun(CRON_KEY);
   try {
     // Process only rows whose retry window has elapsed to avoid hot-looping.
-    const pending = await db
-      .select({ id: emailOutbox.id })
+    const [pending] = await db
+      .select({ total: count() })
       .from(emailOutbox)
       .where(eq(emailOutbox.status, "pending"));
     const result = await processEmailOutbox({ limit: 100 });
-    const counters = { ...result, eligible: pending.length };
+    const counters = { ...result, eligible: Number(pending?.total ?? 0) };
     await run.finish("succeeded", counters);
     return NextResponse.json({ ok: true, ...counters });
   } catch (error) {
