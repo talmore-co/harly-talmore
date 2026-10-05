@@ -6,7 +6,7 @@ import { toast } from "@/lib/notification-island/toast";
 import { AttributionControls, matchesAttribution } from "./AttributionControls";
 import { PipelineScoreControls, matchesScoreFilters, compareScores, type ScoreSort } from "./PipelineScores";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -20,14 +20,22 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import {
   bulkMoveApplications,
   moveApplicationInPipeline,
   updateApplicationStatus,
 } from "@/features/pipeline/actions";
-import { bulkDecisionConfirmationMessage } from "@/features/pipeline/confirmation";
+import { useHireConfirmation } from "@/features/pipeline/useHireConfirmation";
+import { usePipelineViewParams } from "@/features/pipeline/usePipelineViewParams";
+import {
+  readScoreSort,
+  readScoreThreshold,
+  readStatusFilter,
+  readText,
+  type PipelineStatusFilter,
+} from "@/features/pipeline/view-params";
 import {
   CandidateCard,
   CandidateCardOverlay,
@@ -70,7 +78,7 @@ type PipelineBoardProps = {
   applications: PipelineApplication[];
 };
 
-type StatusFilter = "all" | PipelineApplication["status"];
+type StatusFilter = PipelineStatusFilter;
 
 function buildColumns(
   stages: PipelineStage[],
@@ -192,26 +200,85 @@ export function PipelineBoard({
   applications,
 }: PipelineBoardProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const stages = initialStages;
   const [columns, setColumns] = useState<Map<string, PipelineApplication[]>>(
     () => buildColumns(initialStages, applications),
   );
+  // The board is keyed by job only, so it survives every refresh with its
+  // filters, selection and scroll intact. Columns are re-derived from the
+  // server props whenever those change (see the reconcile block below).
+  const [syncedSource, setSyncedSource] = useState({
+    stages: initialStages,
+    applications,
+  });
+  const latestSource = useRef(syncedSource);
   const [activeApplication, setActiveApplication] =
     useState<PipelineApplication | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sort, setSort] = useState<ScoreSort>("manual");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() =>
+    readStatusFilter(searchParams),
+  );
+  const [searchQuery, setSearchQuery] = useState(() =>
+    readText(searchParams, "query"),
+  );
+  const [sort, setSort] = useState<ScoreSort>(() =>
+    readScoreSort(searchParams, "manual"),
+  );
   const scoreSort = sort !== "manual";
-  const [minimumAi, setMinimumAi] = useState("");
-  const [minimumScore, setMinimumScore] = useState("");
-  const [attributionQuery, setAttributionQuery] = useState("");
-  const [hideEmptyColumns, setHideEmptyColumns] = useState(false);
+  const [minimumAi, setMinimumAi] = useState(() =>
+    readScoreThreshold(searchParams, "minimumAi"),
+  );
+  const [minimumScore, setMinimumScore] = useState(() =>
+    readScoreThreshold(searchParams, "minimumQuestionnaire"),
+  );
+  const [attributionQuery, setAttributionQuery] = useState(() =>
+    readText(searchParams, "attribution"),
+  );
+  const [hideEmptyColumns, setHideEmptyColumns] = useState(
+    () => searchParams.get("hideEmpty") === "1",
+  );
   const [mutationPending, setMutationPending] = useState(false);
   const [mobileStage, setMobileStage] = useState<string>(
     initialStages[0]?.id ?? "",
   );
+  usePipelineViewParams({
+    query: searchQuery,
+    status: statusFilter === "all" ? null : statusFilter,
+    sort: sort === "manual" ? null : sort,
+    minimumQuestionnaire: minimumScore,
+    minimumAi,
+    attribution: attributionQuery,
+    hideEmpty: hideEmptyColumns ? "1" : null,
+  });
+
+  useEffect(() => {
+    latestSource.current = { stages: initialStages, applications };
+  }, [initialStages, applications]);
+
+  // Reconcile columns with fresh server props. While a move is in flight the
+  // optimistic columns win: props that arrive mid-flight may predate the move,
+  // so they are held back until the mutation settles.
+  if (
+    !mutationPending &&
+    (syncedSource.stages !== initialStages ||
+      syncedSource.applications !== applications)
+  ) {
+    setSyncedSource({ stages: initialStages, applications });
+    setColumns(buildColumns(initialStages, applications));
+  }
+
+  /**
+   * After a successful mutation the optimistic columns are the newest truth.
+   * Whatever props are on screen at that moment are marked as seen so a stale
+   * payload cannot roll the board back; `router.refresh()` then delivers the
+   * authoritative state as new props.
+   */
+  function keepOptimisticColumnsUntilRefresh() {
+    setSyncedSource(latestSource.current);
+    router.refresh();
+  }
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -258,7 +325,11 @@ export function PipelineBoard({
   const visibleStages = hideEmptyColumns
     ? stages.filter((stage) => (filteredColumns.get(stage.id)?.length ?? 0) > 0)
     : stages;
-  const mobileApplications = filteredColumns.get(mobileStage) ?? [];
+  // A stage can disappear while the board is open (stage editor).
+  const activeMobileStage = stages.some((stage) => stage.id === mobileStage)
+    ? mobileStage
+    : (stages[0]?.id ?? "");
+  const mobileApplications = filteredColumns.get(activeMobileStage) ?? [];
 
   function candidateLabel(applicationId: string) {
     const found = findApplicationStage(columns, applicationId);
@@ -324,15 +395,29 @@ export function PipelineBoard({
       return;
     }
 
+    // Inside a column the card takes the slot of the card it was dropped on
+    // (or the end when dropped on the column itself), like every sortable list.
+    const sameStage = current.stageId === target.stageId;
+    const insertIndex = sameStage
+      ? Math.min(
+          target.index,
+          (columns.get(current.stageId)?.length ?? 1) - 1,
+        )
+      : target.index;
+
+    // Dropped where it started: nothing to save, and nothing to re-evaluate.
+    if (sameStage && insertIndex === current.index) {
+      return;
+    }
+
     const previousColumns = cloneColumns(columns);
     const optimisticColumns = cloneColumns(columns);
     const movedApplication = {
       ...current.application,
       currentStageId: target.stageId,
-      lastStageMovedAt:
-        current.stageId === target.stageId
-          ? current.application.lastStageMovedAt
-          : new Date().toISOString(),
+      lastStageMovedAt: sameStage
+        ? current.application.lastStageMovedAt
+        : new Date().toISOString(),
     };
 
     removeApplication(optimisticColumns, current.stageId, applicationId);
@@ -340,9 +425,7 @@ export function PipelineBoard({
       optimisticColumns,
       target.stageId,
       movedApplication,
-      current.stageId === target.stageId && target.index > current.index
-        ? target.index - 1
-        : target.index,
+      insertIndex,
     );
 
     const orderedApplicationIds =
@@ -366,7 +449,7 @@ export function PipelineBoard({
         setColumns(previousColumns);
         setError(result.error ?? "Unable to update pipeline.");
       } else {
-        router.refresh();
+        keepOptimisticColumnsUntilRefresh();
       }
     } finally {
       setMutationPending(false);
@@ -374,6 +457,7 @@ export function PipelineBoard({
   }
 
   const { confirmRejection, rejectionDialog } = useRejectionConfirmation();
+  const { confirmHire, hireDialog } = useHireConfirmation();
 
   async function handleStatusChange(
     applicationIds: string[],
@@ -391,13 +475,7 @@ export function PipelineBoard({
 
     const sendRejectionEmail = status === "rejected" ? await confirmRejection(applicationIds.length) : false;
     if (sendRejectionEmail === null) return;
-    if (
-      applicationIds.length > 1 &&
-      status === "hired" &&
-      !window.confirm(
-        bulkDecisionConfirmationMessage(status, applicationIds.length),
-      )
-    ) {
+    if (status === "hired" && !(await confirmHire(applicationIds.length))) {
       return;
     }
 
@@ -441,7 +519,7 @@ export function PipelineBoard({
         }
         return next;
       });
-      router.refresh();
+      keepOptimisticColumnsUntilRefresh();
     } finally {
       setMutationPending(false);
     }
@@ -493,7 +571,7 @@ export function PipelineBoard({
       }
 
       setSelectedIds(new Set());
-      router.refresh();
+      keepOptimisticColumnsUntilRefresh();
     } finally {
       setMutationPending(false);
     }
@@ -613,6 +691,7 @@ export function PipelineBoard({
   return (
     <div className="space-y-3">
       {rejectionDialog}
+      {hireDialog}
       {filterBar}
       <p className="text-xs text-muted-foreground">Moving candidates between stages does not send emails.</p>
       {bulkBar}
@@ -629,7 +708,7 @@ export function PipelineBoard({
 
       {/* Mobile: stage selector + vertical card list */}
       <div className="sm:hidden">
-        <Select value={mobileStage} onValueChange={setMobileStage}>
+        <Select value={activeMobileStage} onValueChange={setMobileStage}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Select stage" />
           </SelectTrigger>

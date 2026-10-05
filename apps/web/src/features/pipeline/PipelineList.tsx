@@ -20,7 +20,14 @@ import {
   bulkMoveApplications,
   updateApplicationStatus,
 } from "@/features/pipeline/actions";
-import { bulkDecisionConfirmationMessage } from "@/features/pipeline/confirmation";
+import { firstStageIds } from "@/features/pipeline/first-stage";
+import { useHireConfirmation } from "@/features/pipeline/useHireConfirmation";
+import { usePipelineViewParams } from "@/features/pipeline/usePipelineViewParams";
+import {
+  readScoreSort,
+  readScoreThreshold,
+  readText,
+} from "@/features/pipeline/view-params";
 import type {
   PipelineApplication,
   PipelineStage,
@@ -52,6 +59,8 @@ type PipelineListProps = {
 };
 
 const ALL = "__all__";
+/** All-jobs queue: applications still in their job's first stage. */
+const NEW = "__new__";
 
 export function PipelineList({
   evaluationAction,
@@ -62,20 +71,37 @@ export function PipelineList({
   const router = useRouter();
   const searchParams = useSearchParams();
   const stageParam = searchParams.get("stage");
-  const activeStage = stageParam ? (allJobs ? stageParam : stages.find((stage) => stage.name === stageParam)?.id ?? stageParam) : ALL;
+  const newQueue = allJobs && !stageParam && searchParams.get("queue") === "new";
+  const activeStage = stageParam ? (allJobs ? stageParam : stages.find((stage) => stage.name === stageParam)?.id ?? stageParam) : newQueue ? NEW : ALL;
   function setActiveStage(id: string) {
     const next = new URLSearchParams(searchParams.toString());
     next.delete("queue");
-    if (id === ALL) next.delete("stage");
+    if (id === ALL || id === NEW) next.delete("stage");
     else next.set("stage", allJobs ? id : stages.find((stage) => stage.id === id)?.name ?? id);
+    if (id === NEW) next.set("queue", "new");
     setSelected(new Set());
     router.push(`/dashboard/pipeline?${next}` as Route, { scroll: false });
   }
-  const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<ScoreSort>("newest");
-  const [minimumQuestionnaire, setMinimumQuestionnaire] = useState("");
-  const [minimumAi, setMinimumAi] = useState("");
-  const [attributionQuery, setAttributionQuery] = useState("");
+  const [query, setQuery] = useState(() => readText(searchParams, "query"));
+  const [sort, setSort] = useState<ScoreSort>(() =>
+    readScoreSort(searchParams, "newest", false),
+  );
+  const [minimumQuestionnaire, setMinimumQuestionnaire] = useState(() =>
+    readScoreThreshold(searchParams, "minimumQuestionnaire"),
+  );
+  const [minimumAi, setMinimumAi] = useState(() =>
+    readScoreThreshold(searchParams, "minimumAi"),
+  );
+  const [attributionQuery, setAttributionQuery] = useState(() =>
+    readText(searchParams, "attribution"),
+  );
+  usePipelineViewParams({
+    query,
+    sort: sort === "newest" ? null : sort,
+    minimumQuestionnaire,
+    minimumAi,
+    attribution: attributionQuery,
+  });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
 
@@ -97,12 +123,19 @@ export function PipelineList({
     }
     return map;
   }, [applications, allJobs, stageNameById]);
+  const newStageIds = useMemo(() => firstStageIds(stages), [stages]);
+  const newCount = useMemo(
+    () => applications.filter((a) => newStageIds.has(a.currentStageId)).length,
+    [applications, newStageIds],
+  );
   const stageTabs = allJobs ? Array.from(new Set(stages.map((stage) => stage.name))).map((name, order) => ({ id: name, name, order })) : stages;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return applications.filter((a) => {
-      if (activeStage !== ALL && (allJobs ? stageNameById.get(a.currentStageId) : a.currentStageId) !== activeStage) return false;
+      if (activeStage === NEW) {
+        if (!newStageIds.has(a.currentStageId)) return false;
+      } else if (activeStage !== ALL && (allJobs ? stageNameById.get(a.currentStageId) : a.currentStageId) !== activeStage) return false;
       if (!matchesScoreFilters(a, minimumQuestionnaire, minimumAi)) return false;
       if (!matchesAttribution(a.attribution, attributionQuery)) return false;
       if (!q) return true;
@@ -113,7 +146,7 @@ export function PipelineList({
         (a.source ?? "").toLowerCase().includes(q)
       );
     }).sort((a, b) => compareScores(a, b, sort));
-  }, [applications, activeStage, query, sort, minimumQuestionnaire, minimumAi, attributionQuery, allJobs, stageNameById]);
+  }, [applications, activeStage, query, sort, minimumQuestionnaire, minimumAi, attributionQuery, allJobs, stageNameById, newStageIds]);
 
   const allVisibleSelected =
     filtered.length > 0 && filtered.every((a) => selected.has(a.id));
@@ -160,16 +193,13 @@ export function PipelineList({
   }
 
   const { confirmRejection, rejectionDialog } = useRejectionConfirmation();
+  const { confirmHire, hireDialog } = useHireConfirmation();
 
   async function setStatus(status: "hired" | "rejected" | "active") {
     if (selectedIds.length === 0) return;
     const sendRejectionEmail = status === "rejected" ? await confirmRejection(selectedIds.length) : false;
     if (sendRejectionEmail === null) return;
-    if (
-      status === "hired" &&
-      selectedIds.length > 1 &&
-      !window.confirm(bulkDecisionConfirmationMessage(status, selectedIds.length))
-    ) {
+    if (status === "hired" && !(await confirmHire(selectedIds.length))) {
       return;
     }
     startTransition(async () => {
@@ -186,6 +216,7 @@ export function PipelineList({
   return (
     <div className="space-y-4">
       {rejectionDialog}
+      {hireDialog}
       {/* Toolbar */}
       <div className="flex flex-wrap items-end gap-3">
         <PipelineScoreControls inline allowManual={false} sort={sort} onSort={setSort} questionnaire={minimumQuestionnaire} onQuestionnaire={setMinimumQuestionnaire} ai={minimumAi} onAi={setMinimumAi} />
@@ -214,6 +245,14 @@ export function PipelineList({
           active={activeStage === ALL}
           onClick={() => setActiveStage(ALL)}
         />
+        {allJobs ? (
+          <StageTab
+            label="New"
+            count={newCount}
+            active={activeStage === NEW}
+            onClick={() => setActiveStage(NEW)}
+          />
+        ) : null}
         {stageTabs
           .slice()
           .sort((a, b) => a.order - b.order)
