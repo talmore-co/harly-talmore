@@ -9,6 +9,7 @@ import { PipelineJobSelect } from "@/features/pipeline/PipelineJobSelect";
 import { PipelineList } from "@/features/pipeline/PipelineList";
 import { PipelineSummaryCard } from "@/features/pipeline/PipelineSummaryCard";
 import { PipelineViewToggle } from "@/features/pipeline/PipelineViewToggle";
+import { StageEditor } from "@/features/pipeline/StageEditor";
 import { getPipelineData } from "@/features/pipeline/data";
 import { getWorkspaceAiStatus } from "@/lib/ai/config";
 import { getWorkspaceContext } from "@/features/workspaces/context";
@@ -52,6 +53,25 @@ export default async function PipelinePage({
   }
 
   const clientOptions = await can("clients:view") ? await listClientOptions() : [];
+  const hasStages = data.stages.length > 0;
+  // Stage editing is job editing; the actions re-check access for this job.
+  const canManageStages = !allJobs && (await can("jobs:edit"));
+  const applicationCounts: Record<string, number> = {};
+  for (const application of data.applications) {
+    applicationCounts[application.currentStageId] =
+      (applicationCounts[application.currentStageId] ?? 0) + 1;
+  }
+  const stageEditor = (emphasis: "quiet" | "primary") =>
+    canManageStages ? (
+      <StageEditor
+        key={`stages-${data.selectedJob.id}`}
+        jobId={data.selectedJob.id}
+        jobTitle={data.selectedJob.title}
+        stages={data.stages}
+        applicationCounts={applicationCounts}
+        emphasis={emphasis}
+      />
+    ) : null;
   const toolbar = (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <Suspense>
@@ -61,20 +81,25 @@ export default async function PipelinePage({
         />
       </Suspense>
       {allJobs && clientOptions.length ? <Suspense><PipelineClientFilter clients={clientOptions} /></Suspense> : null}
-      {data.stages.length > 0 && !allJobs ? (
-        <PipelineViewToggle jobId={data.selectedJob.id} view={view} stage={stage} />
+      {hasStages && !allJobs ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {stageEditor("quiet")}
+          <PipelineViewToggle jobId={data.selectedJob.id} view={view} stage={stage} />
+        </div>
       ) : null}
     </div>
   );
 
-  if (data.stages.length === 0 && !allJobs) {
+  if (!hasStages && !allJobs) {
     return (
       <div className="space-y-4">
         {toolbar}
         <EmptyState
           title="No stages configured"
           description="Add pipeline stages to this job to start tracking candidates."
-        />
+        >
+          {stageEditor("primary")}
+        </EmptyState>
       </div>
     );
   }
