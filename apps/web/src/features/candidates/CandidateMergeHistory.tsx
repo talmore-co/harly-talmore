@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { getCandidateMergeHistory } from "./duplicate-actions";
 import { Button } from "@/components/ui/button";
+import { ShortDateTime } from "@/lib/date-hydration";
 import {
   Dialog,
   DialogContent,
@@ -57,7 +58,7 @@ export function CandidateMergeHistory({
             history.map((entry) => (
               <details key={entry.id} className="rounded-lg border p-3">
                 <summary className="cursor-pointer text-sm">
-                  Merged on {new Date(entry.createdAt).toLocaleString()}
+                  Merged on <ShortDateTime value={entry.createdAt} />
                 </summary>
                 <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap break-all text-xs">
                   {JSON.stringify(entry.snapshot, null, 2)}

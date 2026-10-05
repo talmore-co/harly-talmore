@@ -11,11 +11,15 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { FilterPill, FILTER_ALL } from "@/components/ui/FilterPill";
 import type { PlacementRow } from "./data";
 
+/** The list opens on people who are hired right now; earlier hires that were
+ * reopened, rejected or withdrawn are one status filter away. */
+const DEFAULT_STATUS = "hired";
+
 export function PlacementsList({ placements }: { placements: PlacementRow[] }) {
   const [query, setQuery] = useState("");
   const [client, setClient] = useState(FILTER_ALL);
   const [job, setJob] = useState(FILTER_ALL);
-  const [status, setStatus] = useState(FILTER_ALL);
+  const [status, setStatus] = useState(DEFAULT_STATUS);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const clientOptions = [
@@ -50,7 +54,8 @@ export function PlacementsList({ placements }: { placements: PlacementRow[] }) {
   );
   const activeFilters =
     Boolean(query || from || to) ||
-    [client, job, status].some((value) => value !== FILTER_ALL);
+    [client, job].some((value) => value !== FILTER_ALL) ||
+    status !== DEFAULT_STATUS;
   return (
     <div className="min-w-0 space-y-5">
       <PageTitle title="Placements" />
@@ -117,7 +122,7 @@ export function PlacementsList({ placements }: { placements: PlacementRow[] }) {
               setQuery("");
               setClient(FILTER_ALL);
               setJob(FILTER_ALL);
-              setStatus(FILTER_ALL);
+              setStatus(DEFAULT_STATUS);
               setFrom("");
               setTo("");
             }}
@@ -212,9 +217,10 @@ export function PlacementsList({ placements }: { placements: PlacementRow[] }) {
         </table>
       </div>
       <p className="text-xs text-muted-foreground">
-        Hire date means placement confirmation, not employment start. Historical
-        placements remain listed after an application is reopened. Clients
-        reflect the current job assignment.
+        Hire date means placement confirmation, not employment start. Placements
+        whose application was later reopened, rejected or withdrawn stay
+        available under the Application status filter. Clients reflect the
+        current job assignment.
       </p>
     </div>
   );

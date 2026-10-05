@@ -823,6 +823,12 @@ export async function updateCandidateProfile(input: {
 
     return { success: true };
   } catch (error) {
+    if (isCandidateEmailConflict(error)) {
+      return {
+        success: false,
+        error: "A candidate with this email already exists.",
+      };
+    }
     const message = "Unable to update candidate.";
 
     console.error("Failed to update candidate profile", error);

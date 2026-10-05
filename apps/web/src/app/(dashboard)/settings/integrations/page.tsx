@@ -150,19 +150,6 @@ const IMPORTERS: Importer[] = [
   },
 ];
 
-const JOIN_MARKETPLACE_INTEGRATION: MarketplaceIntegration = {
-  id: "join-import",
-  name: "JOIN.com",
-  description: "Import candidate profiles with a read-only token.",
-  logo: JoinLogo,
-  logoClassName: "size-6",
-  tileClassName:
-    "bg-gradient-to-br from-zinc-100 via-stone-200 to-neutral-300",
-  href: "/dashboard/candidates?import=join",
-  actionLabel: "Import",
-  status: "available",
-};
-
 export default async function IntegrationsSettingsPage() {
   await requirePagePermission("integrations:manage");
   const { organization } = await getWorkspaceContext();
@@ -214,14 +201,6 @@ export default async function IntegrationsSettingsPage() {
     },
   ];
 
-  const marketplaceGroupsWithSources: MarketplaceGroup[] = [
-    ...marketplaceGroups,
-    {
-      label: "Candidate sources",
-      integrations: [JOIN_MARKETPLACE_INTEGRATION],
-    },
-  ];
-
   return (
     <div className="space-y-10">
       <OAuthFeedback />
@@ -239,7 +218,7 @@ export default async function IntegrationsSettingsPage() {
         />
       </div>
 
-      <IntegrationMarketplace groups={marketplaceGroupsWithSources} />
+      <IntegrationMarketplace groups={marketplaceGroups} />
 
       <section className="space-y-4 border-t border-border/70 pt-8">
         <div className="space-y-1">
