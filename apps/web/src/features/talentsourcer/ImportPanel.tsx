@@ -1,10 +1,12 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useRangeSelection } from "@/components/ui/use-range-selection";
+import { ConfirmActionDialog } from "@/features/candidates/ConfirmActionDialog";
 import { ImportSearchSelect } from "@/features/candidates/import/ImportSearchSelect";
+import { importAllPages, type ImportAllResult } from "./import-all";
 import { talentSourcerImportOptions, previewTalentSourcerImport, submitTalentSourcerImport } from "./actions";
 
 type Options = Extract<Awaited<ReturnType<typeof talentSourcerImportOptions>>, { ok: true }>;
@@ -22,6 +24,12 @@ export function TalentSourcerImportPanel({ jobId }: { jobId: string }) {
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [pending, startTransition] = useTransition();
+  const [confirmAll, setConfirmAll] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [bulk, setBulk] = useState<ImportAllResult | null>(null);
+  const [stopping, setStopping] = useState(false);
+  const stopRequested = useRef(false);
+  const busy = pending || running;
   const selectableIds = preview?.rows.filter(row => ["ready", "failed"].includes(row.status)).map(row => row.id) || [];
   const toggleSelection = useRangeSelection(selectableIds, setSelected);
   useEffect(() => {
@@ -43,9 +51,25 @@ export function TalentSourcerImportPanel({ jobId }: { jobId: string }) {
       } catch { setError("Could not load the preview. Try again."); }
     });
   }
-  const picker = (label: string, value: string, change: (value: string) => void, rows: Array<{ id: string; name?: string; title?: string }>) => <ImportSearchSelect label={label} value={value} disabled={pending} preserveOrder={label === "Pipeline stage"} onChange={value => { change(value); setPreview(null); }} options={rows.map(row => ({ id: row.id, name: row.name || row.title || row.id }))} />;
+  async function importAll() {
+    setConfirmAll(false); setPreview(null); setError(""); setRunning(true);
+    stopRequested.current = false; setStopping(false);
+    setBulk({ pages: 0, imported: 0, existing: 0, attention: [], done: false });
+    try {
+      setBulk(await importAllPages({
+        loadPage: cursor => previewTalentSourcerImport({ organizationId: organization, jobId, stageId: stage, projectId: project, sourceId: source, kind, cursor }),
+        submit: (batchId, itemIds) => submitTalentSourcerImport({ batchId, itemIds }),
+        onProgress: progress => setBulk({ ...progress, done: false }),
+        shouldStop: () => stopRequested.current,
+      }));
+    } catch {
+      setBulk(current => current && { ...current, error: "The import was interrupted. Run Import all again; candidates already imported will not be duplicated." });
+    } finally { setRunning(false); }
+  }
+  const sourceLabel = kind === "shortlist" ? "this shortlist" : "this campaign who replied as interested";
+  const picker = (label: string, value: string, change: (value: string) => void, rows: Array<{ id: string; name?: string; title?: string }>) => <ImportSearchSelect label={label} value={value} disabled={busy} preserveOrder={label === "Pipeline stage"} onChange={value => { change(value); setPreview(null); setBulk(null); }} options={rows.map(row => ({ id: row.id, name: row.name || row.title || row.id }))} />;
   return <div className="space-y-4">
-    <p className="text-sm text-muted-foreground">Review up to 50 candidates per page. Imports add candidates silently; they do not send messages or run application-created automations. Candidates without email can be imported.</p>
+    <p className="text-sm text-muted-foreground">Preview to choose candidates 50 at a time, or import everyone in the source at once. Imports add candidates silently; they do not send messages or run application-created automations. Candidates without email can be imported.</p>
     {error && <div role="alert" className="space-y-2 text-sm"><p>{error}</p><Button variant="outline" onClick={() => setAttempt(value => value + 1)}>Retry connection</Button> <Link className="underline" href="/settings/integrations/talentsourcer">Connection settings</Link></div>}
     {!options && !error && <p role="status">Loading TalentSourcer…</p>}
     {options && <>
@@ -54,8 +78,21 @@ export function TalentSourcerImportPanel({ jobId }: { jobId: string }) {
       {organization && picker("Project", project, value => { setProject(value); setSource(""); setOptions(current => current ? { ...current, shortlists: [], campaigns: [] } : null); }, options.projects)}
       {organization && picker("Candidate source", kind, value => { setKind(value as typeof kind); setSource(""); }, [{ id: "shortlist", name: "Shortlist" }, { id: "interested", name: "Interested campaign candidates" }])}
       {project && picker(kind === "shortlist" ? "Shortlist" : "Campaign", source, setSource, kind === "shortlist" ? options.shortlists : options.campaigns)}
-      <Button variant="outline" disabled={pending || !organization || !source || !stage} onClick={() => load()}>{pending ? "Working…" : "Load preview"}</Button>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" disabled={busy || !organization || !source || !stage} onClick={() => { setBulk(null); load(); }}>{pending ? "Working…" : "Load preview"}</Button>
+        <ConfirmActionDialog open={confirmAll} onOpenChange={setConfirmAll} onConfirm={importAll}
+          copy={{ title: "Import all candidates?", description: `Everyone in ${sourceLabel} is added to the selected stage, page by page. Candidates already in this job keep their stage. No messages are sent. Keep this drawer open until it finishes.`, confirmLabel: "Import all" }}
+          trigger={<Button disabled={busy || !organization || !source || !stage}>Import all</Button>} />
+      </div>
     </>}
+    {bulk && <div role="status" className="space-y-2 rounded-lg border p-3 text-sm">
+      <p className="font-medium">{running ? `Importing… page ${bulk.pages + 1}` : bulk.done ? "Import finished" : bulk.error ? "Import stopped" : "Import paused"}</p>
+      <p>{bulk.imported} imported · {bulk.existing} already in this job · {bulk.attention.length} not imported</p>
+      {bulk.error && <p role="alert">{bulk.error}</p>}
+      {!running && !bulk.done && !bulk.error && <p className="text-muted-foreground">Stopped after {bulk.pages} {bulk.pages === 1 ? "page" : "pages"}. Run Import all again to continue; imported candidates are skipped.</p>}
+      {running && <Button variant="outline" size="sm" disabled={stopping} onClick={() => { stopRequested.current = true; setStopping(true); }}>{stopping ? "Stopping after this page…" : "Stop"}</Button>}
+      {!running && bulk.attention.length > 0 && <ul className="space-y-1">{bulk.attention.map(row => <li key={row.id}><span className="font-medium">{row.name}</span>: {row.reason || "Not imported"}</li>)}</ul>}
+    </div>}
     {preview && <>
       <Button variant="outline" size="sm" disabled={pending || !selectableIds.length} onClick={() => setSelected(selected.size ? new Set() : new Set(selectableIds))}>{selected.size ? "Deselect all" : "Select all on this page"}</Button>
       <div className="space-y-2">{preview.rows.length === 0 && <p className="text-sm">No matching candidates on this page.</p>}{preview.rows.map(row => <label key={row.id} className="flex items-start gap-3 rounded-lg border p-3"><Checkbox aria-label={`Import ${row.name}`} checked={selected.has(row.id)} disabled={pending || !["ready", "failed"].includes(row.status)} onClick={event => { event.preventDefault(); toggleSelection(row.id, event.shiftKey); }} onCheckedChange={checked => toggleSelection(row.id, false, checked === true)} /><span className="min-w-0 text-sm"><span className="block font-medium">{row.name}</span><span className="block text-muted-foreground">{row.email || "No email"}{row.headline ? ` · ${row.headline}` : ""}</span><span className="block">{row.status === "imported" ? "Imported" : row.reason || "Ready to import"}</span></span></label>)}</div>

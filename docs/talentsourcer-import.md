@@ -32,6 +32,16 @@ preview freezes the displayed profiles for 30 minutes. Only previewed ready
 rows can be submitted. Failed writes can be retried using the same preview.
 Skipped export/access errors require a fresh preview after correction.
 
+**Import all** imports the entire shortlist or every interested campaign
+candidate without a manual review. After confirmation it loads each source page
+with the same preview action and submits that page's ready rows before moving
+on, so permissions, identity matching and the 50-row submit limit are unchanged.
+It runs in the browser: the drawer must stay open. Recruiters can stop it after
+the current page. The summary counts imported candidates and candidates already
+in the job, and lists rows that were skipped or failed with their reasons.
+Running it again is safe, because candidates that were already imported are
+skipped.
+
 Imports are silent: no candidate email, booking invitation, conversion event or
 application-created workflow is emitted. An `application.imported` activity,
 stage history and an internal source-context note record the import. Source is
